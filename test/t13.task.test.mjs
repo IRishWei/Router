@@ -84,27 +84,7 @@ async function enableReviewCandidate(ctx, provider) {
   return { candidateId: candidate.candidateId, dispose };
 }
 
-const captureRegisteredCandidate = ctx => async (candidateId, { signal } = {}) => {
-  signal?.throwIfAborted();
-  const snapshot = await ctx.router.refreshConnections();
-  signal?.throwIfAborted();
-  const candidate = snapshot.candidateSnapshot.candidates.find(item => item.candidateId === candidateId);
-  assert(candidate, 'Review candidate capture missing');
-  const { quoteVersion = null, ...quote } = candidate.quote ?? {};
-  return structuredClone({
-    candidateId: candidate.candidateId,
-    identity: candidate.identity,
-    registryEpoch: snapshot.candidateSnapshot.snapshotEpoch,
-    connectionConfigRevision: candidate.connectionConfigRevision,
-    authEpoch: candidate.authEpoch,
-    capability: candidate.capability,
-    capabilities: candidate.capabilities,
-    maxContextTokens: candidate.capabilities.maxContextTokens,
-    quote: candidate.quote === null ? null : quote,
-    quoteVersion,
-    enabled: candidate.routerAuthorization.status === 'enabled',
-  });
-};
+const captureRegisteredCandidate = ctx => (candidateId, options) => ctx.router.captureCandidate(candidateId, options);
 
 test('a complete writing task checks its final artifact against explicitly selected literal requirements', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t13-writing-'));

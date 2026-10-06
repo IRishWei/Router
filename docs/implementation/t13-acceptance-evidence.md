@@ -23,12 +23,12 @@
 
 `program-checks.mjs` 提供 Host-only Node 工作区 checker。它只接受显式要求中的固定 `node-test`/`node-check` 计划名，通过 Host artifact resolver 获取当前 workspace、产物路径和 revision；不从 prompt 生成 argv。执行前后重新计算受限 workspace scope 的 inputHash，使用无 shell 的 `process.execPath --test` 或 `--check`，只发布 exit code 与输入/输出 hash。计划一次性消费；产物或 scope 在捕获后变化、路径越界、输入/输出过大、取消或超时均不会形成成功证据。共享 Host 接线仍需提供当前 Task 的 authoritative artifact resolver，并将此模块纳入最终 bundle。
 
-评审测试通过 T08 `registerOwned` 注册并由用户配置启用受控候选，再经注入的 capture callback、统一 reserve/stream runner 完成同一 Task 的 Call 和 ledger。覆盖单次成功、高风险冲突、无效 JSON、JSON `null`、`null` finding 及顶层/finding 额外字段一次复核；review JSON 只接受协议列出的精确字段。另覆盖跨模型未授权零调用、token cap/forecast 不匹配零调用、传输失败暂停、预算等待后候选撤销零派发、扩展后继续及停止释放。两次评审 Call 持久化后实际重启 Router Host 并重建 coordinator，重放验收 event seam 不会重新 capture 或发起第三次调用，证据明确标记 `REVIEW_ATTEMPT_LIMIT`。评审输入不含 provider/model、账号、连接、计费、费用、策略、配置版本或要求来源；主产物在预算停止、资格撤销和传输失败后仍保留。
+评审测试通过 T08 `registerOwned` 注册并由用户配置启用受控候选，再经 T12 已合入的唯一 Host-only `router.captureCandidate`、统一 reserve/stream runner 完成同一 Task 的 Call 和 ledger。覆盖单次成功、高风险冲突、无效 JSON、JSON `null`、`null` finding 及顶层/finding 额外字段一次复核；review JSON 只接受协议列出的精确字段。另覆盖跨模型未授权零调用、token cap/forecast 不匹配零调用、传输失败暂停、预算等待后候选撤销零派发、扩展后继续及停止释放。两次评审 Call 持久化后实际重启 Router Host 并重建 coordinator，重放验收 event seam 不会重新 capture 或发起第三次调用，证据明确标记 `REVIEW_ATTEMPT_LIMIT`。评审输入不含 provider/model、账号、连接、计费、费用、策略、配置版本或要求来源；主产物在预算停止、资格撤销和传输失败后仍保留。
 
 其余完整任务测试覆盖明确写作成功、Unicode code point 长度、结构失败、禁止项失败、部分覆盖、确定性失败不触发 review，以及真实工具 step 后只检查最终产物。所有 provider 均为本地受控 fixture，无网络、凭据或付费调用。
 
 ## 尚未整合
 
-共享 `src/index.mjs` 接线、RPC/Renderer 展示、真实 Controller 驱动的重启再评估、steer/supersede 的整合测试与实际 Desktop 验收仍待后续。独立模块已消费现有 `exactTask`/`publishAcceptance`；测试 callback 用真实 T08 registry 数据适配尚未合入的 T12 `captureCandidate` seam，正式共享接线必须改用该唯一 Host capture，不能保留第二套快照投影。
+共享 `src/index.mjs` 接线、RPC/Renderer 展示、真实 Controller 驱动的重启再评估、steer/supersede 的整合测试与实际 Desktop 验收仍待后续。独立模块已消费现有 `exactTask`/`publishAcceptance`，并在完整任务测试中直接使用唯一 Host-only `router.captureCandidate`；不保留第二套快照投影。
 
 本模块不注入自修消息：rc.2 没有 Router self-repair 的已声明 MessageSourceKind，不能把插件提示伪装成用户来源。一次自修协调、真实来源类型和 attempts 归 T16/共享 Host coordinator；T13 只提供稳定 blocking/repairable/selfRepairAttempted 字段，避免两个模块各自重复“首次修复”。上述共享接线和验收完成前不能单独关闭 #14。
