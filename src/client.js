@@ -39,7 +39,14 @@ window.__ModuleLoader__.load({
         const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;
         const dispose = await ctx.remote.$mount({ package: '@irishwei/dsh-router', descriptors });
         ctx.effect(() => dispose, 'router: Remote facade');
-        ctx.slots.inject('settings.section', () => ctx.slots.register({ name: 'settings.section', id: 'router', order: 45, label: () => 'DSH Router', inject: () => ({ api: ctx.remote.router }) }, RouterSettings));
+        // The owner must mount the namespace before its consumer can depend on it.
+        await ctx.plugin({
+          name: 'router.settings',
+          inject: ['slots', 'remote.router'],
+          apply(settingsCtx) {
+            settingsCtx.slots.inject('settings.section', () => settingsCtx.slots.register({ name: 'settings.section', id: 'router', order: 45, label: () => 'DSH Router', inject: () => ({ api: settingsCtx.remote.router }) }, RouterSettings));
+          },
+        });
       },
     };
   },

@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.1.1.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.1.2.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router**。在会话模型菜单选择 **Router · 本地可控模型 / Controlled fixture**。
 3. 发送 `Reply ROUTER_OK`，模型返回 `ROUTER_OK`；设置页点击 **刷新任务记录**，检查实际 provider/model、结果、配置版本及时间线。
 4. **暂停自动路由** 后设置页仍可管理，任务继续沿用原生模型选择。重启保留开关和记录。
@@ -27,5 +27,7 @@ npm run bundle
 ```
 
 `npm test` 使用目标版本的真实 Cordis、AgentLoop、LLM、Session 和原生 ModelSelection 公共接口，通过完整任务观察结果；外部模型仅用可控 adapter。自动路由不创建 Framework 实例，不改写全局默认。所有最终选择由原生 controller 与实际请求 header 确认。桌面安装/加载证据另见 `docs/implementation/t01-host-evidence.md`。
+
+客户端回归通过实际 rc.2 Slot renderer、Typert registry 和 API gateway 挂载设置页，检查任务显示、暂停 RPC、卸载和重新启用；仅 Connection 传输与 DOM 挂载使用测试边界。`node scripts/reproduce-client-mount.mjs` 可输出挂载错误、RPC endpoint 和渲染树。0.1.2 修复设置项访问 `remote.router` 时遗漏 Cordis 依赖声明导致的空白页；实际桌面安装与交互仍需原生验收。
 
 跨票公共记录保留 task/session/call 身份、selection、配置版本、执行状态与独立验收状态，供 T02/T03 增量扩展。T01 只有一个可控模型，尚未实现动态跨模型选择。
