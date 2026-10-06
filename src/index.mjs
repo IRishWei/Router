@@ -3,12 +3,14 @@ import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
-import { descriptors, quoteSchema, budgetSchema, extensionSchema } from './protocol.mjs';
+import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
 import { runInitialAssessment, selectInitialRoute } from './routing.mjs';
+import { AcceptanceCoordinator } from './acceptance.mjs';
+import { createNodeProgramChecks } from './program-checks.mjs';
 
-export const inject = ['llm', 'profileContext'];
+export const inject = ['llm', 'profileContext', 'tools'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
 export const CONTROLLED_MODEL = 'controlled';
 export const CONTROLLED_TOOLS_MODEL = 'controlled-tools';
@@ -19,6 +21,7 @@ const catalog = [
 const defaultPool = () => catalog.map(model => ({ candidateId: model.model, ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), enabled: true }));
 const ROUTING_OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'quality']);
 const MAX_ASSESSMENT_CONTEXT_BYTES = 16_384;
+const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
@@ -941,6 +944,16 @@ export class RouterService extends TypertRemoteService {
     if (!enabled) this.#state.semanticAssessmentRequest = null;
     return this.#change({ semanticAssessment: enabled });
   }
+  async setAcceptancePolicy(policy) {
+    const parsed = acceptancePolicySchema().parse(policy);
+    if (parsed.review.enabled) {
+      if (!parsed.enabled || !parsed.review.candidateId) throw new TypeError('Enabled review requires enabled acceptance and a reviewer candidate');
+      const candidate = this.#connections.resolve(parsed.review.candidateId);
+      const entry = this.#state.config.pool.find(item => (item.candidateId ?? item.model) === candidate.candidateId);
+      if (!entry?.enabled) throw new TypeError('The review candidate must be enabled in the pool');
+    }
+    return this.#change({ acceptance: parsed });
+  }
   async requestSemanticAssessment() {
     if (!this.#state.config.automatic || !this.#state.config.semanticAssessment) throw new TypeError('Enable automatic routing and semantic assessment before requesting a Task assessment');
     this.#state.semanticAssessmentRequest = { status: 'armed', requestedAt: new Date().toISOString() };
@@ -1011,7 +1024,7 @@ export class RouterService extends TypertRemoteService {
     if (event.type === 'turn/start') {
       const assessmentRequested = this.#state.semanticAssessmentRequest?.status === 'armed';
       if (assessmentRequested) this.#state.semanticAssessmentRequest = null;
-      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(this.#state.config.budget), extensions: [], unenforceableLimits: [] } };
+      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(this.#state.config.budget), extensions: [], unenforceableLimits: [] } };
       this.#active.set(`${session.id}:${event.data.turn}`, task);
       this.#state.tasks.push(task);
       this.#persist();
@@ -1076,8 +1089,9 @@ export async function apply(ctx) {
   state.config.budget ??= emptyBudget();
   state.config.routingObjective ??= 'balanced';
   state.config.semanticAssessment ??= false;
+  state.config.acceptance ??= defaultAcceptancePolicy();
   state.semanticAssessmentRequest ??= null;
-  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean') throw new Error('Unsupported DSH Router routing configuration');
+  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean' || !acceptancePolicySchema().safeParse(state.config.acceptance).success) throw new Error('Unsupported DSH Router routing configuration');
   if (state.semanticAssessmentRequest !== null && (state.semanticAssessmentRequest?.status !== 'armed' || typeof state.semanticAssessmentRequest.requestedAt !== 'string')) throw new Error('Unsupported DSH Router assessment request');
   if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
   if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
@@ -1128,10 +1142,27 @@ export async function apply(ctx) {
   const validEntry = entry => entry && typeof entry.enabled === 'boolean' && (() => { try { const candidate = connections.resolve(entry.candidateId, { allowLegacyControlled: false }); return sameIdentity(entry, candidate); } catch { return false; } })();
   if (!Array.isArray(pool) || !pool.every(validEntry) || new Set(pool.map(entry => entry.candidateId)).size !== pool.length || (state.config.fixedCandidateId !== null && (() => { try { connections.resolve(state.config.fixedCandidateId); return true; } catch { return false; } })() === false)) throw new Error('Unsupported DSH Router pool configuration');
   const service = new RouterService(ctx, state, path, connections, ctx.get('routerFileSystem'));
+  const programChecks = createNodeProgramChecks(ctx);
+  new AcceptanceCoordinator(ctx, {
+    publishAcceptance: service.publishAcceptance,
+    captureCandidate: service.captureCandidate,
+    checks: programChecks.checks,
+    policyForTask: task => ({
+      enabled: task.acceptancePolicy?.enabled === true,
+      review: {
+        enabled: task.acceptancePolicy?.review?.enabled === true,
+        candidateId: task.acceptancePolicy?.review?.candidateId ?? null,
+        allowCrossModelReview: task.acceptancePolicy?.review?.allowCrossModel === true,
+        maxTokens: task.acceptancePolicy?.review?.maxTokens,
+        forecast: { totalTokens: task.acceptancePolicy?.review?.forecastTokens },
+      },
+    }),
+  });
   ctx.on('llm/adapters-updated', () => { void service.refreshConnections().catch(() => {}); });
   ctx.on('settings/document-updated', (namespace, revision) => { connections.invalidateSettings(namespace, revision); void service.refreshConnections().catch(() => {}); });
   ctx.on('credentials/reference-updated', () => { connections.invalidateCredentials(); void service.refreshConnections().catch(() => {}); });
   ctx.on('credentials/record-updated', () => { connections.invalidateCredentials(); void service.refreshConnections().catch(() => {}); });
   ctx.effect(() => disposeControlled, 'router: owned connection registration');
+  ctx.effect(() => () => programChecks.dispose(), 'router: acceptance program checks');
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.
 }
