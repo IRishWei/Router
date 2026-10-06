@@ -76,6 +76,23 @@ const detectionViewSchema = z.object({
   }).strict()).min(1),
 }).strict();
 
+const candidateCaptureSchema = z.object({
+  candidateId: id,
+  identity: z.object({
+    connectionId: id,
+    accountId: id,
+    billingPath: id,
+    provider: id,
+    model: id,
+  }).strict(),
+  registryEpoch: z.number().int().positive().safe(),
+  connectionConfigRevision: z.number().int().positive().safe(),
+  authEpoch: z.number().int().positive().safe(),
+  enabled: z.literal(true),
+}).passthrough();
+
+const detectionLaunchSchema = z.object({ taskId: id }).strict();
+
 class DeepSeekUiError extends Error {
   constructor(code, message) {
     super(message);
@@ -108,7 +125,8 @@ async function call(callback, input, outputSchema) {
 }
 
 function resolveDetectionCandidate(snapshot, candidateId) {
-  const candidates = candidateSnapshotSchema.parse(snapshot?.candidateSnapshot).candidates;
+  const candidateSnapshot = candidateSnapshotSchema.parse(snapshot?.candidateSnapshot);
+  const { candidates } = candidateSnapshot;
   const candidate = candidates.find(item => item.candidateId === candidateId);
   if (!candidate
     || candidate.ownership !== 'router-owned'
@@ -118,21 +136,51 @@ function resolveDetectionCandidate(snapshot, candidateId) {
     throw new TypeError('Detection candidate is not an enabled DeepSeek owned route');
   }
   assertDeepSeekModelId(candidate.identity.model);
-  return candidate;
+  return { candidate, snapshotEpoch: candidateSnapshot.snapshotEpoch };
 }
 
-function detectionView(task, request, candidate) {
+function resolveCandidateCapture(value, resolved) {
+  const capture = candidateCaptureSchema.parse(value);
+  const { candidate, snapshotEpoch } = resolved;
+  if (capture.candidateId !== candidate.candidateId
+    || !sameIdentity(capture.identity, candidate.identity)
+    || capture.authEpoch !== candidate.authEpoch
+    || capture.connectionConfigRevision !== candidate.connectionConfigRevision
+    || capture.registryEpoch < snapshotEpoch) {
+    throw new TypeError('Host capture does not match the resolved detection candidate');
+  }
+  return capture;
+}
+
+function taskIds(snapshot) {
+  if (!Array.isArray(snapshot?.tasks)) throw new TypeError('Router Task snapshot is unavailable');
+  const ids = snapshot.tasks.map(task => id.parse(task?.id));
+  if (new Set(ids).size !== ids.length) throw new TypeError('Router Task snapshot contains duplicate identities');
+  return new Set(ids);
+}
+
+function freshTask(snapshot, taskId, priorTaskIds) {
+  if (priorTaskIds.has(taskId) || !Array.isArray(snapshot?.tasks)) {
+    throw new TypeError('Detection did not create a new Router Task');
+  }
+  const matches = snapshot.tasks.filter(task => task?.id === taskId);
+  if (matches.length !== 1) throw new TypeError('Detection Task is absent or ambiguous');
+  return matches[0];
+}
+
+function detectionView(task, request, capture) {
   if (!Array.isArray(task?.calls) || task.calls.length === 0) {
     throw new TypeError('Detection Task has no accounted Calls');
   }
   for (const item of task.calls) {
     const captured = item?.selectionSnapshot;
-    if (item?.candidateId !== candidate.candidateId
-      || captured?.candidateId !== candidate.candidateId
-      || !sameIdentity(item.selection, candidate.identity)
-      || !sameIdentity(captured?.identity, candidate.identity)
-      || captured?.authEpoch !== candidate.authEpoch
-      || captured?.connectionConfigRevision !== candidate.connectionConfigRevision) {
+    if (item?.candidateId !== capture.candidateId
+      || captured?.candidateId !== capture.candidateId
+      || !sameIdentity(item.selection, capture.identity)
+      || !sameIdentity(captured?.identity, capture.identity)
+      || captured?.registryEpoch !== capture.registryEpoch
+      || captured?.authEpoch !== capture.authEpoch
+      || captured?.connectionConfigRevision !== capture.connectionConfigRevision) {
       throw new TypeError('Detection Call does not use the resolved candidate snapshot');
     }
   }
@@ -156,7 +204,7 @@ function detectionView(task, request, candidate) {
   if (parsed.budget.tokens !== request.budget.tokens || parsed.budget.durationMs !== request.budget.durationMs) {
     throw new TypeError('Detection Task did not use its requested finite budget');
   }
-  if (parsed.ledger.callCount !== parsed.calls.length || parsed.calls.some(call => call.candidateId !== candidate.candidateId)) {
+  if (parsed.ledger.callCount !== parsed.calls.length || parsed.calls.some(call => call.candidateId !== capture.candidateId)) {
     throw new TypeError('Detection Task accounting does not match its owned candidate');
   }
   return parsed;
@@ -164,7 +212,7 @@ function detectionView(task, request, candidate) {
 
 /** Safe callback seam used until the shared Remote facade owns final wiring. */
 export function createDeepSeekUiService(callbacks) {
-  for (const name of ['snapshot', 'routerSnapshot', 'saveCredential', 'discoverCatalog', 'connect', 'disconnect', 'runDetection']) {
+  for (const name of ['snapshot', 'routerSnapshot', 'captureCandidate', 'saveCredential', 'discoverCatalog', 'connect', 'disconnect', 'runDetection']) {
     if (typeof callbacks?.[name] !== 'function') throw new TypeError(`DeepSeek UI callback ${name} is required`);
   }
   return Object.freeze({
@@ -177,8 +225,13 @@ export function createDeepSeekUiService(callbacks) {
     async runDetection(value) {
       const request = parseRequest('runDetection', value);
       try {
-        const candidate = resolveDetectionCandidate(await callbacks.routerSnapshot(), request.candidateId);
-        return detectionView(await callbacks.runDetection(request), request, candidate);
+        const before = await callbacks.routerSnapshot();
+        const resolved = resolveDetectionCandidate(before, request.candidateId);
+        const priorTaskIds = taskIds(before);
+        const capture = resolveCandidateCapture(await callbacks.captureCandidate(request.candidateId), resolved);
+        const launch = detectionLaunchSchema.parse(await callbacks.runDetection({ ...request, selectionSnapshot: capture }));
+        const task = freshTask(await callbacks.routerSnapshot(), launch.taskId, priorTaskIds);
+        return detectionView(task, request, capture);
       } catch (error) {
         if (error instanceof DeepSeekUiError) throw error;
         throw operationFailed();

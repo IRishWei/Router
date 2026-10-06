@@ -37,8 +37,11 @@ T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
   同时展示连接、账号与计费来源，同名模型不合并。
 - `deepseek-ui-contract.mjs` 用可注册到 Typert 的严格 schema 限制检测为
   1–4096 token、1–60000 ms。客户端只提交 candidateId 和预算；Host 从 T08
-  权威 candidate snapshot 解析模型，并逐 Call 核对五元身份、auth epoch、配置
-  revision、账本和完全相同的有限预算；无价格必须显示为 unknown。
+  权威 candidate snapshot 解析模型，在执行前取得 canonical candidate capture，
+  并逐 Call 核对五元身份、registry/auth epoch、配置 revision、账本和完全相同
+  的有限预算。检测结果必须是该次执行后 Router 快照中新建的 Task，不能复用
+  历史 Task；执行后无关候选刷新不会因全局目录 epoch 增长而误判。无价格必须
+  显示为 unknown。
 
 ## 自动验证
 

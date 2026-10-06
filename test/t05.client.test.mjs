@@ -40,7 +40,23 @@ function routerCandidateSnapshot(candidate = routerCandidate()) {
   return { epoch: 1, snapshotEpoch: 1, capturedAt: null, candidates: [candidate], unsupported: [] };
 }
 
-function detectionTask(request, candidate = routerCandidate()) {
+function capturedCandidate(candidate = routerCandidate(), registryEpoch = 1) {
+  return {
+    candidateId: candidate.candidateId,
+    identity: candidate.identity,
+    registryEpoch,
+    connectionConfigRevision: candidate.connectionConfigRevision,
+    authEpoch: candidate.authEpoch,
+    capability: candidate.capabilities,
+    capabilities: candidate.capabilities,
+    maxContextTokens: candidate.capabilities.maxContextTokens,
+    quote: null,
+    quoteVersion: null,
+    enabled: true,
+  };
+}
+
+function detectionTask(request, candidate = routerCandidate(), capture = capturedCandidate(candidate)) {
   return {
     id: 'task-detection', lifecycle: 'completed', result: 'DEEPSEEK_CONNECTION_OK',
     budget: { limits: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] } },
@@ -50,6 +66,7 @@ function detectionTask(request, candidate = routerCandidate()) {
       selection: candidate.identity,
       selectionSnapshot: {
         candidateId: request.candidateId, identity: candidate.identity,
+        registryEpoch: capture.registryEpoch,
         authEpoch: candidate.authEpoch, connectionConfigRevision: candidate.connectionConfigRevision,
       },
       status: 'completed', usage: { totalTokens: 8 }, cost: { amount: null, reason: 'PRICE_UNKNOWN' },
@@ -95,9 +112,11 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
     catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] },
   };
   const router = { models: [] };
+  const host = { candidateSnapshot: routerCandidateSnapshot(), tasks: [] };
   const callbacks = {
     snapshot: async () => structuredClone(safe),
-    routerSnapshot: async () => ({ candidateSnapshot: routerCandidateSnapshot() }),
+    routerSnapshot: async () => structuredClone(host),
+    captureCandidate: async candidateId => capturedCandidate(routerCandidate(candidateId)),
     saveCredential: async ({ apiKey }) => {
       actions.push({ action: 'save', apiKey });
       const binding = { accountId: 'account-ui-binding', configured: true, writable: true };
@@ -127,7 +146,9 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
     },
     runDetection: async request => {
       actions.push({ action: 'detect', ...request });
-      return detectionTask(request);
+      const task = detectionTask(request, routerCandidate(request.candidateId), request.selectionSnapshot);
+      host.tasks.push(task);
+      return { taskId: task.id };
     },
   };
   const routerApi = {
@@ -197,16 +218,21 @@ test('the DeepSeek Renderer distinguishes same-model candidates by connection, a
     ...candidate.identity,
     name: 'DeepSeek V4.1 Flash', source: 'deepseek-official-api', available: true, enabled: true, inPool: true,
   }));
+  const tasks = [];
   const service = createDeepSeekUiService({
     snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
-    routerSnapshot: async () => ({ candidateSnapshot: { ...routerCandidateSnapshot(first), candidates: [first, second] } }),
+    routerSnapshot: async () => ({ candidateSnapshot: { ...routerCandidateSnapshot(first), candidates: [first, second] }, tasks }),
+    captureCandidate: async candidateId => capturedCandidate(candidateId === second.candidateId ? second : first),
     saveCredential: async () => { throw new Error('unused'); },
     discoverCatalog: async () => { throw new Error('unused'); },
     connect: async () => { throw new Error('unused'); },
     disconnect: async () => { throw new Error('unused'); },
     runDetection: async request => {
       actions.push(request);
-      return detectionTask(request, request.candidateId === second.candidateId ? second : first);
+      const candidate = request.candidateId === second.candidateId ? second : first;
+      const task = detectionTask(request, candidate, request.selectionSnapshot);
+      tasks.push(task);
+      return { taskId: task.id };
     },
   });
   const routerApi = {
@@ -233,7 +259,8 @@ test('DeepSeek UI request errors never echo the raw key', async () => {
   const secret = 'must-not-echo-secret';
   const service = createDeepSeekUiService({
     snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
-    routerSnapshot: async () => ({ candidateSnapshot: routerCandidateSnapshot() }),
+    routerSnapshot: async () => ({ candidateSnapshot: routerCandidateSnapshot(), tasks: [] }),
+    captureCandidate: async () => capturedCandidate(),
     saveCredential: async () => { throw new Error(`backend rejected ${secret}`); },
     discoverCatalog: async () => { throw new Error('unused'); },
     connect: async () => { throw new Error('unused'); },
@@ -253,9 +280,11 @@ test('DeepSeek UI request errors never echo the raw key', async () => {
 
 test('DeepSeek detection resolves only the Host candidate and rejects a mismatched Call identity', async () => {
   const selected = routerCandidate('candidate-selected');
+  const host = { candidateSnapshot: routerCandidateSnapshot(selected), tasks: [] };
   const service = createDeepSeekUiService({
     snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
-    routerSnapshot: async () => ({ candidateSnapshot: routerCandidateSnapshot(selected) }),
+    routerSnapshot: async () => structuredClone(host),
+    captureCandidate: async () => capturedCandidate(selected),
     saveCredential: async () => { throw new Error('unused'); },
     discoverCatalog: async () => { throw new Error('unused'); },
     connect: async () => { throw new Error('unused'); },
@@ -263,13 +292,67 @@ test('DeepSeek detection resolves only the Host candidate and rejects a mismatch
     runDetection: async request => {
       const wrong = routerCandidate(request.candidateId);
       wrong.identity = { ...wrong.identity, provider: 'wrong-provider', model: 'deepseek-v4-pro' };
-      return detectionTask(request, wrong);
+      const task = detectionTask(request, wrong, request.selectionSnapshot);
+      host.tasks.push(task);
+      return { taskId: task.id };
     },
   });
 
   const request = { candidateId: selected.candidateId, budget: { tokens: 32, durationMs: 1500 } };
   await assert.rejects(service.runDetection(request), error => error.code === 'DEEPSEEK_UI_OPERATION_FAILED');
   await assert.rejects(service.runDetection({ ...request, model: 'deepseek-flash' }), error => error.code === 'DEEPSEEK_UI_REQUEST_INVALID');
+});
+
+test('DeepSeek detection rejects a Call captured before the canonical Host capture and historical Task reuse', async () => {
+  const selected = routerCandidate('candidate-capture');
+  const request = { candidateId: selected.candidateId, budget: { tokens: 32, durationMs: 1500 } };
+  const historical = detectionTask(request, selected, capturedCandidate(selected, 2));
+  historical.id = 'task-historical';
+  const host = { candidateSnapshot: { ...routerCandidateSnapshot(selected), epoch: 2, snapshotEpoch: 2 }, tasks: [historical] };
+  let mode = 'old-capture';
+  const service = createDeepSeekUiService({
+    snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
+    routerSnapshot: async () => structuredClone(host),
+    captureCandidate: async () => capturedCandidate(selected, 2),
+    saveCredential: async () => { throw new Error('unused'); },
+    discoverCatalog: async () => { throw new Error('unused'); },
+    connect: async () => { throw new Error('unused'); },
+    disconnect: async () => { throw new Error('unused'); },
+    runDetection: async input => {
+      if (mode === 'historical') return { taskId: historical.id };
+      const task = detectionTask(input, selected, capturedCandidate(selected, 1));
+      task.id = 'task-old-capture';
+      host.tasks.push(task);
+      return { taskId: task.id };
+    },
+  });
+
+  await assert.rejects(service.runDetection(request), error => error.code === 'DEEPSEEK_UI_OPERATION_FAILED');
+  mode = 'historical';
+  await assert.rejects(service.runDetection(request), error => error.code === 'DEEPSEEK_UI_OPERATION_FAILED');
+});
+
+test('DeepSeek detection accepts its canonical capture when an unrelated catalog change advances the global epoch', async () => {
+  const selected = routerCandidate('candidate-current');
+  const host = { candidateSnapshot: { ...routerCandidateSnapshot(selected), epoch: 2, snapshotEpoch: 2 }, tasks: [] };
+  const service = createDeepSeekUiService({
+    snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
+    routerSnapshot: async () => structuredClone(host),
+    captureCandidate: async () => capturedCandidate(selected, 2),
+    saveCredential: async () => { throw new Error('unused'); },
+    discoverCatalog: async () => { throw new Error('unused'); },
+    connect: async () => { throw new Error('unused'); },
+    disconnect: async () => { throw new Error('unused'); },
+    runDetection: async input => {
+      const task = detectionTask(input, selected, input.selectionSnapshot);
+      host.tasks.push(task);
+      host.candidateSnapshot = { ...host.candidateSnapshot, epoch: 3, snapshotEpoch: 3 };
+      return { taskId: task.id };
+    },
+  });
+
+  const result = await service.runDetection({ candidateId: selected.candidateId, budget: { tokens: 32, durationMs: 1500 } });
+  assert.equal(result.taskId, 'task-detection');
 });
 
 test('the real Typert registry materializes the independent DeepSeek request schemas', async () => {
