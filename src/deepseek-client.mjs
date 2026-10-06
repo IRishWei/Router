@@ -114,7 +114,7 @@ export function DeepSeekSettings({ service, routerApi }) {
         type: 'button',
         disabled: busy || !selected || !selected.available || !selected.enabled || !validBudget,
         onClick: async () => {
-          const result = await change(() => service.runDetection({ candidateId: selected.candidateId, model: selected.model, budget: detectionBudget }));
+          const result = await change(() => service.runDetection({ candidateId: selected.candidateId, budget: detectionBudget }));
           if (result) setDetection(result);
         },
       }, '运行有限预算检测'),

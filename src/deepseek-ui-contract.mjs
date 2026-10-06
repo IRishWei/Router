@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { candidateSnapshotSchema } from './connections.mjs';
+import { assertDeepSeekModelId } from './deepseek-connections.mjs';
 
 const id = z.string().min(1).max(500);
 const bindingSchema = z.object({
@@ -25,7 +27,6 @@ export const deepSeekUiSnapshotSchema = z.object({
 
 export const deepSeekDetectionRequestSchema = z.object({
   candidateId: id,
-  model: z.enum(['deepseek-flash', 'deepseek-v4-pro']),
   budget: z.object({
     tokens: z.number().int().positive().safe().max(4096),
     durationMs: z.number().int().positive().safe().max(60_000),
@@ -106,7 +107,40 @@ async function call(callback, input, outputSchema) {
   }
 }
 
-function detectionView(task, request) {
+function sameIdentity(left, right) {
+  return ['connectionId', 'accountId', 'billingPath', 'provider', 'model']
+    .every(key => left?.[key] === right?.[key]);
+}
+
+function resolveDetectionCandidate(snapshot, candidateId) {
+  const candidates = candidateSnapshotSchema.parse(snapshot?.candidateSnapshot).candidates;
+  const candidate = candidates.find(item => item.candidateId === candidateId);
+  if (!candidate
+    || candidate.ownership !== 'router-owned'
+    || candidate.source !== 'deepseek-official-api'
+    || candidate.availability.status !== 'available'
+    || candidate.routerAuthorization.status !== 'enabled') {
+    throw new TypeError('Detection candidate is not an enabled DeepSeek owned route');
+  }
+  assertDeepSeekModelId(candidate.identity.model);
+  return candidate;
+}
+
+function detectionView(task, request, candidate) {
+  if (!Array.isArray(task?.calls) || task.calls.length === 0) {
+    throw new TypeError('Detection Task has no accounted Calls');
+  }
+  for (const item of task.calls) {
+    const captured = item?.selectionSnapshot;
+    if (item?.candidateId !== candidate.candidateId
+      || captured?.candidateId !== candidate.candidateId
+      || !sameIdentity(item.selection, candidate.identity)
+      || !sameIdentity(captured?.identity, candidate.identity)
+      || captured?.authEpoch !== candidate.authEpoch
+      || captured?.connectionConfigRevision !== candidate.connectionConfigRevision) {
+      throw new TypeError('Detection Call does not use the resolved candidate snapshot');
+    }
+  }
   const view = {
     taskId: task?.id,
     lifecycle: task?.lifecycle,
@@ -127,7 +161,7 @@ function detectionView(task, request) {
   if (parsed.budget.tokens !== request.budget.tokens || parsed.budget.durationMs !== request.budget.durationMs) {
     throw new TypeError('Detection Task did not use its requested finite budget');
   }
-  if (parsed.ledger.callCount !== parsed.calls.length || parsed.calls.some(call => call.candidateId !== request.candidateId)) {
+  if (parsed.ledger.callCount !== parsed.calls.length || parsed.calls.some(call => call.candidateId !== candidate.candidateId)) {
     throw new TypeError('Detection Task accounting does not match its owned candidate');
   }
   return parsed;
@@ -148,7 +182,8 @@ export function createDeepSeekUiService(callbacks) {
     async runDetection(value) {
       const request = parseRequest('runDetection', value);
       try {
-        return detectionView(await callbacks.runDetection(request), request);
+        const candidate = resolveDetectionCandidate(await callbacks.routerSnapshot(), request.candidateId);
+        return detectionView(await callbacks.runDetection(request), request, candidate);
       } catch (error) {
         if (error instanceof DeepSeekUiError) throw error;
         throw operationFailed();

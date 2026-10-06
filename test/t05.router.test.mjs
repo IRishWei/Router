@@ -160,19 +160,24 @@ test('a registered DeepSeek candidate completes main and title calls with an unk
 });
 
 test('a DeepSeek authentication failure pauses the Task after one accounted attempt', async () => {
+  const secret = 'fakeAPIkey-should-never-escape';
   let posts = 0;
   const endpoint = await listen(async (request, response) => {
     posts += 1;
     for await (const _chunk of request) { /* consume */ }
     response.writeHead(401, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ error: { message: 'controlled rejection', type: 'authentication_error' } }));
+    response.end(JSON.stringify({ error: { message: `controlled rejection leaked ${secret}`, type: 'authentication_error' } }));
   });
   const home = await mkdtemp(join(tmpdir(), 'router-t05-auth-task-'));
+  const sessionEvents = [];
   let ctx;
   let connection;
   try {
     ctx = await startNative(home);
     await ctx.plugin(LocalCredentialProvider, { path: join(home, '.credentials.yaml'), watch: false });
+    ctx.on('session/event', (_session, event) => {
+      if (event.type === 'assistant/attempt' || event.type === 'turn/end') sessionEvents.push(structuredClone(event));
+    });
     const accountId = `account-${crypto.randomUUID()}`;
     await storeDeepSeekApiKey(ctx.credentials, accountId, 'controlled-rejected-key');
     connection = await mountDeepSeekRouterConnection(ctx, {
@@ -197,6 +202,14 @@ test('a DeepSeek authentication failure pauses the Task after one accounted atte
     assert.equal(task.calls[0].usage, null);
     assert.equal(task.ledger.callCount, 1);
     assert.equal(task.ledger.unknownPriceCalls, 1);
+    assert.deepEqual(sessionEvents.map(event => event.type), ['assistant/attempt', 'turn/end']);
+    const recordedEvents = JSON.stringify(sessionEvents);
+    assert.equal(recordedEvents.includes(secret), false);
+    assert.equal(recordedEvents.includes('controlled rejection'), false);
+    assert.match(recordedEvents, /DeepSeek provider request failed/);
+    assert.match(recordedEvents, /"code":"AUTH"/);
+    assert.match(recordedEvents, /"status":401/);
+    assert.equal(JSON.stringify(task).includes(secret), false);
   } finally {
     if (connection) await connection.disconnect();
     if (ctx) await ctx.fiber.dispose();

@@ -13,6 +13,49 @@ import TypertRegistry from '@deepseek-ai/dsh-typert-registry';
 import { createDeepSeekSettingsPlugin } from '../src/deepseek-client.mjs';
 import { createDeepSeekUiService, deepSeekUiSchemaFactories } from '../src/deepseek-ui-contract.mjs';
 
+function routerCandidate(candidateId = 'candidate-ui') {
+  const identity = {
+    connectionId: 'connection-ui', accountId: 'account-ui-binding', billingPath: 'deepseek-api',
+    provider: 'router-deepseek-account-ui-binding', model: 'deepseek-flash',
+  };
+  return {
+    candidateId, identity, connectionConfigRevision: 1, authEpoch: 1, observedSettingsRevision: null,
+    ownership: 'router-owned', source: 'deepseek-official-api',
+    routerAuthorization: { status: 'enabled' }, providerAuthorization: { status: 'configured' },
+    availability: { status: 'available' }, inferenceVerification: { status: 'unknown' },
+    capabilities: {
+      modalities: { text: { supported: true, confidence: 'declared' }, image: { supported: false, confidence: 'declared' } },
+      text: { supported: true, confidence: 'declared' }, image: { supported: false, confidence: 'declared' }, tools: { supported: true, confidence: 'declared' },
+      contextWindow: { value: 1_048_576, confidence: 'declared', source: 'provider-model-metadata' },
+      inputLimit: { value: null, confidence: 'unknown', source: 'host-public-contract' },
+      maxOutput: { value: null, confidence: 'unknown', source: 'host-public-contract' },
+      maxContextTokens: 1_048_576, confidence: 'declared', source: 'deepseek-public-documentation',
+    },
+    quote: null, observations: [],
+  };
+}
+
+function routerCandidateSnapshot(candidate = routerCandidate()) {
+  return { epoch: 1, snapshotEpoch: 1, capturedAt: null, candidates: [candidate], unsupported: [] };
+}
+
+function detectionTask(request, candidate = routerCandidate()) {
+  return {
+    id: 'task-detection', lifecycle: 'completed', result: 'DEEPSEEK_CONNECTION_OK',
+    budget: { limits: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] } },
+    ledger: { tokens: { total: 8 }, knownTokens: { total: 8 }, money: [], unknownPriceCalls: 1, callCount: 1, elapsedMs: 10 },
+    calls: [{
+      id: 'call-detection', purpose: 'execution', candidateId: request.candidateId,
+      selection: candidate.identity,
+      selectionSnapshot: {
+        candidateId: request.candidateId, identity: candidate.identity,
+        authEpoch: candidate.authEpoch, connectionConfigRevision: candidate.connectionConfigRevision,
+      },
+      status: 'completed', usage: { totalTokens: 8 }, cost: { amount: null, reason: 'PRICE_UNKNOWN' },
+    }],
+  };
+}
+
 async function loadClient(path, imports) {
   let plugin;
   vm.runInNewContext(await readFile(path, 'utf8'), {
@@ -53,7 +96,7 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
   const router = { models: [] };
   const callbacks = {
     snapshot: async () => structuredClone(safe),
-    routerSnapshot: async () => structuredClone(router),
+    routerSnapshot: async () => ({ candidateSnapshot: routerCandidateSnapshot() }),
     saveCredential: async ({ apiKey }) => {
       actions.push({ action: 'save', apiKey });
       const binding = { accountId: 'account-ui-binding', configured: true, writable: true };
@@ -79,16 +122,11 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
     },
     runDetection: async request => {
       actions.push({ action: 'detect', ...request });
-      return {
-        id: 'task-detection', lifecycle: 'completed', result: 'DEEPSEEK_CONNECTION_OK',
-        budget: { limits: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] } },
-        ledger: { tokens: { total: 8 }, knownTokens: { total: 8 }, money: [], unknownPriceCalls: 1, callCount: 1, elapsedMs: 10 },
-        calls: [{ id: 'call-detection', purpose: 'execution', candidateId: request.candidateId, status: 'completed', usage: { totalTokens: 8 }, cost: { amount: null, reason: 'PRICE_UNKNOWN' } }],
-      };
+      return detectionTask(request);
     },
   };
   const routerApi = {
-    snapshot: callbacks.routerSnapshot,
+    snapshot: async () => structuredClone(router),
     async setModelEnabled(candidateId, enabled) {
       actions.push({ action: 'enable', candidateId, enabled });
       router.models[0] = { ...router.models[0], enabled, inPool: true };
@@ -123,6 +161,7 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
     const detection = actions.at(-1);
     assert.deepEqual(detection.budget, { tokens: 32, durationMs: 1500 });
     assert.equal(detection.candidateId, 'candidate-ui');
+    assert.equal(Object.hasOwn(detection, 'model'), false);
     const rendered = JSON.stringify(page.toJSON());
     assert.match(rendered, /费用未知/);
     assert.match(rendered, /task-detection/);
@@ -144,7 +183,7 @@ test('DeepSeek UI request errors never echo the raw key', async () => {
   const secret = 'must-not-echo-secret';
   const service = createDeepSeekUiService({
     snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
-    routerSnapshot: async () => ({ models: [] }),
+    routerSnapshot: async () => ({ candidateSnapshot: routerCandidateSnapshot() }),
     saveCredential: async () => { throw new Error(`backend rejected ${secret}`); },
     discoverCatalog: async () => { throw new Error('unused'); },
     connect: async () => { throw new Error('unused'); },
@@ -156,10 +195,31 @@ test('DeepSeek UI request errors never echo the raw key', async () => {
     assert.equal(String(error).includes(secret), false);
     return true;
   });
-  await assert.rejects(service.runDetection({ candidateId: 'candidate', model: 'deepseek-flash', budget: { tokens: 0, durationMs: null } }), error => {
+  await assert.rejects(service.runDetection({ candidateId: 'candidate', budget: { tokens: 0, durationMs: null } }), error => {
     assert.equal(error.code, 'DEEPSEEK_UI_REQUEST_INVALID');
     return true;
   });
+});
+
+test('DeepSeek detection resolves only the Host candidate and rejects a mismatched Call identity', async () => {
+  const selected = routerCandidate('candidate-selected');
+  const service = createDeepSeekUiService({
+    snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
+    routerSnapshot: async () => ({ candidateSnapshot: routerCandidateSnapshot(selected) }),
+    saveCredential: async () => { throw new Error('unused'); },
+    discoverCatalog: async () => { throw new Error('unused'); },
+    connect: async () => { throw new Error('unused'); },
+    disconnect: async () => { throw new Error('unused'); },
+    runDetection: async request => {
+      const wrong = routerCandidate(request.candidateId);
+      wrong.identity = { ...wrong.identity, provider: 'wrong-provider', model: 'deepseek-v4-pro' };
+      return detectionTask(request, wrong);
+    },
+  });
+
+  const request = { candidateId: selected.candidateId, budget: { tokens: 32, durationMs: 1500 } };
+  await assert.rejects(service.runDetection(request), error => error.code === 'DEEPSEEK_UI_OPERATION_FAILED');
+  await assert.rejects(service.runDetection({ ...request, model: 'deepseek-flash' }), error => error.code === 'DEEPSEEK_UI_REQUEST_INVALID');
 });
 
 test('the real Typert registry materializes the independent DeepSeek request schemas', async () => {
@@ -174,8 +234,9 @@ test('the real Typert registry materializes the independent DeepSeek request sch
       model: { services: [], events: [], objects: [] },
     });
     const detection = ctx.typert.resolve('@irishwei/dsh-router-t05-ui#DeepSeekDetectionRequest').schema;
-    assert.equal(detection.safeParse({ candidateId: 'candidate', model: 'deepseek-flash', budget: { tokens: 32, durationMs: 1500 } }).success, true);
-    assert.equal(detection.safeParse({ candidateId: 'candidate', model: 'deepseek-flash', budget: { tokens: 0, durationMs: 1500 } }).success, false);
+    assert.equal(detection.safeParse({ candidateId: 'candidate', budget: { tokens: 32, durationMs: 1500 } }).success, true);
+    assert.equal(detection.safeParse({ candidateId: 'candidate', model: 'deepseek-flash', budget: { tokens: 32, durationMs: 1500 } }).success, false);
+    assert.equal(detection.safeParse({ candidateId: 'candidate', budget: { tokens: 0, durationMs: 1500 } }).success, false);
     const save = ctx.typert.resolve('@irishwei/dsh-router-t05-ui#DeepSeekSaveCredentialRequest').schema;
     assert.equal(save.safeParse({ apiKey: 'transient-key', unexpected: true }).success, false);
   } finally {

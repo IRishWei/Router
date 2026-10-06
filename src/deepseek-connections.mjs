@@ -31,6 +31,15 @@ export const DEEPSEEK_MODELS = deepFreeze([
 ]);
 
 const DEEPSEEK_MODEL_IDS = new Set(DEEPSEEK_MODELS.map(({ id }) => id));
+const SAFE_PROVIDER_FAILURE_CODES = new Set([
+  'ABORTED', 'AUTH', 'AUTHORIZATION_CHANGED', 'CONNECTION', 'CONTEXT_WINDOW_EXCEEDED',
+  'EMPTY_RESPONSE', 'INVALID_CREDENTIAL', 'INVALID_MODEL_CONTEXT', 'INVALID_MODEL_INFO',
+  'INVALID_MODEL_MAX_TOKENS', 'INVALID_MODEL_REASONING', 'INVALID_PREPARED_CALL',
+  'INVALID_REQUEST', 'INVALID_RESPONSE', 'MALFORMED_RESPONSE', 'MISSING_CREDENTIAL',
+  'NO_ADAPTER', 'QUOTA', 'RATE_LIMIT', 'REGISTRATION_DISPOSED', 'REQUEST_EXTENSION',
+  'SERVER', 'STREAM_CLOSED', 'TIMEOUT', 'TRANSPORT', 'UNSUPPORTED_CONTENT',
+  'UNSUPPORTED_REASONING_EFFORT',
+]);
 
 function deepFreeze(value) {
   if (value && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -48,6 +57,33 @@ function requiredString(value, name) {
 function positiveInteger(value, name) {
   if (!Number.isSafeInteger(value) || value < 1) throw new TypeError(`${name} must be a positive safe integer`);
   return value;
+}
+
+function sanitizedProviderFailure(value) {
+  const rawCode = typeof value?.code === 'string' ? value.code : undefined;
+  const status = Number.isInteger(value?.status) && value.status >= 100 && value.status <= 599
+    ? value.status
+    : undefined;
+  const httpCode = status !== undefined && rawCode === `HTTP_${status}`;
+  const code = SAFE_PROVIDER_FAILURE_CODES.has(rawCode) || httpCode ? rawCode : 'DEEPSEEK_REQUEST_FAILED';
+  return Object.freeze({
+    message: 'DeepSeek provider request failed',
+    code,
+    ...(status === undefined ? {} : { status }),
+  });
+}
+
+function sanitizeProviderChunk(chunk) {
+  if (chunk?.type !== 'finish' || !['aborted', 'error'].includes(chunk.reason?.kind)) return chunk;
+  return {
+    ...chunk,
+    reason: { ...chunk.reason, failure: sanitizedProviderFailure(chunk.reason.failure) },
+  };
+}
+
+function sanitizeProviderError(error) {
+  const failure = sanitizedProviderFailure(error?.failure ?? error);
+  return new LlmError(failure.message, failure.code, failure.status === undefined ? undefined : { status: failure.status });
 }
 
 export function assertDeepSeekModelId(model) {
@@ -166,8 +202,16 @@ function providerPlugin(spec, state) {
         if (String(updated) === String(key)) state.revoked = true;
       });
       ctx.on('llm/stream', async function* (request, next) {
-        if (request.provider === provider) assertDeepSeekModelId(request.model);
-        yield* next();
+        if (request.provider !== provider) {
+          yield* next();
+          return;
+        }
+        assertDeepSeekModelId(request.model);
+        try {
+          for await (const chunk of next()) yield sanitizeProviderChunk(chunk);
+        } catch (error) {
+          throw sanitizeProviderError(error);
+        }
       });
       registerDeepSeekProvider(ctx, provider, {
         options: () => options,
