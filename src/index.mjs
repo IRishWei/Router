@@ -249,7 +249,7 @@ export class RouterService extends TypertRemoteService {
         if (call) { call.dispatchIntent = 'blocked'; call.dispatchStarted = false; delete call.dispatchedAt; service.#persist(); }
         throw error;
       }
-      yield* next();
+      yield* auxiliary ? service.#trackedDispatch(auxiliary, next) : next();
       })();
     });
     ctx.effect(() => () => {
@@ -280,20 +280,40 @@ export class RouterService extends TypertRemoteService {
     this.#publicStreamEntries.add(request);
     try {
       const stream = invoke(), owner = this.#automaticOwners.get(request);
-      return owner ? this.#watchUnconsumed(stream, owner) : stream;
+      return owner ? this.#watchOwnedStream(stream, owner) : stream;
     } catch (error) { this.#automaticOwners.get(request)?.close('AUXILIARY_STREAM_REJECTED'); throw error; }
     finally { this.#publicStreamEntries.delete(request); }
   }
-  #watchUnconsumed(stream, owner) {
+  #watchOwnedStream(stream, owner) {
     const iterator = stream[Symbol.asyncIterator]();
     const advance = async (method, value) => {
       try {
         const result = iterator[method] ? await iterator[method](value) : method === 'throw' ? await Promise.reject(value) : { done: true, value };
-        if (result.done) owner.close('AUXILIARY_STREAM_CLOSED');
+        if (result.done) await owner.close('AUXILIARY_STREAM_CLOSED');
         return result;
-      } catch (error) { owner.close('AUXILIARY_STREAM_REJECTED'); throw error; }
+      } catch (error) { try { await owner.close('AUXILIARY_STREAM_REJECTED'); } catch {} throw error; }
     };
     return { [Symbol.asyncIterator]() { return this; }, next: value => advance('next', value), return: value => advance('return', value), throw: error => advance('throw', error) };
+  }
+  #trackedDispatch(owner, next) {
+    const stream = (async function* () {
+      let iterator;
+      try {
+        iterator = next()[Symbol.asyncIterator]();
+        while (true) {
+          const result = await iterator.next();
+          if (result.done) return;
+          if (result.value.type === 'usage') owner.usage = result.value.usage;
+          if (result.value.type === 'finish') owner.finish = result.value.reason;
+          yield result.value;
+        }
+      } finally {
+        try { await iterator?.return?.(); }
+        finally { owner.iterators.delete(stream); }
+      }
+    })();
+    owner.iterators.add(stream);
+    return stream;
   }
   /** Host-only exact request owner. Persists intent and settles this reserved call once. */
   streamReservedCall(taskId, callId, request) {
@@ -307,17 +327,39 @@ export class RouterService extends TypertRemoteService {
   #ownedCallStream(task, request, existingCall = null, source = null) {
     const service = this, controller = new AbortController();
     const originalSignal = existingCall ? this.#callSignals.get(existingCall.id) : request.signal ?? new AbortController().signal;
-    const owner = { task, call: existingCall, controller, started: false, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
+    const owner = { task, call: existingCall, controller, started: false, iterators: new Set(), usage: null, finish: null, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
     const owners = this.#ownedCalls.get(task.id) ?? new Set(); owners.add(owner); this.#ownedCalls.set(task.id, owners);
-    const cleanup = () => { originalSignal.removeEventListener('abort', abandon); controller.signal.removeEventListener('abort', abandon); owners.delete(owner); if (!owners.size) this.#ownedCalls.delete(task.id); this.#finishTask(task); };
+    const cleanup = () => {
+      if (owner.closing && !owner.drained) return;
+      originalSignal.removeEventListener('abort', abandon); controller.signal.removeEventListener('abort', abandon); owners.delete(owner); if (!owners.size) this.#ownedCalls.delete(task.id); this.#finishTask(task);
+    };
     const abandon = () => {
-      if (owner.started || !owners.has(owner)) return;
+      if (!owners.has(owner)) return;
+      if (owner.started) { owner.close('ABORTED', false); return; }
       if (owner.call && !['settled', 'released'].includes(owner.call.reservation.state)) service.settleCall(task.id, owner.call.id, { status: 'not-dispatched', usage: null, finishReason: 'aborted', failureCode: 'ABORTED' });
       cleanup();
     };
-    owner.close = reason => {
-      if (owner.started || !owners.has(owner)) return;
-      task.auxiliaryPauseReason ??= reason;
+    owner.close = (reason, fault = true) => {
+      if (!owners.has(owner)) return;
+      if (owner.closing) return owner.closing;
+      if (fault) task.auxiliaryPauseReason ??= reason;
+      if (owner.started) {
+        owner.closeReason = reason;
+        task.timeline.push({ kind: 'auxiliary-stream-close', callId: owner.call?.id ?? null, reason });
+        const closing = Promise.withResolvers();
+        owner.closing = closing.promise;
+        // Event/synchronous-construction callers cannot await; the iterator facade can.
+        owner.closing.catch(() => {});
+        controller.abort(new LlmError('Router closed the owned auxiliary stream', reason));
+        if (owner.call) service.#waiters.get(owner.call.id)?.resolve();
+        Promise.resolve().then(async () => {
+          const results = await Promise.allSettled([...owner.iterators].map(iterator => iterator.return()));
+          owner.drained = true; cleanup();
+          const failed = results.find(result => result.status === 'rejected');
+          if (failed) throw failed.reason;
+        }).then(closing.resolve, closing.reject);
+        return owner.closing;
+      }
       task.timeline.push({ kind: 'auxiliary-not-dispatched', nativePurpose: request.purpose ?? null, sourceEventSeq: source?.sourceEventSeq ?? null, reason });
       if (owner.call) service.settleCall(task.id, owner.call.id, { status: 'not-dispatched', usage: null, finishReason: 'unknown', failureCode: reason });
       controller.abort(new LlmError('Auxiliary stream closed before dispatch', reason));
@@ -328,7 +370,7 @@ export class RouterService extends TypertRemoteService {
     if (!existingCall) this.#automaticOwners.set(request, owner);
     const stream = (async function* () {
       owner.started = true;
-      let usage = null, finish = null, failureCode;
+      let failureCode;
       try {
         originalSignal.throwIfAborted(); controller.signal.throwIfAborted();
         if (!owner.call) {
@@ -347,8 +389,8 @@ export class RouterService extends TypertRemoteService {
         owner.call.dispatchState = 'request-confirmed';
         service.#ownedRequests.set(options, owner);
         for await (const chunk of prepared.stream(options)) {
-          if (chunk.type === 'usage') usage = chunk.usage;
-          if (chunk.type === 'finish') finish = chunk.reason;
+          if (chunk.type === 'usage') owner.usage = chunk.usage;
+          if (chunk.type === 'finish') owner.finish = chunk.reason;
           signal.throwIfAborted();
           yield chunk;
         }
@@ -356,16 +398,28 @@ export class RouterService extends TypertRemoteService {
         failureCode = typeof error.code === 'string' ? error.code : 'AUXILIARY_CALL_FAILED'; throw error;
       } finally {
         try {
-          if (owner.call && owners.has(owner)) {
-            const canceled = originalSignal.aborted || controller.signal.aborted;
-            const status = canceled || finish?.kind === 'aborted' || finish?.kind === 'max-tokens' ? 'interrupted' : finish?.kind === 'stop' ? 'completed' : 'failed';
-            if (status !== 'completed' && !canceled) task.auxiliaryPauseReason ??= finish?.failure?.code ?? failureCode ?? (finish?.kind === 'max-tokens' ? 'AUXILIARY_MAX_TOKENS' : 'AUXILIARY_CALL_FAILED');
-            service.settleCall(task.id, owner.call.id, { status, usage, finishReason: canceled ? 'aborted' : finish?.kind ?? 'unknown', failureCode: finish?.failure?.code ?? failureCode });
+          // Prepared middleware may manually consume our dispatch and omit its return().
+          // Close those exact children before settling or releasing task ownership.
+          const children = [...owner.iterators].filter(iterator => iterator !== stream);
+          if (children.length) {
+            if (!originalSignal.aborted && !controller.signal.aborted) task.auxiliaryPauseReason ??= failureCode ?? 'AUXILIARY_CALL_FAILED';
+            controller.abort(new LlmError('Router closed an abandoned prepared dispatch', failureCode ?? 'AUXILIARY_STREAM_CLOSED'));
+            const results = await Promise.allSettled(children.map(iterator => iterator.return()));
+            const rejected = results.find(result => result.status === 'rejected');
+            if (rejected) failureCode ??= typeof rejected.reason?.code === 'string' ? rejected.reason.code : 'AUXILIARY_CALL_FAILED';
           }
-        } finally { cleanup(); }
+          if (owner.call && owners.has(owner) && owner.call.reservation.state !== 'released') {
+            const { usage, finish } = owner;
+            const canceled = originalSignal.aborted || controller.signal.aborted;
+            const status = canceled || finish?.kind === 'aborted' || finish?.kind === 'max-tokens' ? 'interrupted' : !failureCode && finish?.kind === 'stop' ? 'completed' : 'failed';
+            if (status !== 'completed' && !canceled) task.auxiliaryPauseReason ??= finish?.failure?.code ?? failureCode ?? (finish?.kind === 'max-tokens' ? 'AUXILIARY_MAX_TOKENS' : 'AUXILIARY_CALL_FAILED');
+            service.settleCall(task.id, owner.call.id, { status, usage, finishReason: canceled ? 'aborted' : finish?.kind ?? 'unknown', failureCode: finish?.failure?.code ?? failureCode ?? owner.closeReason });
+          }
+        } finally { owner.iterators.delete(stream); cleanup(); }
       }
     })();
-    return this.#watchUnconsumed(stream, owner);
+    owner.iterators.add(stream);
+    return this.#watchOwnedStream(stream, owner);
   }
   #cancelOwnedCalls(task) {
     for (const owner of this.#ownedCalls.get(task.id) ?? []) owner.controller.abort(new LlmError('Router task stopped its auxiliary request', 'ABORTED'));
@@ -417,7 +471,11 @@ export class RouterService extends TypertRemoteService {
     if (details.nativePurpose !== undefined) call.nativePurpose = details.nativePurpose;
     this.#callSignals.set(call.id, signal);
     this.#persist();
-    await this.#waitBudget(task, call, signal);
+    try { await this.#waitBudget(task, call, signal); }
+    catch (error) {
+      if (!possiblyDispatched(call)) this.settleCall(taskId, call.id, { status: 'not-dispatched', usage: null, finishReason: signal.aborted ? 'aborted' : 'unknown', failureCode: typeof error?.code === 'string' ? error.code : 'CALL_RESERVATION_FAILED' });
+      throw error;
+    }
     return call.id;
   }
   async persistDispatchIntent(taskId, callId) {
@@ -505,6 +563,7 @@ export class RouterService extends TypertRemoteService {
     await this.flush();
     while (true) {
       signal.throwIfAborted();
+      for (const owner of this.#ownedCalls.get(task.id) ?? []) if (owner.call === call) owner.controller.signal.throwIfAborted();
       if (task.budget.stopRequested || task.nativeLifecycle === 'paused') throw new LlmError('Router task no longer permits another call', 'ABORTED');
       if (this.#storageError) throw new LlmError('Router storage is unavailable', 'MODEL_NOT_FOUND');
       const decision = budgetCheck(task, call);
