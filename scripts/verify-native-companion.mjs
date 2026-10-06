@@ -64,8 +64,7 @@ try {
     assert(['CONNECTION_REMOVED', 'FIXED_MODEL_UNAVAILABLE'].includes(task.pauseReason));
     await restoreConfig(restoreTarget);
     restored = true;
-    const restoredSession = await rpc('session/create', { request: { cwd: process.cwd() } });
-    const defaultAfter = (await rpc('session/projections', { request: { sessionId: restoredSession.sessionId } }))?.values?.modelSelection?.next ?? null;
+    const defaultAfter = (await rpc('session/modelCatalog')).default;
     assert.deepEqual(defaultAfter, prior.defaultBefore, 'Native default changed across companion lifecycle');
     const history = (await rpc('router/snapshot')).tasks.map(item => item.id);
     assert(history.includes(prior.taskId), 'Executed companion task history was not retained');
@@ -76,8 +75,7 @@ try {
     assert.equal(candidate.enabled, false);
     await rpc('router/setAutomatic', { automatic: false });
     await rpc('router/setFixedModel', { candidateId: null });
-    const baselineSession = await rpc('session/create', { request: { cwd: process.cwd() } });
-    const defaultBefore = (await rpc('session/projections', { request: { sessionId: baselineSession.sessionId } }))?.values?.modelSelection?.next ?? null;
+    const defaultBefore = (await rpc('session/modelCatalog')).default;
     const preEnable = await runTask('Reply PRE_ENABLE_CONTROL');
     assert(preEnable.task.calls.every(call => call.selection.provider !== PROVIDER), 'A disabled native candidate received a call');
     await rpc('router/setModelEnabled', { candidateId: candidate.candidateId, enabled: true });
