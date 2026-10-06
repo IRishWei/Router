@@ -311,9 +311,12 @@ test('a disk fault during a native request keeps routing paused after the respon
     }
     ctx.llm.registerAdapter(['native-local'], new WaitingLocal());
     const handle = await ctx.agents.create({ sessionId: 'disk-task-session', agentOptions: { provider: 'native-local', model: 'waiting' } });
-    armed = true;
     handle.agent.followup(createUserMessage({ content: [{ type: 'text', text: 'A task with a local storage fault' }] }));
     await entered.promise;
+    // T03 persists the reservation before dispatch. Trigger this fault only
+    // after the external stream has genuinely begun, as this test describes.
+    armed = true;
+    await assert.rejects(ctx.router.setAutomatic(false), /storage is unavailable/i);
     await ctx.router.flush();
     assert.equal((await ctx.router.snapshot()).tasks[0].pauseReason, 'STATE_WRITE_FAILED');
     release.resolve();
