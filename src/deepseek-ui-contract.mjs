@@ -178,7 +178,8 @@ function detectionView(task, request, capture) {
       || captured?.candidateId !== capture.candidateId
       || !sameIdentity(item.selection, capture.identity)
       || !sameIdentity(captured?.identity, capture.identity)
-      || captured?.registryEpoch !== capture.registryEpoch
+      || !Number.isSafeInteger(captured?.registryEpoch)
+      || captured.registryEpoch < capture.registryEpoch
       || captured?.authEpoch !== capture.authEpoch
       || captured?.connectionConfigRevision !== capture.connectionConfigRevision) {
       throw new TypeError('Detection Call does not use the resolved candidate snapshot');

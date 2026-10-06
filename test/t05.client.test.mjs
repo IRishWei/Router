@@ -345,6 +345,14 @@ test('DeepSeek detection accepts its canonical capture when an unrelated catalog
     disconnect: async () => { throw new Error('unused'); },
     runDetection: async input => {
       const task = detectionTask(input, selected, input.selectionSnapshot);
+      task.calls.push({
+        ...structuredClone(task.calls[0]),
+        id: 'call-detection-title',
+        purpose: 'title',
+        selectionSnapshot: { ...structuredClone(task.calls[0].selectionSnapshot), registryEpoch: 3 },
+      });
+      task.ledger.callCount = 2;
+      task.ledger.unknownPriceCalls = 2;
       host.tasks.push(task);
       host.candidateSnapshot = { ...host.candidateSnapshot, epoch: 3, snapshotEpoch: 3 };
       return { taskId: task.id };

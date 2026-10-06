@@ -39,9 +39,10 @@ T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
   1–4096 token、1–60000 ms。客户端只提交 candidateId 和预算；Host 从 T08
   权威 candidate snapshot 解析模型，在执行前取得 canonical candidate capture，
   并逐 Call 核对五元身份、registry/auth epoch、配置 revision、账本和完全相同
-  的有限预算。检测结果必须是该次执行后 Router 快照中新建的 Task，不能复用
-  历史 Task；执行后无关候选刷新不会因全局目录 epoch 增长而误判。无价格必须
-  显示为 unknown。
+  的有限预算。Call 的 registry epoch 不得早于初始 capture；同一 Task 后续 Call
+  因无关目录刷新取得更大 epoch 时仍有效，auth epoch 与配置 revision 则必须一致。
+  检测结果必须是该次执行后 Router 快照中新建的 Task，不能复用历史 Task；执行
+  后无关候选刷新不会因全局目录 epoch 增长而误判。无价格必须显示为 unknown。
 
 ## 自动验证
 

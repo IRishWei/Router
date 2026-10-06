@@ -91,16 +91,27 @@ test('DeepSeek metadata projects once into the public owned registry schema', ()
 
 test('a registered DeepSeek candidate completes main and title calls with an unknown-price ledger', async () => {
   const requests = [];
+  let ctx;
+  let unrelatedDispose;
   const endpoint = await listen(async (request, response) => {
     const body = [];
     for await (const chunk of request) body.push(chunk);
     requests.push({ headers: request.headers, body: JSON.parse(Buffer.concat(body).toString()) });
+    if (requests.length === 1) {
+      const metadata = createDeepSeekConnectionMetadata({
+        connectionId: `connection-unrelated-${crypto.randomUUID()}`,
+        accountId: `account-unrelated-${crypto.randomUUID()}`,
+        configRevision: 1,
+        credentialGeneration: `generation-unrelated-${crypto.randomUUID()}`,
+        credential: { configured: true, kind: 'api-key', writable: true },
+      });
+      unrelatedDispose = ctx.router.registerOwned(deepSeekOwnedSource(metadata));
+    }
     response.writeHead(200, { 'content-type': 'text/event-stream' });
     response.end(completedSse('DEEPSEEK_ROUTER_OK'));
   });
   const home = await mkdtemp(join(tmpdir(), 'router-t05-task-'));
   const secret = 'controlled-router-task-secret';
-  let ctx;
   let connection;
   try {
     ctx = await startNative(home);
@@ -130,6 +141,7 @@ test('a registered DeepSeek candidate completes main and title calls with an unk
     await ctx.router.setBudgetDefaults({ tokens: 64, durationMs: 5_000, money: [] });
     await ctx.router.setModelEnabled(candidate.candidateId, true);
     await ctx.router.setFixedModel(candidate.candidateId);
+    const initialCapture = await ctx.router.captureCandidate(candidate.candidateId);
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     await submit(ctx, sessionId, 'Reply DEEPSEEK_ROUTER_OK');
     const task = (await waitFor(ctx, state => {
@@ -142,6 +154,10 @@ test('a registered DeepSeek candidate completes main and title calls with an unk
     assert.deepEqual(task.calls.map(call => call.nativePurpose ?? call.purpose).sort(), ['execution', 'session-title']);
     assert.equal(task.calls.every(call => call.candidateId === candidate.candidateId && call.dispatchStarted && call.status === 'completed'), true);
     assert.equal(task.calls.every(call => call.quoteVersion === null && call.priceQuote === null), true);
+    const execution = task.calls.find(call => (call.nativePurpose ?? call.purpose) === 'execution');
+    const title = task.calls.find(call => (call.nativePurpose ?? call.purpose) === 'session-title');
+    assert.deepEqual(execution.selectionSnapshot, initialCapture);
+    assert.deepEqual(title.selectionSnapshot, initialCapture);
     assert.equal(task.ledger.tokens.total, 16);
     assert.equal(task.ledger.unknownPriceCalls, 2);
     assert.deepEqual(task.ledger.money, []);
@@ -149,9 +165,11 @@ test('a registered DeepSeek candidate completes main and title calls with an unk
     assert.equal(requests.every(request => request.headers['x-api-key'] === secret), true);
     assert.equal(requests.every(request => request.body.model === 'deepseek-flash'), true);
     const after = await ctx.router.snapshot();
+    assert.equal((await ctx.router.captureCandidate(candidate.candidateId)).registryEpoch > initialCapture.registryEpoch, true);
     assert.equal(after.models.find(model => model.candidateId === candidate.candidateId).inferenceVerification.status, 'verified');
     assert.equal(JSON.stringify(after).includes(secret), false);
   } finally {
+    unrelatedDispose?.();
     if (connection) await connection.disconnect();
     if (ctx) await ctx.fiber.dispose();
     await endpoint.close();
