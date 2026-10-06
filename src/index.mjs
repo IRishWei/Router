@@ -1,13 +1,16 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { LlmAdapter, LlmError } from '@deepseek-ai/dsh-llm';
+import { LlmAdapter, LlmError, lastAssistantStreamChunk } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 
 export const inject = ['llm', 'profileContext'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
 export const CONTROLLED_MODEL = 'controlled';
-const selection = () => ({ connectionId: 'controlled-local', accountId: 'local', billingPath: 'controlled', provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL });
+function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
+  const identity = config.provider === CONTROLLED_PROVIDER ? { connectionId: 'controlled-local', accountId: 'local', billingPath: 'controlled' } : { connectionId: `dsh-native:${config.provider}`, accountId: 'unknown', billingPath: 'unknown' };
+  return { ...identity, provider: config.provider, model: config.model };
+}
 
 /** A local fixture: never reads credentials, opens a socket, or calls a model service. */
 class ControlledAdapter extends LlmAdapter {
@@ -35,24 +38,44 @@ class ControlledAdapter extends LlmAdapter {
 export class RouterService extends TypertRemoteService {
   #state;
   #path;
+  #files;
   #writes = Promise.resolve();
   #storageError;
   #active = new Map();
-  constructor(ctx, state, path) {
+  #inflight = new Map();
+  constructor(ctx, state, path, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
     this.#path = path;
+    this.#files = files;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     for (const method of ['snapshot', 'setAutomatic', 'flush']) this[method] = this[method].bind(this);
     for (const method of ['snapshot', 'setAutomatic']) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
     ctx.on('session/event', (session, event) => this.#observe(session, event));
+    ctx.on('agent/assistant-stream', ({ agent, frame }) => {
+      if (frame.type === 'start') {
+        const task = this.#active.get(`${agent.session.id}:${frame.turn}`);
+        const call = task?.calls.find(item => item.step === frame.step && item.status === 'prepared' && !item.hostAttemptId);
+        if (!call) return;
+        call.hostAttemptId = frame.attemptId;
+        this.#inflight.set(agent.session.id, call);
+        this.#confirm(task, agent.session.requestHeader().config, call);
+        this.#persist();
+      } else if (frame.type === 'end') {
+        const call = this.#inflight.get(agent.session.id);
+        if (call?.hostAttemptId !== frame.attemptId) return;
+        if (frame.outcome.kind === 'abandoned' && call.status === 'prepared') call.status = 'failed';
+        this.#inflight.delete(agent.session.id);
+        this.#persist();
+      }
+    });
     ctx.on('agent/request', async ({ agent, turn, step }, next) => {
       const config = await next();
       const task = this.#active.get(`${agent.session.id}:${turn}`);
       if (task) {
-        task.activeSelection = config.provider === CONTROLLED_PROVIDER ? selection() : { connectionId: `dsh-native:${config.provider}`, accountId: 'unknown', billingPath: 'unknown', provider: config.provider, model: config.model };
+        task.activeSelection = selection(config);
         task.configVersion = this.#state.config.version;
         task.calls.push({ id: randomUUID(), taskId: task.id, purpose: 'execution', attempt: task.calls.length + 1, step, selection: { ...task.activeSelection }, configVersion: task.configVersion, status: 'prepared', dispatchState: 'proposed', usage: null });
         task.timeline.push({ kind: 'selection', reason: this.#state.config.automatic && config.provider === CONTROLLED_PROVIDER ? 'single-controlled-model' : 'native-routing', provider: config.provider, model: config.model, configVersion: task.configVersion });
@@ -72,6 +95,8 @@ export class RouterService extends TypertRemoteService {
     if (this.#storageError) throw new Error('Router storage is unavailable; repair DSH-local storage before changing settings');
     this.#state.config = { ...this.#state.config, automatic, version: this.#state.config.version + 1 };
     this.#persist();
+    await this.flush();
+    if (this.#storageError) throw new Error('Router storage is unavailable; the settings change was not persisted');
     return this.snapshot();
   }
   async flush() { await this.#writes; }
@@ -79,9 +104,11 @@ export class RouterService extends TypertRemoteService {
     if (this.#storageError) return;
     const serialized = JSON.stringify(this.#state, null, 2);
     this.#writes = this.#writes.then(async () => {
+      // An earlier queued write may have failed since this snapshot was queued.
+      if (this.#storageError) return;
       const temporary = `${this.#path}.tmp`;
-      await writeFile(temporary, serialized, { encoding: 'utf8', mode: 0o600 });
-      await rename(temporary, this.#path);
+      await this.#files.writeFile(temporary, serialized, { encoding: 'utf8', mode: 0o600 });
+      await this.#files.rename(temporary, this.#path);
     }).catch(() => {
       this.#storageError = 'STATE_WRITE_FAILED';
       this.#state.config.automatic = false;
@@ -103,18 +130,25 @@ export class RouterService extends TypertRemoteService {
     }
     const task = this.#active.get(`${session.id}:${event.data.turn}`);
     if (!task) return;
-    if (event.type === 'assistant/message') {
+    if (event.type === 'assistant/message' || event.type === 'assistant/attempt') {
+      const call = this.#inflight.get(session.id);
+      if (!call || call.taskId !== task.id || call.step !== event.data.step || call.settlementSeq !== undefined) return;
       // Unchanged requests inherit the previous durable header.
-      this.#confirm(task, session.requestHeader().config);
-      task.result += event.data.message.content.filter(item => item.type === 'text').map(item => item.text).join('');
-      const call = task.calls.at(-1);
-      if (call) { call.status = event.data.interrupted ? 'interrupted' : 'completed'; call.usage = event.data.usage ?? null; }
+      this.#confirm(task, session.requestHeader().config, call);
+      if (event.type === 'assistant/message') task.result += event.data.message.content.filter(item => item.type === 'text').map(item => item.text).join('');
+      const finish = lastAssistantStreamChunk(event.data.stream ?? [], 'finish')?.reason;
+      call.status = event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed';
+      call.usage = event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null;
+      call.settlementSeq = event.seq;
+      call.finishReason = finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop');
+      if (finish?.failure?.code) call.failureCode = finish.failure.code;
+      task.timeline.push({ kind: 'call-settlement', callId: call.id, hostAttemptId: call.hostAttemptId, status: call.status, reason: call.finishReason });
     }
     if (event.type === 'turn/end') {
       const reason = event.data.reason;
-      task.lifecycle = reason?.kind === 'error' || reason?.kind === 'aborted' ? 'paused' : 'completed';
+      task.lifecycle = reason?.kind === 'completed' && !this.#storageError ? 'completed' : 'paused';
       if (task.lifecycle === 'paused') {
-        task.pauseReason = reason?.error?.code ?? 'INTERRUPTED';
+        task.pauseReason = this.#storageError ?? reason?.error?.code ?? reason?.kind ?? 'UNKNOWN_TERMINAL';
         task.fault = { kind: ['CONNECTION', 'AUTH', 'RATE_LIMIT', 'NO_ADAPTER'].includes(task.pauseReason) ? 'connection' : 'execution', code: task.pauseReason, retryable: task.pauseReason === 'CONNECTION' || task.pauseReason === 'RATE_LIMIT' };
         const call = task.calls.at(-1);
         if (call && call.status === 'prepared') call.status = 'failed';
@@ -125,9 +159,8 @@ export class RouterService extends TypertRemoteService {
     }
     this.#persist();
   }
-  #confirm(task, config) {
-    task.activeSelection = config.provider === CONTROLLED_PROVIDER ? { ...selection(), model: config.model } : { connectionId: `dsh-native:${config.provider}`, accountId: 'unknown', billingPath: 'unknown', provider: config.provider, model: config.model };
-    const call = task.calls.at(-1);
+  #confirm(task, config, call = task.calls.at(-1)) {
+    task.activeSelection = selection(config);
     if (call) {
       call.selection = { ...task.activeSelection };
       call.dispatchState = 'header-confirmed';
@@ -148,7 +181,7 @@ export async function apply(ctx) {
   state ??= { schemaVersion: 1, config: { automatic: true, version: 1 }, tasks: [] };
   if (state.schemaVersion !== 1 || typeof state.config?.automatic !== 'boolean' || !Number.isSafeInteger(state.config?.version) || !Array.isArray(state.tasks)) throw new Error('Unsupported DSH Router state schema');
   for (const task of state.tasks) if (task.lifecycle === 'running') { task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; }
-  new RouterService(ctx, state, path);
+  new RouterService(ctx, state, path, ctx.get('routerFileSystem'));
   ctx.llm.registerAdapter([CONTROLLED_PROVIDER], new ControlledAdapter());
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.
 }
