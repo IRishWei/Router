@@ -1,11 +1,25 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createHash, randomUUID } from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { startNative, submit } from './t02-harness.mjs';
 import { AcceptanceCoordinator } from '../src/acceptance.mjs';
-import { LlmAdapter, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
+import { LlmAdapter, LlmError, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
+
+const digest = value => createHash('sha256').update(value).digest('hex');
+const runFixedNode = (cwd, args) => new Promise((resolve, reject) => {
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  const child = spawn(process.execPath, args, { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  let stdout = '', stderr = '';
+  child.stdout.on('data', chunk => { stdout += chunk; });
+  child.stderr.on('data', chunk => { stderr += chunk; });
+  child.once('error', reject);
+  child.once('close', exitCode => resolve({ exitCode, stdout, stderr }));
+});
 
 async function waitFor(ctx, predicate) {
   const until = Date.now() + 3_000;
@@ -19,14 +33,17 @@ async function waitFor(ctx, predicate) {
 
 class ReviewFixture extends LlmAdapter {
   reviews = [];
+  requests = [];
   #verdicts;
   constructor(verdicts = ['passed']) { super(); this.#verdicts = verdicts; }
   async *stream(request) {
+    this.requests.push(request);
     let text = 'ARTICLE';
     if (!isAgentLoopRequest(request)) {
       const input = JSON.parse(request.messages.find(message => message.role === 'user').content[0].text);
       this.reviews.push(input);
       const verdict = this.#verdicts[Math.min(this.reviews.length - 1, this.#verdicts.length - 1)];
+      if (verdict === 'transport-error') throw new LlmError('Controlled review transport failed', 'TRANSPORT');
       text = verdict === 'invalid-json' ? '{not-json' : JSON.stringify({ artifactHash: input.artifact.hash, requirementHash: input.requirementHash, findings: input.requirements.map(rule => ({ requirementId: rule.id, verdict, artifactQuote: 'ARTICLE', explanation: 'Controlled rubric evidence; no empirical quality claim.' })) });
     }
     yield { type: 'text-delta', index: 0, text };
@@ -34,6 +51,57 @@ class ReviewFixture extends LlmAdapter {
     yield { type: 'finish', reason: { kind: 'stop' } };
   }
 }
+
+async function enableReviewCandidate(ctx, provider) {
+  const dispose = ctx.router.registerOwned({
+    provider,
+    connectionId: `t13-review:${provider}`,
+    accountId: 'controlled-review',
+    billingPath: 'controlled-review',
+    ownership: 'router-owned',
+    source: 't13-review-test-registration',
+    sourceKey: `t13-review:${provider}:v1`,
+    configRevision: 1,
+    configured: true,
+    authorizationStatus: 'configured',
+    models: [{
+      model: 'rubric',
+      name: 'Controlled rubric reviewer',
+      maxContextTokens: 8192,
+      capability: {
+        text: { supported: true, confidence: 'declared' },
+        image: { supported: false, confidence: 'declared' },
+        tools: { supported: false, confidence: 'declared' },
+      },
+    }],
+  });
+  const candidate = (await ctx.router.snapshot()).candidateSnapshot.candidates.find(item => item.identity.provider === provider && item.identity.model === 'rubric');
+  assert(candidate, 'Registered review candidate missing');
+  await ctx.router.setModelEnabled(candidate.candidateId, true);
+  return { candidateId: candidate.candidateId, dispose };
+}
+
+const captureRegisteredCandidate = ctx => async (candidateId, { signal } = {}) => {
+  signal?.throwIfAborted();
+  const snapshot = await ctx.router.refreshConnections();
+  signal?.throwIfAborted();
+  const candidate = snapshot.candidateSnapshot.candidates.find(item => item.candidateId === candidateId);
+  assert(candidate, 'Review candidate capture missing');
+  const { quoteVersion = null, ...quote } = candidate.quote ?? {};
+  return structuredClone({
+    candidateId: candidate.candidateId,
+    identity: candidate.identity,
+    registryEpoch: snapshot.candidateSnapshot.snapshotEpoch,
+    connectionConfigRevision: candidate.connectionConfigRevision,
+    authEpoch: candidate.authEpoch,
+    capability: candidate.capability,
+    capabilities: candidate.capabilities,
+    maxContextTokens: candidate.capabilities.maxContextTokens,
+    quote: candidate.quote === null ? null : quote,
+    quoteVersion,
+    enabled: candidate.routerAuthorization.status === 'enabled',
+  });
+};
 
 test('a complete writing task checks its final artifact against explicitly selected literal requirements', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t13-writing-'));
@@ -60,7 +128,10 @@ test('a complete writing task checks its final artifact against explicitly selec
     assert.equal(result.coverage.required, 1);
     assert.equal(result.coverage.covered, 1);
     assert.equal(result.evidence[0].source.kind, 'deterministic-rule');
+    assert.deepEqual(result.limitations, ['finite-explicit-requirement-dsl', 'no-overall-quality-guarantee']);
     assert.equal(result.requirements[0].origin.messageId, task.inputs[0].messageId);
+    assert.deepEqual(task.acceptance, result);
+    assert.deepEqual(ctx.router.exactTask(sessionId, task.turn).acceptance, result);
     assert.equal(task.calls.length, 1);
     assert.equal(task.lifecycle, 'completed');
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
@@ -71,7 +142,8 @@ test('a rubric review is anonymous, belongs to the original task and is included
   const ctx = await startNative(home);
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-controlled'], adapter);
-  const acceptance = new AcceptanceCoordinator(ctx, { review: { enabled: true, selection: { connectionId: 'dsh-native:review-controlled', accountId: 'unknown', billingPath: 'unknown', provider: 'review-controlled', model: 'rubric' }, forecast: { totalTokens: 12 } } });
+  const registered = await enableReviewCandidate(ctx, 'review-controlled');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
@@ -80,17 +152,21 @@ test('a rubric review is anonymous, belongs to the original task and is included
     assert.equal(result.evidence[0].source.kind, 'model-review');
     assert.equal(task.calls.length, 2);
     assert.equal(task.calls[1].purpose, 'review');
+    assert.equal(task.calls[1].candidateId, registered.candidateId);
+    assert.equal(task.calls[1].selectionSnapshot.candidateId, registered.candidateId);
     assert.equal(task.calls[1].reservation.state, 'settled');
     assert.equal(task.ledger.tokens.total, 24);
     assert.equal(result.reviews[0].callId, task.calls[1].id);
     assert.equal(adapter.reviews.length, 1);
+    assert.equal(adapter.requests.length, 1);
+    assert.equal(adapter.requests[0].maxTokens, 256);
     const input = adapter.reviews[0];
     for (const field of ['provider', 'model', 'accountId', 'connectionId', 'billingPath', 'strategy', 'cost', 'configVersion']) assert.equal(Object.hasOwn(input, field), false);
     assert.equal(Object.hasOwn(input.artifact, 'sessionId'), false);
     assert.equal(Object.hasOwn(input.requirements[0], 'origin'), false);
     assert.equal(ctx.sessions.get(sessionId).requestHeader().config.provider, 'router-controlled');
     assert.equal(task.result, 'ARTICLE');
-  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('writing length counts Unicode characters with an explicit unit and records the measured value', async () => {
@@ -151,28 +227,47 @@ test('an explicit writing structure checks ordered literal sections in the final
 
 test('trusted Host checks keep programming behavior, build and missing test coverage separate', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t13-programming-'));
+  const sourcePath = join(home, 'src', 'add.mjs');
+  const testPath = join(home, 'test', 'add.test.mjs');
+  await mkdir(join(home, 'src'), { recursive: true });
+  await mkdir(join(home, 'test'), { recursive: true });
+  await writeFile(sourcePath, 'export const add = (left, right) => left - right;\n');
+  await writeFile(testPath, "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { add } from '../src/add.mjs';\ntest('adds', () => assert.equal(add(1, 2), 3));\n");
+  const sourceHash = digest(await readFile(sourcePath));
   const ctx = await startNative(home);
   const executed = [];
+  const artifactRef = scopePaths => ({ kind: 'workspace-file', path: sourcePath, hash: sourceHash, revision: 1, scope: { workspace: home, paths: scopePaths } });
+  const fixedPlans = {
+    'behavior-add': { args: ['--test', testPath], artifactRef: artifactRef([sourcePath, testPath]), version: 1, commandId: 'node-test-file-v1' },
+    'build-app': { args: ['--check', sourcePath], artifactRef: artifactRef([sourcePath]), version: 1, commandId: 'node-check-file-v1' },
+  };
   ctx.tools.register({
     name: 'router_acceptance_check',
-    description: 'Execute one fixed acceptance plan from the Host test fixture',
+    description: 'Execute one fixed authorized project check from the Host test fixture',
     parameters: { type: 'object', properties: { planId: { type: 'string' } }, required: ['planId'], additionalProperties: false },
     output: {
-      schema: { type: 'object', properties: { planId: { type: 'string' }, outcome: { type: 'string', enum: ['passed', 'failed'] }, evidenceRef: { type: 'string' } }, required: ['planId', 'outcome', 'evidenceRef'], additionalProperties: false },
+      schema: { type: 'object', additionalProperties: true },
       render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
     },
     async execute(args) {
       executed.push(args.planId);
-      return args.planId === 'behavior-add'
-        ? { planId: args.planId, outcome: 'failed', evidenceRef: 'fixture://behavior/add' }
-        : { planId: args.planId, outcome: 'passed', evidenceRef: 'fixture://build/app' };
+      const plan = fixedPlans[args.planId];
+      assert(plan, 'Only fixed Host plans may execute');
+      const execution = await runFixedNode(home, plan.args);
+      return {
+        planId: args.planId,
+        outcome: execution.exitCode === 0 ? 'passed' : 'failed',
+        evidenceRef: `tool-result:v1:${args.planId}:${digest(`${execution.exitCode}\0${execution.stdout}\0${execution.stderr}`)}`,
+        artifactRef: { ...plan.artifactRef, privateMetadata: 'must-not-be-published' },
+        execution: { planVersion: plan.version, commandId: plan.commandId, exitCode: execution.exitCode, outputHash: digest(`${execution.stdout}\0${execution.stderr}`), privateMetadata: 'must-not-be-published' },
+      };
     },
   });
   const acceptance = new AcceptanceCoordinator(ctx, {
     checks: {
       plans: {
-        'behavior-add': { authorized: true, kind: 'behavior', toolName: 'router_acceptance_check', arguments: { planId: 'behavior-add' }, authorizationRef: 'host-plan:v1:behavior-add' },
-        'build-app': { authorized: true, kind: 'build', toolName: 'router_acceptance_check', arguments: { planId: 'build-app' }, authorizationRef: 'host-plan:v1:build-app' },
+        'behavior-add': { authorized: true, kind: 'behavior', toolName: 'router_acceptance_check', arguments: { planId: 'behavior-add' }, authorizationRef: 'host-plan:v1:behavior-add', artifactRef: fixedPlans['behavior-add'].artifactRef, version: 1, commandId: 'node-test-file-v1' },
+        'build-app': { authorized: true, kind: 'build', toolName: 'router_acceptance_check', arguments: { planId: 'build-app' }, authorizationRef: 'host-plan:v1:build-app', artifactRef: fixedPlans['build-app'].artifactRef, version: 1, commandId: 'node-check-file-v1' },
       },
     },
   });
@@ -187,8 +282,50 @@ test('trusted Host checks keep programming behavior, build and missing test cove
     assert.equal(result.evidence[0].source.checkKind, 'behavior');
     assert.equal(result.evidence[1].source.checkKind, 'build');
     assert.equal(result.evidence[2].reason, 'CHECK_NOT_AUTHORIZED');
+    assert.equal(result.evidence[0].artifactHash, sourceHash);
+    assert.deepEqual(result.evidence[0].artifactRef, fixedPlans['behavior-add'].artifactRef);
+    assert.equal(Object.hasOwn(result.evidence[0].artifactRef, 'privateMetadata'), false);
+    assert.equal(result.evidence[0].source.execution.commandId, 'node-test-file-v1');
+    assert.equal(Object.hasOwn(result.evidence[0].source.execution, 'privateMetadata'), false);
+    assert.notEqual(result.evidence[0].source.execution.exitCode, 0);
+    assert.equal(result.evidence[1].source.execution.commandId, 'node-check-file-v1');
+    assert.equal(result.evidence[1].source.execution.exitCode, 0);
     assert.equal(result.coverage.covered, 2);
     assert.equal(result.coverage.uncovered.length, 1);
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('Host checks reject out-of-workspace plans and forged execution bindings', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-check-trust-'));
+  const sourcePath = join(home, 'source.mjs');
+  await writeFile(sourcePath, 'export default true;\n');
+  const sourceHash = digest(await readFile(sourcePath));
+  const validRef = { kind: 'workspace-file', path: sourcePath, hash: sourceHash, revision: 1, scope: { workspace: home, paths: [sourcePath] } };
+  const outsidePath = join(tmpdir(), `outside-${randomUUID()}.mjs`);
+  const ctx = await startNative(home);
+  const executed = [];
+  ctx.tools.register({
+    name: 'router_acceptance_trust_check',
+    description: 'Return controlled trust-boundary evidence',
+    parameters: { type: 'object', properties: { planId: { type: 'string' } }, required: ['planId'], additionalProperties: false },
+    output: { schema: { type: 'object', additionalProperties: true }, render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }] },
+    async execute({ planId }) {
+      executed.push(planId);
+      return { planId, outcome: 'passed', evidenceRef: `tool-result:v1:${planId}`, artifactRef: { ...validRef, revision: 2 }, execution: { planVersion: 1, commandId: 'fixed-check-v1', exitCode: 0, outputHash: digest('forged') } };
+    },
+  });
+  const acceptance = new AcceptanceCoordinator(ctx, { checks: { plans: {
+    'forged-result': { authorized: true, kind: 'behavior', toolName: 'router_acceptance_trust_check', arguments: { planId: 'forged-result' }, authorizationRef: 'host-plan:v1:forged-result', artifactRef: validRef, version: 1, commandId: 'fixed-check-v1' },
+    'outside-plan': { authorized: true, kind: 'build', toolName: 'router_acceptance_trust_check', arguments: { planId: 'outside-plan' }, authorizationRef: 'host-plan:v1:outside-plan', artifactRef: { kind: 'workspace-file', path: outsidePath, hash: sourceHash, revision: 1, scope: { workspace: home, paths: [outsidePath] } }, version: 1, commandId: 'fixed-check-v1' },
+  } } });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n编程行为「真实行为」由可信检查「forged-result」验证。\n必须通过构建检查「outside-plan」。');
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'unconfirmed');
+    assert.deepEqual(executed, ['forged-result']);
+    assert.deepEqual(result.evidence.map(item => item.reason), ['CHECK_RESULT_INVALID', 'CHECK_NOT_AUTHORIZED']);
+    assert.equal(result.coverage.covered, 0);
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
@@ -197,7 +334,8 @@ test('a high-risk rubric gets at most one re-review and conflicting findings sta
   const ctx = await startNative(home);
   const adapter = new ReviewFixture(['passed', 'failed']);
   ctx.llm.registerAdapter(['review-conflict'], adapter);
-  const acceptance = new AcceptanceCoordinator(ctx, { review: { enabled: true, selection: { connectionId: 'dsh-native:review-conflict', accountId: 'unknown', billingPath: 'unknown', provider: 'review-conflict', model: 'rubric' }, forecast: { totalTokens: 12 } } });
+  const registered = await enableReviewCandidate(ctx, 'review-conflict');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n高风险评审标准：「正文没有危险遗漏」。');
@@ -209,7 +347,7 @@ test('a high-risk rubric gets at most one re-review and conflicting findings sta
     assert.equal(task.ledger.tokens.total, 36);
     assert.equal(result.evidence[0].verdict, 'unconfirmed');
     assert.equal(result.evidence[0].reason, 'REVIEW_CONFLICT');
-  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('invalid review JSON may consume one bounded re-review but cannot establish success', async () => {
@@ -217,7 +355,8 @@ test('invalid review JSON may consume one bounded re-review but cannot establish
   const ctx = await startNative(home);
   const adapter = new ReviewFixture(['invalid-json', 'passed']);
   ctx.llm.registerAdapter(['review-invalid'], adapter);
-  const acceptance = new AcceptanceCoordinator(ctx, { review: { enabled: true, selection: { connectionId: 'dsh-native:review-invalid', accountId: 'unknown', billingPath: 'unknown', provider: 'review-invalid', model: 'rubric' }, forecast: { totalTokens: 12 } } });
+  const registered = await enableReviewCandidate(ctx, 'review-invalid');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
@@ -226,7 +365,137 @@ test('invalid review JSON may consume one bounded re-review but cannot establish
     assert.equal(result.reviews.length, 2);
     assert.equal(task.calls.length, 3);
     assert.equal(result.evidence[0].reason, 'REVIEW_INVALID_OR_INCOMPLETE');
-  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('persisted Task review Calls keep the two-attempt limit after coordinator and Host restart', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-review-restart-cap-'));
+  let ctx = await startNative(home);
+  let registered;
+  try {
+    const adapter = new ReviewFixture(['passed', 'passed']);
+    ctx.llm.registerAdapter(['review-restart-cap'], adapter);
+    registered = await enableReviewCandidate(ctx, 'review-restart-cap');
+    new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const firstTask = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n高风险评审标准：「正文没有危险遗漏」。');
+    assert.equal(firstTask.calls.filter(call => call.purpose === 'review').length, 2);
+    registered.dispose(); registered = null;
+    await ctx.router.flush();
+    await ctx.fiber.dispose();
+
+    ctx = await startNative(home);
+    const listeners = new Map();
+    const acceptanceCtx = { router: ctx.router, tools: ctx.tools, on: (name, listener) => { listeners.set(name, listener); } };
+    const acceptance = new AcceptanceCoordinator(acceptanceCtx, {
+      captureCandidate: async () => { throw new Error('The persisted review limit must prevent candidate capture'); },
+      review: { enabled: true, candidateId: 'removed-review-candidate', allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } },
+    });
+    const agent = { session: { id: sessionId }, inbox: { nextStep: [] } };
+    const message = { id: 'restart-review-user', source: { kind: 'user', rpcId: 'restart-review-rpc' }, content: [{ type: 'text', text: '仅检查以下明确要求：\n评审标准：「正文没有危险遗漏」。' }] };
+    listeners.get('session/event')(agent.session, { type: 'user/message', seq: 10_001, data: { id: message.id } });
+    listeners.get('agent/inbox/claimed')({ agent, turn: firstTask.turn, message });
+    listeners.get('session/event')(agent.session, { type: 'assistant/message', seq: 10_002, data: { turn: firstTask.turn, step: 1, interrupted: false, message: { id: 'restart-review-artifact', content: [{ type: 'text', text: 'ARTICLE' }] }, stream: [{ type: 'chunk', chunk: { type: 'finish', reason: { kind: 'stop' } } }] } });
+    await listeners.get('agent/turn-stopping')({ agent, turn: firstTask.turn, signal: new AbortController().signal });
+    const result = acceptance.getResult(firstTask.id);
+    assert.equal(result.verdict, 'unconfirmed');
+    assert.equal(result.reviews.length, 0);
+    assert.equal(ctx.router.exactTask(sessionId, firstTask.turn).calls.filter(call => call.purpose === 'review').length, 2);
+    assert.equal(result.requirements[0].kind, 'rubric');
+    assert.equal(result.artifact.complete, true);
+    assert.equal(result.evidence[0].reason, 'REVIEW_ATTEMPT_LIMIT');
+  } finally {
+    registered?.dispose();
+    await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('a different review candidate needs an explicit collaboration grant', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-review-permission-'));
+  const ctx = await startNative(home);
+  const adapter = new ReviewFixture();
+  ctx.llm.registerAdapter(['review-permission'], adapter);
+  const registered = await enableReviewCandidate(ctx, 'review-permission');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'unconfirmed');
+    assert.equal(result.reviews.length, 1);
+    assert.equal(result.reviews[0].reason, 'CROSS_MODEL_REVIEW_NOT_AUTHORIZED');
+    assert.equal(task.calls.length, 1);
+    assert.equal(adapter.reviews.length, 0);
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('a review requires an explicit token cap covered by its budget forecast', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-review-limit-'));
+  const ctx = await startNative(home);
+  const adapter = new ReviewFixture();
+  ctx.llm.registerAdapter(['review-limit'], adapter);
+  const registered = await enableReviewCandidate(ctx, 'review-limit');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 12 } } });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'unconfirmed');
+    assert.equal(result.reviews.length, 1);
+    assert.equal(result.reviews[0].reason, 'REVIEW_LIMIT_NOT_CONFIGURED');
+    assert.equal(task.calls.length, 1);
+    assert.equal(adapter.reviews.length, 0);
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('a review transport failure pauses the Task and preserves its main artifact', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-review-transport-'));
+  const ctx = await startNative(home);
+  const adapter = new ReviewFixture(['transport-error']);
+  ctx.llm.registerAdapter(['review-transport'], adapter);
+  const registered = await enableReviewCandidate(ctx, 'review-transport');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'unconfirmed');
+    assert.equal(result.artifact.text, 'ARTICLE');
+    assert.equal(result.reviews.length, 1);
+    assert.equal(result.reviews[0].reason, 'TRANSPORT');
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.calls.filter(call => call.purpose === 'review').length, 1);
+    assert.equal(task.calls.at(-1).failureCode, 'TRANSPORT');
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('a review candidate disabled during budget waiting cannot dispatch after extension', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-review-revoke-'));
+  const ctx = await startNative(home);
+  const adapter = new ReviewFixture();
+  ctx.llm.registerAdapter(['review-revoke'], adapter);
+  const registered = await enableReviewCandidate(ctx, 'review-revoke');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  let run;
+  try {
+    await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
+    const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
+    await ctx.router.setModelEnabled(registered.candidateId, false);
+    await ctx.router.extendTaskBudget(waiting.id, { tokens: 256 });
+    const task = await run;
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'unconfirmed');
+    assert.equal(result.artifact.text, 'ARTICLE');
+    assert.equal(result.reviews.length, 1);
+    assert.equal(result.reviews[0].reason, 'MODEL_NOT_FOUND');
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'MODEL_DISABLED');
+    assert.equal(task.calls.at(-1).dispatchStarted, false);
+    assert.equal(adapter.reviews.length, 0);
+  } finally { if (run) await run.catch(() => {}); registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 for (const action of ['extend', 'stop']) test(`a review budget wait preserves the artifact and ${action === 'extend' ? 'continues the same Task after extension' : 'releases the unsent call when stopped'}`, async () => {
@@ -234,7 +503,8 @@ for (const action of ['extend', 'stop']) test(`a review budget wait preserves th
   const ctx = await startNative(home);
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-budget'], adapter);
-  const acceptance = new AcceptanceCoordinator(ctx, { review: { enabled: true, selection: { connectionId: 'dsh-native:review-budget', accountId: 'unknown', billingPath: 'unknown', provider: 'review-budget', model: 'rubric' }, forecast: { totalTokens: 12 } } });
+  const registered = await enableReviewCandidate(ctx, 'review-budget');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
   let run;
   try {
     await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
@@ -245,7 +515,7 @@ for (const action of ['extend', 'stop']) test(`a review budget wait preserves th
     assert.equal(pendingResult.phase, 'awaiting-review');
     assert.equal(pendingResult.artifact.text, 'ARTICLE');
     assert.equal(pendingResult.verdict, 'unconfirmed');
-    if (action === 'extend') await ctx.router.extendTaskBudget(waiting.id, { tokens: 12 });
+    if (action === 'extend') await ctx.router.extendTaskBudget(waiting.id, { tokens: 256 });
     else await ctx.router.stopTask(waiting.id);
     const task = await run;
     const result = acceptance.getResult(task.id);
@@ -262,7 +532,7 @@ for (const action of ['extend', 'stop']) test(`a review budget wait preserves th
       assert.equal(reviewCall.status, 'not-dispatched');
       assert.equal(reviewCall.reservation.state, 'released');
     }
-  } finally { if (run) await run.catch(() => {}); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { if (run) await run.catch(() => {}); registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('a trustworthy deterministic failure is not sent to a model for a competing success vote', async () => {
@@ -270,7 +540,8 @@ test('a trustworthy deterministic failure is not sent to a model for a competing
   const ctx = await startNative(home);
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-unused'], adapter);
-  const acceptance = new AcceptanceCoordinator(ctx, { review: { enabled: true, selection: { connectionId: 'dsh-native:review-unused', accountId: 'unknown', billingPath: 'unknown', provider: 'review-unused', model: 'rubric' }, forecast: { totalTokens: 12 } } });
+  const registered = await enableReviewCandidate(ctx, 'review-unused');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply BAD ARTICLE\n仅检查以下明确要求：\n正文不得包含「BAD」。\n评审标准：「正文说明测试约束」。');
@@ -280,7 +551,7 @@ test('a trustworthy deterministic failure is not sent to a model for a competing
     assert.equal(task.calls.length, 1);
     assert.equal(result.evidence[0].verdict, 'failed');
     assert.equal(result.evidence[1].verdict, 'unconfirmed');
-  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('partial deterministic coverage remains unconfirmed instead of promoting a completed response', async () => {
