@@ -4,22 +4,12 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
-import { spawn } from 'node:child_process';
 import { startNative, submit } from './t02-harness.mjs';
 import { AcceptanceCoordinator } from '../src/acceptance.mjs';
+import { createNodeProgramChecks } from '../src/program-checks.mjs';
 import { LlmAdapter, LlmError, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
-const runFixedNode = (cwd, args) => new Promise((resolve, reject) => {
-  const env = { ...process.env };
-  delete env.NODE_TEST_CONTEXT;
-  const child = spawn(process.execPath, args, { cwd, env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
-  let stdout = '', stderr = '';
-  child.stdout.on('data', chunk => { stdout += chunk; });
-  child.stderr.on('data', chunk => { stderr += chunk; });
-  child.once('error', reject);
-  child.once('close', exitCode => resolve({ exitCode, stdout, stderr }));
-});
 
 async function waitFor(ctx, predicate) {
   const until = Date.now() + 3_000;
@@ -279,64 +269,34 @@ test('trusted Host checks keep programming behavior, build and missing test cove
   await writeFile(testPath, "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { add } from '../src/add.mjs';\ntest('adds', () => assert.equal(add(1, 2), 3));\n");
   const sourceHash = digest(await readFile(sourcePath));
   const ctx = await startNative(home);
-  const executed = [];
-  const artifactRef = scopePaths => ({ kind: 'workspace-file', path: sourcePath, hash: sourceHash, revision: 1, scope: { workspace: home, paths: scopePaths } });
-  const fixedPlans = {
-    'behavior-add': { args: ['--test', testPath], artifactRef: artifactRef([sourcePath, testPath]), version: 1, commandId: 'node-test-file-v1' },
-    'build-app': { args: ['--check', sourcePath], artifactRef: artifactRef([sourcePath]), version: 1, commandId: 'node-check-file-v1' },
-  };
-  ctx.tools.register({
-    name: 'router_acceptance_check',
-    description: 'Execute one fixed authorized project check from the Host test fixture',
-    parameters: { type: 'object', properties: { planId: { type: 'string' } }, required: ['planId'], additionalProperties: false },
-    output: {
-      schema: { type: 'object', additionalProperties: true },
-      render: (_args, value) => [{ type: 'text', text: JSON.stringify(value) }],
-    },
-    async execute(args) {
-      executed.push(args.planId);
-      const plan = fixedPlans[args.planId];
-      assert(plan, 'Only fixed Host plans may execute');
-      const execution = await runFixedNode(home, plan.args);
-      return {
-        planId: args.planId,
-        outcome: execution.exitCode === 0 ? 'passed' : 'failed',
-        evidenceRef: `tool-result:v1:${args.planId}:${digest(`${execution.exitCode}\0${execution.stdout}\0${execution.stderr}`)}`,
-        artifactRef: { ...plan.artifactRef, privateMetadata: 'must-not-be-published' },
-        execution: { planVersion: plan.version, commandId: plan.commandId, exitCode: execution.exitCode, outputHash: digest(`${execution.stdout}\0${execution.stderr}`), privateMetadata: 'must-not-be-published' },
-      };
-    },
+  const programChecks = createNodeProgramChecks(ctx, {
+    resolveArtifact: async () => ({ workspace: home, path: sourcePath, revision: 1 }),
   });
   const acceptance = new AcceptanceCoordinator(ctx, {
-    checks: {
-      plans: {
-        'behavior-add': { authorized: true, kind: 'behavior', toolName: 'router_acceptance_check', arguments: { planId: 'behavior-add' }, authorizationRef: 'host-plan:v1:behavior-add', artifactRef: fixedPlans['behavior-add'].artifactRef, version: 1, commandId: 'node-test-file-v1' },
-        'build-app': { authorized: true, kind: 'build', toolName: 'router_acceptance_check', arguments: { planId: 'build-app' }, authorizationRef: 'host-plan:v1:build-app', artifactRef: fixedPlans['build-app'].artifactRef, version: 1, commandId: 'node-check-file-v1' },
-      },
-    },
+    checks: programChecks.checks,
   });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
-    const task = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n编程行为「加法返回3」由可信检查「behavior-add」验证。\n必须通过构建检查「build-app」。\n必须通过测试检查「tests-add」。');
+    const task = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n编程行为「加法返回3」由可信检查「node-test」验证。\n必须通过构建检查「node-check」。\n必须通过测试检查「tests-add」。');
     const result = acceptance.getResult(task.id);
     assert.equal(result.verdict, 'failed');
-    assert.deepEqual(executed, ['behavior-add', 'build-app']);
     assert.deepEqual(result.evidence.map(item => item.verdict), ['failed', 'passed', 'unconfirmed']);
     assert.deepEqual(result.evidence.map(item => item.source.kind), ['host-check', 'host-check', 'host-check']);
     assert.equal(result.evidence[0].source.checkKind, 'behavior');
     assert.equal(result.evidence[1].source.checkKind, 'build');
     assert.equal(result.evidence[2].reason, 'CHECK_NOT_AUTHORIZED');
     assert.equal(result.evidence[0].artifactHash, sourceHash);
-    assert.deepEqual(result.evidence[0].artifactRef, fixedPlans['behavior-add'].artifactRef);
-    assert.equal(Object.hasOwn(result.evidence[0].artifactRef, 'privateMetadata'), false);
-    assert.equal(result.evidence[0].source.execution.commandId, 'node-test-file-v1');
-    assert.equal(Object.hasOwn(result.evidence[0].source.execution, 'privateMetadata'), false);
+    assert.equal(result.evidence[0].artifactRef.path, sourcePath);
+    assert.equal(result.evidence[0].artifactRef.scope.workspace, home);
+    assert.equal(result.evidence[0].artifactRef.scope.paths.includes(testPath), true);
+    assert.equal(result.evidence[0].source.execution.commandId, 'node-test-workspace-v1');
+    assert.match(result.evidence[0].source.execution.inputHash, /^[a-f0-9]{64}$/u);
     assert.notEqual(result.evidence[0].source.execution.exitCode, 0);
     assert.equal(result.evidence[1].source.execution.commandId, 'node-check-file-v1');
     assert.equal(result.evidence[1].source.execution.exitCode, 0);
     assert.equal(result.coverage.covered, 2);
     assert.equal(result.coverage.uncovered.length, 1);
-  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { programChecks.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('Host checks reject out-of-workspace plans and forged execution bindings', async () => {
@@ -371,6 +331,29 @@ test('Host checks reject out-of-workspace plans and forged execution bindings', 
     assert.deepEqual(result.evidence.map(item => item.reason), ['CHECK_RESULT_INVALID', 'CHECK_NOT_AUTHORIZED']);
     assert.equal(result.coverage.covered, 0);
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('the production Node checker rejects a captured workspace after its artifact changes', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-program-stale-'));
+  const sourcePath = join(home, 'app.mjs');
+  await writeFile(sourcePath, 'export default 1;\n');
+  const ctx = await startNative(home);
+  const programChecks = createNodeProgramChecks(ctx, {
+    resolveArtifact: async () => ({ workspace: home, path: sourcePath, revision: 1 }),
+  });
+  try {
+    const signal = new AbortController().signal;
+    const plan = await programChecks.checks.resolvePlan({
+      task: { id: 'task-stale', sessionId: 'session-stale', turn: 1 },
+      artifact: { id: 'assistant-artifact', complete: true },
+      requirement: { id: 'requirement-stale', planId: 'node-check', checkKind: 'build', origin: { kind: 'user-message', messageId: 'user-stale' } },
+      signal,
+    });
+    await writeFile(sourcePath, 'export default 2;\n');
+    const outcome = await ctx.tools.execute({ callId: 'program-stale-call', name: plan.toolName, arguments: plan.arguments, signal });
+    assert.equal(outcome.isError, true);
+    assert.equal(outcome.error.info.code, 'CHECK_INPUT_CHANGED');
+  } finally { programChecks.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('a high-risk rubric gets at most one re-review and conflicting findings stay unconfirmed', async () => {

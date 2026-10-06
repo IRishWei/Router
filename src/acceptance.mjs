@@ -65,7 +65,7 @@ export class AcceptanceCoordinator {
     this.#ctx = ctx;
     this.#publish = publishAcceptance ?? ((taskId, acceptance) => ctx.router.publishAcceptance(taskId, acceptance));
     this.#review = structuredClone(review);
-    this.#checks = structuredClone(checks);
+    this.#checks = { plans: structuredClone(checks.plans ?? {}), resolvePlan: checks.resolvePlan };
     this.#captureCandidate = captureCandidate;
     ctx.on('agent/inbox/claimed', ({ agent, turn, message }) => {
       if (message.source?.kind !== 'user') return;
@@ -136,7 +136,7 @@ export class AcceptanceCoordinator {
     const evidence = [];
     for (const requirement of requirements) {
       if (requirement.kind === 'host-check') {
-        evidence.push(await this.#runCheck(requirement, artifact, agent, signal));
+        evidence.push(await this.#runCheck(requirement, artifact, task, agent, signal));
         continue;
       }
       const measurement = requirement.kind === 'character-length' && artifact ? { value: [...artifact.text].length, unit: requirement.unit } : null;
@@ -222,13 +222,25 @@ export class AcceptanceCoordinator {
     await this.#publish(task.id, structuredClone(result));
   }
 
-  async #runCheck(requirement, artifact, agent, signal) {
+  async #runCheck(requirement, artifact, task, agent, signal) {
     const base = { id: `evidence:v1:${requirement.id}:${artifact?.id ?? 'missing'}`, version: 1, requirementId: requirement.id, artifactHash: artifact?.hash ?? null };
-    const plan = this.#checks.plans?.[requirement.planId];
+    if (!artifact?.complete || signal.aborted) return { ...base, verdict: 'unconfirmed', source: { kind: 'host-check', planId: requirement.planId, checkKind: requirement.checkKind, toolName: null, authorizationRef: null }, reason: signal.aborted ? 'CANCELED' : 'ARTIFACT_INCOMPLETE' };
+    let plan = this.#checks.plans?.[requirement.planId];
+    if (!plan && typeof this.#checks.resolvePlan === 'function') {
+      try {
+        plan = await this.#checks.resolvePlan({
+          task: pick(task, ['id', 'sessionId', 'turn', 'configVersion', 'activeSelection']),
+          requirement: structuredClone(requirement),
+          artifact: structuredClone(artifact),
+          agent,
+          signal,
+        });
+      } catch { /* unresolved Host plans stay unconfirmed */ }
+    }
+    if (signal.aborted) return { ...base, verdict: 'unconfirmed', source: { kind: 'host-check', planId: requirement.planId, checkKind: requirement.checkKind, toolName: null, authorizationRef: null }, reason: 'CANCELED' };
     const artifactRef = artifactRefOf(plan?.artifactRef);
     const source = { kind: 'host-check', planId: requirement.planId, checkKind: requirement.checkKind, toolName: plan?.toolName ?? null, authorizationRef: plan?.authorizationRef ?? null };
-    if (!artifact?.complete || signal.aborted) return { ...base, verdict: 'unconfirmed', source, reason: signal.aborted ? 'CANCELED' : 'ARTIFACT_INCOMPLETE' };
-    if (!plan || plan.authorized !== true || plan.kind !== requirement.checkKind || typeof plan.toolName !== 'string' || !plan.toolName || typeof plan.authorizationRef !== 'string' || !plan.authorizationRef || !artifactRef || !positiveInteger(plan.version) || typeof plan.commandId !== 'string' || !plan.commandId) return { ...base, verdict: 'unconfirmed', source, reason: 'CHECK_NOT_AUTHORIZED' };
+    if (!plan || plan.authorized !== true || plan.kind !== requirement.checkKind || typeof plan.toolName !== 'string' || !plan.toolName || typeof plan.authorizationRef !== 'string' || !plan.authorizationRef || !artifactRef || !positiveInteger(plan.version) || typeof plan.commandId !== 'string' || !plan.commandId || (plan.inputHash !== undefined && !isDigest(plan.inputHash))) return { ...base, verdict: 'unconfirmed', source, reason: 'CHECK_NOT_AUTHORIZED' };
     try {
       const outcome = await this.#ctx.tools.execute({ callId: `router-acceptance-${randomUUID()}`, name: plan.toolName, arguments: structuredClone(plan.arguments ?? {}), agent, signal });
       if (outcome.isError) return { ...base, verdict: 'unconfirmed', source, reason: outcome.error?.info?.code ?? 'CHECK_FAILED_TO_RUN' };
@@ -236,10 +248,10 @@ export class AcceptanceCoordinator {
       const execution = value?.execution;
       const returnedArtifactRef = artifactRefOf(value?.artifactRef);
       if (!value || value.planId !== requirement.planId || !['passed', 'failed'].includes(value.outcome) || typeof value.evidenceRef !== 'string' || !value.evidenceRef
-        || !returnedArtifactRef || !isDeepStrictEqual(returnedArtifactRef, artifactRef) || !execution || execution.planVersion !== plan.version || execution.commandId !== plan.commandId
+        || !returnedArtifactRef || !isDeepStrictEqual(returnedArtifactRef, artifactRef) || !execution || execution.planVersion !== plan.version || execution.commandId !== plan.commandId || (plan.inputHash !== undefined && execution.inputHash !== plan.inputHash)
         || !Number.isSafeInteger(execution.exitCode) || execution.exitCode < 0 || !isDigest(execution.outputHash)
         || (value.outcome === 'passed') !== (execution.exitCode === 0)) return { ...base, verdict: 'unconfirmed', source, reason: 'CHECK_RESULT_INVALID' };
-      const executionEvidence = { planVersion: execution.planVersion, commandId: execution.commandId, exitCode: execution.exitCode, outputHash: execution.outputHash };
+      const executionEvidence = { planVersion: execution.planVersion, commandId: execution.commandId, ...(plan.inputHash === undefined ? {} : { inputHash: execution.inputHash }), exitCode: execution.exitCode, outputHash: execution.outputHash };
       return { ...base, artifactHash: artifactRef.hash, artifactRef, verdict: value.outcome, source: { ...source, execution: executionEvidence }, evidenceRef: value.evidenceRef };
     } catch (error) {
       return { ...base, verdict: 'unconfirmed', source, reason: signal.aborted ? 'CANCELED' : 'CHECK_UNAVAILABLE' };
