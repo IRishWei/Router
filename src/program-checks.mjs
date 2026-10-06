@@ -63,6 +63,9 @@ function safeEnvironment() {
   for (const key of ['APPDATA', 'ComSpec', 'HOME', 'LOCALAPPDATA', 'PATH', 'PATHEXT', 'SystemRoot', 'TEMP', 'TMP', 'TMPDIR', 'USERPROFILE', 'WINDIR']) {
     if (typeof process.env[key] === 'string') result[key] = process.env[key];
   }
+  // DSH Desktop is Electron. Reusing its executable as the bundled Node runtime
+  // must explicitly select Node mode or the check would launch another GUI process.
+  if (typeof process.versions.electron === 'string') result.ELECTRON_RUN_AS_NODE = '1';
   return result;
 }
 

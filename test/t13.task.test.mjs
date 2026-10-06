@@ -249,14 +249,11 @@ test('trusted Host checks keep programming behavior, build and missing test cove
   await writeFile(testPath, "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { add } from '../src/add.mjs';\ntest('adds', () => assert.equal(add(1, 2), 3));\n");
   const sourceHash = digest(await readFile(sourcePath));
   const ctx = await startNative(home);
-  const programChecks = createNodeProgramChecks(ctx);
-  const acceptance = new AcceptanceCoordinator(ctx, {
-    checks: programChecks.checks,
-  });
   try {
+    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 256 } });
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n编程行为「加法返回3」由可信检查「node-test」验证，工作区产物「src/add.mjs」。\n必须通过构建检查「node-check」，工作区产物「src/add.mjs」。\n必须通过测试检查「tests-add」，工作区产物「src/add.mjs」。');
-    const result = acceptance.getResult(task.id);
+    const result = task.acceptance;
     assert.equal(result.verdict, 'failed');
     assert.deepEqual(result.evidence.map(item => item.verdict), ['failed', 'passed', 'unconfirmed']);
     assert.deepEqual(result.evidence.map(item => item.source.kind), ['host-check', 'host-check', 'host-check']);
@@ -276,7 +273,7 @@ test('trusted Host checks keep programming behavior, build and missing test cove
     assert.equal(result.evidence[1].source.execution.exitCode, 0);
     assert.equal(result.coverage.covered, 2);
     assert.equal(result.coverage.uncovered.length, 1);
-  } finally { programChecks.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('Host checks reject out-of-workspace plans and forged execution bindings', async () => {
@@ -317,7 +314,15 @@ test('the production Node checker rejects a captured workspace after its artifac
   const home = await mkdtemp(join(tmpdir(), 'router-t13-program-stale-'));
   const sourcePath = join(home, 'app.mjs');
   await writeFile(sourcePath, 'export default 1;\n');
-  const ctx = await startNative(home);
+  let registeredTool;
+  const ctx = { tools: {
+    register(tool) { registeredTool = tool; return () => { registeredTool = undefined; }; },
+    async execute({ name, arguments: input, signal }) {
+      assert.equal(name, registeredTool.name);
+      try { return { isError: false, value: await registeredTool.execute(input, { signal }) }; }
+      catch (error) { return { isError: true, error: { info: { code: error.code } } }; }
+    },
+  } };
   const programChecks = createNodeProgramChecks(ctx, {
     resolveArtifact: async () => ({ workspace: home, path: sourcePath, revision: 1 }),
   });
@@ -333,26 +338,25 @@ test('the production Node checker rejects a captured workspace after its artifac
     const outcome = await ctx.tools.execute({ callId: 'program-stale-call', name: plan.toolName, arguments: plan.arguments, signal });
     assert.equal(outcome.isError, true);
     assert.equal(outcome.error.info.code, 'CHECK_INPUT_CHANGED');
-  } finally { programChecks.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { programChecks.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('production checks stay not configured without a safe explicit workspace artifact path', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t13-program-contract-'));
   const ctx = await startNative(home);
-  const programChecks = createNodeProgramChecks(ctx);
-  const acceptance = new AcceptanceCoordinator(ctx, { checks: programChecks.checks });
   try {
+    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 256 } });
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const missing = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n必须通过构建检查「node-check」。');
-    const missingResult = acceptance.getResult(missing.id);
+    const missingResult = missing.acceptance;
     assert.equal(missingResult.evidence[0].reason, 'CHECK_NOT_CONFIGURED');
     assert.equal(missing.calls.length, 1);
 
     const traversal = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n必须通过构建检查「node-check」，工作区产物「../outside.mjs」。');
-    const traversalResult = acceptance.getResult(traversal.id);
+    const traversalResult = traversal.acceptance;
     assert.equal(traversalResult.evidence[0].reason, 'CHECK_NOT_CONFIGURED');
     assert.equal(traversal.calls.length, 1);
-  } finally { programChecks.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
 test('a high-risk rubric gets at most one re-review and conflicting findings stay unconfirmed', async () => {
@@ -590,17 +594,17 @@ test('a real steer during review waiting supersedes the old artifact and reasses
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-steer'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-steer');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
   let run;
   try {
     await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
+    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: true, candidateId: registered.candidateId, allowCrossModel: true, maxTokens: 256, forecastTokens: 256 } });
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     run = submit(ctx, sessionId, 'Reply ORIGINAL\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
     const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
     await ctx.sessionController.prompt({ sessionId, requestId: 'acceptance-steer', mode: 'steer', content: [{ type: 'text', text: 'Reply CORRECTED\n仅检查以下明确要求：\n正文必须包含「CORRECTED」。' }] }, new AbortController().signal);
     await ctx.router.extendTaskBudget(waiting.id, { tokens: 512 });
     const task = await run;
-    const result = acceptance.getResult(task.id);
+    const result = task.acceptance;
     assert.equal(task.id, waiting.id);
     assert.equal(task.result, 'ORIGINALCORRECTED');
     assert.equal(result.artifact.text, 'CORRECTED');

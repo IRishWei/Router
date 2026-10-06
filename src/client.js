@@ -93,6 +93,33 @@ window.__ModuleLoader__.load({
         routing.assessment ? h('p', null, `语义判断：${routing.assessment.status}${routing.assessment.callId ? ` · 调用 ${routing.assessment.callId}` : ''}${routing.assessment.reason ? ` · ${routing.assessment.reason}` : ''}`) : null,
         routing.comparison?.unknowns?.length ? h('p', null, `不可比较：${routing.comparison.unknowns.join('、')}`) : null);
     }
+    function AcceptancePolicyEditor({ state, disabled, save }) {
+      const defaults = { enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 256 } };
+      const [draft, setDraft] = React.useState(state.config.acceptance ?? defaults);
+      React.useEffect(() => { setDraft(state.config.acceptance ?? defaults); }, [JSON.stringify(state.config.acceptance)]);
+      const review = change => setDraft(current => ({ ...current, review: { ...current.review, ...change } }));
+      return h('fieldset', { disabled }, h('legend', null, '明确要求验收'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '启用明确要求验收', checked: draft.enabled, onChange: event => setDraft(current => ({ ...current, enabled: event.target.checked })) }), '启用明确要求验收'),
+        h('p', null, '仅检查用户在任务中明确写出的有限规则和工作区产物路径；没有明确要求时保持无法确认。设置只影响新任务。'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '启用有界匿名评审', checked: draft.review.enabled, onChange: event => review({ enabled: event.target.checked }) }), '启用有界匿名评审'),
+        h('label', null, '评审候选 ', h('select', { 'aria-label': '评审候选', value: draft.review.candidateId ?? '', onChange: event => review({ candidateId: event.target.value || null }) },
+          h('option', { value: '' }, '未选择'),
+          ...state.models.map(model => h('option', { key: model.candidateId ?? model.id, value: model.candidateId ?? model.id, disabled: !model.enabled || !model.available }, `${model.name} · ${model.provider}/${model.model} · ${model.connectionId} · ${model.accountId} · ${model.billingPath}${model.enabled && model.available ? '' : '（不可用）'}`)))),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '允许跨模型评审', checked: draft.review.allowCrossModel, onChange: event => review({ allowCrossModel: event.target.checked }) }), '允许评审候选与执行候选不同'),
+        h('p', null, '跨模型默认关闭；开启表示明确许可所选候选参与匿名评审，仍受模型池、当前资格和任务预算约束。'),
+        field('评审输出 token 上限', draft.review.maxTokens, value => review({ maxTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 4096, step: 1 }),
+        field('评审预留 token', draft.review.forecastTokens, value => review({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 4096, step: 1 }),
+        h('button', { type: 'button', onClick: () => save(draft) }, '保存验收设置'));
+    }
+    function AcceptanceResult({ task }) {
+      const acceptance = task.acceptance ?? { verdict: 'unconfirmed', evidence: [] };
+      const label = acceptance.verdict === 'passed' ? '通过' : acceptance.verdict === 'failed' ? '失败' : '无法确认';
+      return h('div', null,
+        h('p', null, `验收：${label}${acceptance.coverage ? ` · 覆盖 ${acceptance.coverage.covered}/${acceptance.coverage.required}` : ''}`),
+        ...(acceptance.evidence ?? []).map(item => h('p', { key: item.id ?? item.requirementId }, `${item.verdict === 'passed' ? '通过' : item.verdict === 'failed' ? '失败' : '未确认'} · ${item.source?.kind ?? '未知来源'}${item.reason ? ` · ${item.reason}` : ''}`)),
+        acceptance.history?.length ? h('p', null, `保留 ${acceptance.history.length} 个已被新产物或要求取代的验收版本。`) : null,
+        acceptance.limitations?.includes('no-overall-quality-guarantee') ? h('p', null, '覆盖仅限明确要求，不代表整体质量保证。') : null);
+    }
     function RouterSettings({ api }) {
       const [state, setState] = React.useState(null);
       const [page, setPage] = React.useState('连接与模型');
@@ -134,10 +161,12 @@ window.__ModuleLoader__.load({
         h('p', null, '固定时不自动更换执行模型。与原生待执行选择冲突时暂停并保留手动意图。暂停自动路由后保留设置，使用有效的原生选择。'),
         h('p', null, 'Router 受控连接仅生成本地测试响应；主动启用的 DSH 原生连接会使用其宿主 provider。参考报价由公开设置命令保存，不代表官方价格或实际账单。'),
         h(BudgetEditor, { budget: state.config.budget, disabled, save: budget => change(() => api.setBudgetDefaults(budget)) }),
+        h(AcceptancePolicyEditor, { state, disabled, save: policy => change(() => api.setAcceptancePolicy(policy)) }),
         ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
       const history = () => h('div', null, h('h3', null, '任务记录'), state.tasks.length === 0 ? h('p', null, '尚无任务。') : h('ol', null, ...state.tasks.slice(-20).reverse().map(task => h('li', { key: task.id, style: { padding: '12px 0', whiteSpace: 'pre-wrap' } },
         h('strong', null, `${task.activeSelection?.provider ?? '尚未选择'}/${task.activeSelection?.model ?? '—'}`),
-        h('p', null, `${task.lifecycle === 'completed' ? '响应完成' : task.lifecycle === 'paused' ? '任务暂停' : task.lifecycle === 'waiting-budget' ? '预算等待' : '执行中'} · 验收：无法确认${task.pauseReason ? ` · ${reasons[task.pauseReason] ?? task.pauseReason}` : ''}`),
+        h('p', null, `${task.lifecycle === 'completed' ? '响应完成' : task.lifecycle === 'paused' ? '任务暂停' : task.lifecycle === 'waiting-budget' ? '预算等待' : '执行中'}${task.pauseReason ? ` · ${reasons[task.pauseReason] ?? task.pauseReason}` : ''}`),
+        h(AcceptanceResult, { task }),
         h('p', null, task.result || '尚无输出'), h('small', null, `有效配置 ${task.configVersion} · ${task.id}`),
         h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }),
         h('details', null, h('summary', null, '选择与结果记录'), h('pre', null, JSON.stringify(task.timeline, null, 2)))))));
