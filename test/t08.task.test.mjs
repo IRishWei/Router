@@ -90,7 +90,7 @@ test('owned registration replaces a visible native identity without inheriting i
     const dispose = ctx.router.registerOwned({
       provider: 'owned-later', connectionId: 'router-owned-account-7', accountId: 'account-7', billingPath: 'api-funded',
       ownership: 'router-owned', source: 'provider-plugin-registration', sourceKey: 'owned-later:account-7:v1', configRevision: 4,
-      configured: true, secret: 'MUST_NOT_APPEAR',
+      configured: true, authorizationStatus: 'configured', secret: 'MUST_NOT_APPEAR',
       models: [{ model: 'shared-model', name: 'Owned shared model', maxContextTokens: 8192, capability: {
         text: { supported: true, confidence: 'declared' }, image: { supported: null, confidence: 'unknown' }, tools: { supported: null, confidence: 'unknown' },
       } }],
@@ -108,6 +108,7 @@ test('owned registration replaces a visible native identity without inheriting i
     assert.equal(owned.accountId, 'account-7');
     assert.equal(owned.enabled, false);
     assert.equal(owned.quote, null);
+    assert.equal(owned.providerAuthorization.status, 'configured');
     assert.equal(owned.capabilities.contextWindow.confidence, 'declared');
     assert.equal(owned.compatibility.confidence, 'declared');
     assert.equal(owned.compatibility.scope, 'owned-provider-metadata');
@@ -118,6 +119,47 @@ test('owned registration replaces a visible native identity without inheriting i
     assert.equal(blocked.lifecycle, 'paused');
     assert.equal(blocked.calls.length, 0);
     assert.deepEqual(calls, []);
+    dispose();
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('the public owned registry cannot claim controlled fixture trust through reserved metadata', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t08-owned-trust-'));
+  let ctx;
+  const source = overrides => ({
+    provider: 'untrusted-owned', connectionId: 'untrusted-connection', accountId: 'untrusted-account', billingPath: 'api-funded',
+    ownership: 'router-owned', source: 'provider-plugin-registration', sourceKey: 'untrusted:v1', configRevision: 1,
+    configured: true, authorizationStatus: 'configured',
+    models: [{ model: 'shared-model', name: 'Untrusted owned', maxContextTokens: 8192, capability: {
+      text: { supported: true, confidence: 'declared' }, image: { supported: null, confidence: 'unknown' }, tools: { supported: null, confidence: 'unknown' },
+    } }],
+    ...overrides,
+  });
+  try {
+    ctx = await startNative(home);
+    for (const malicious of [
+      source({ source: 'controlled-protocol-fixture' }),
+      source({ authorizationStatus: 'controlled-fixture' }),
+      source({ supportScope: 'controlled-protocol-fixture' }),
+      source({ provider: 'router-controlled' }),
+    ]) assert.throws(() => ctx.router.registerOwned(malicious), error => error?.name === 'ZodError');
+    const controlled = (await ctx.router.snapshot()).models.filter(model => model.provider === 'router-controlled');
+    assert.equal(controlled.length, 2);
+    assert.equal(controlled.every(model => model.providerAuthorization.status === 'controlled-fixture'), true);
+    assert.equal(controlled.every(model => model.capabilities.contextWindow.confidence === 'known'), true);
+    assert.equal((await ctx.router.snapshot()).models.some(model => model.provider === 'untrusted-owned'), false);
+    const declared = source({ secret: 'MUST_BE_STRIPPED' });
+    declared.models[0].capability.text.confidence = 'known';
+    const dispose = ctx.router.registerOwned(declared);
+    const projected = (await ctx.router.snapshot()).models.find(model => model.provider === 'untrusted-owned' && model.available);
+    assert.equal(projected.providerAuthorization.status, 'configured');
+    assert.equal(projected.capability.text.confidence, 'declared');
+    assert.equal(projected.capabilities.contextWindow.confidence, 'declared');
+    assert.equal(projected.compatibility.confidence, 'declared');
+    assert.equal(JSON.stringify(projected).includes('MUST_BE_STRIPPED'), false);
     dispose();
   } finally {
     if (ctx) await ctx.fiber.dispose();

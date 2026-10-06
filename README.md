@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.4.1.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.4.2.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。

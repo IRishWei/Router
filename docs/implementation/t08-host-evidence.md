@@ -1,6 +1,6 @@
 # T08 公开宿主连接复用证据
 
-目标为 DSH Desktop 0.2.0-rc.2 / Cordis 4.0.4，Router 0.4.1。自动化使用真实 SessionController、AgentLoop、Renderer、Typert 和公开 RPC；provider 传输为独立受控边界，不联网、不读取凭据。
+目标为 DSH Desktop 0.2.0-rc.2 / Cordis 4.0.4，Router 0.4.2。自动化使用真实 SessionController、AgentLoop、Renderer、Typert 和公开 RPC；provider 传输为独立受控边界，不联网、不读取凭据。
 
 ## 固定接口
 
@@ -14,6 +14,7 @@
 - 请求中间件若把已预留 Call 改写为另一 route，在持久化派发意图前以 REQUEST_SELECTION_MISMATCH 拒绝，两个 adapter 都保持零调用，账本不把实际请求错归到旧身份。
 - 主动启用后通过完整 Task 得到受控响应；prompt/header/Call 五元身份、candidateId、selectionSnapshot、quoteVersion 和 5-token 用量一致。
 - native route 被 owned registry 以新账号/计费身份接管时，旧 candidate 进入 tombstone，新身份获得新 candidateId 且默认未启用；旧池许可、固定和报价不迁移。非 controlled 的 owned 候选不接受旧 model 字符串回退。
+- 公开 owned registry 只保留白名单 metadata，并拒绝保留的 controlled provider/source/scope/authorization 值；只有 Host 内部专用入口登记的两个精确 fixture 身份能显示 controlled 授权及 known 容量，真实 API-owned metadata 保持 configured/declared 或 unknown。
 - 删除池候选后下一固定 Task 暂停。宿主卸载 provider 时，已准备但未派发的 Task 为 CONNECTION_REMOVED、零 adapter entry；重启后 candidateId 稳定、epoch 更新、历史配置保留。
 - settings/document-updated 在同步边界增加 revision/authEpoch；prepared Task 等待期间修改设置，释放后为 CONNECTION_CHANGED、零 adapter entry。credential reference/record 更新采用同一保守失效策略，因为公开元数据不能证明具体账号映射。
 - refresh 使用 generation gate；延迟 listModels 的旧回包不能复活随后已移除的 provider。

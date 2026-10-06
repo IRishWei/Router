@@ -5,13 +5,24 @@ import { discoverNativeConnections } from './native-connections.mjs';
 export const IDENTITY_KEYS = ['connectionId', 'accountId', 'billingPath', 'provider', 'model'];
 export const sameIdentity = (left, right) => IDENTITY_KEYS.every(key => left?.[key] === right?.[key]);
 export const sameRoute = (left, right) => left?.provider === right?.provider && left?.model === right?.model;
-const isControlledFixture = candidate => candidate?.provider === 'router-controlled' && candidate?.source === 'controlled-protocol-fixture' && candidate?.candidateId === candidate?.model;
+const CONTROLLED_PROVIDER = 'router-controlled';
+const CONTROLLED_SOURCE = 'controlled-protocol-fixture';
+const CONTROLLED_MODELS = new Set(['controlled', 'controlled-tools']);
+const isControlledFixture = candidate => candidate?.provider === CONTROLLED_PROVIDER
+  && candidate?.connectionId === 'controlled-local'
+  && candidate?.accountId === 'local'
+  && candidate?.billingPath === 'controlled'
+  && candidate?.ownership === 'router-owned'
+  && candidate?.source === CONTROLLED_SOURCE
+  && CONTROLLED_MODELS.has(candidate?.model)
+  && candidate?.candidateId === candidate?.model;
 const matchesCandidate = (entry, candidate) => entry?.candidateId === candidate.candidateId || (isControlledFixture(candidate) && entry?.candidateId === undefined && entry?.model === candidate.model);
 
 const identitySchema = z.object(Object.fromEntries(IDENTITY_KEYS.map(key => [key, z.string().min(1)]))).strict();
 const confidenceSchema = z.enum(['known', 'declared', 'unknown']);
 const providerAuthorizationSchema = z.enum(['controlled-fixture', 'unknown', 'configured', 'authorized', 'unauthorized', 'error']);
-const supportFactSchema = z.object({ supported: z.boolean().nullable(), confidence: confidenceSchema, source: z.string().min(1).optional() }).passthrough();
+const publicProviderAuthorizationSchema = z.enum(['unknown', 'configured', 'authorized', 'unauthorized', 'error']);
+const supportFactSchema = z.object({ supported: z.boolean().nullable(), confidence: confidenceSchema, source: z.string().min(1).optional() });
 const capacityFactSchema = z.object({ value: z.number().int().positive().safe().nullable(), confidence: z.enum(['known', 'declared', 'unknown']), source: z.string().min(1) }).strict();
 export const candidateSnapshotSchema = z.object({
   epoch: z.number().int().positive().safe(),
@@ -49,9 +60,51 @@ export function identityOf(value) {
   return Object.fromEntries(IDENTITY_KEYS.map(key => [key, value?.[key]]));
 }
 
-function validateOwned(source) {
-  if (!source || !['provider', 'connectionId', 'accountId', 'billingPath', 'sourceKey'].every(key => typeof source[key] === 'string' && source[key]) || !Array.isArray(source.models) || !source.models.length) throw new TypeError('Invalid owned connection registration');
-  if (source.authorizationStatus !== undefined && !providerAuthorizationSchema.safeParse(source.authorizationStatus).success) throw new TypeError('Invalid owned provider authorization status');
+const ownedModelSchema = z.object({
+  model: z.string().min(1).max(200),
+  name: z.string().min(1).max(300),
+  maxContextTokens: z.number().int().positive().safe().nullable().default(null),
+  capability: z.object({ text: supportFactSchema, image: supportFactSchema, tools: supportFactSchema }),
+});
+const ownedSourceSchema = z.object({
+  provider: z.string().min(1).max(200).refine(value => value !== CONTROLLED_PROVIDER, 'The controlled provider is reserved'),
+  connectionId: z.string().min(1).max(500),
+  accountId: z.string().min(1).max(500),
+  billingPath: z.string().min(1).max(500),
+  ownership: z.literal('router-owned'),
+  source: z.string().min(1).max(200).refine(value => value !== CONTROLLED_SOURCE, 'The controlled source is reserved'),
+  sourceKey: z.string().min(1).max(1000),
+  configRevision: z.number().int().positive().safe(),
+  configured: z.boolean().nullable().default(null),
+  authorizationStatus: publicProviderAuthorizationSchema.default('unknown'),
+  supportScope: z.string().min(1).max(200).refine(value => value !== CONTROLLED_SOURCE, 'The controlled scope is reserved').optional(),
+  models: z.array(ownedModelSchema).min(1).max(1000),
+}).refine(source => new Set(source.models.map(model => model.model)).size === source.models.length, 'Owned model routes must be unique');
+
+function normalizeControlledSource(source) {
+  const validIdentity = source?.provider === CONTROLLED_PROVIDER
+    && source?.connectionId === 'controlled-local'
+    && source?.accountId === 'local'
+    && source?.billingPath === 'controlled'
+    && source?.ownership === 'router-owned'
+    && source?.source === CONTROLLED_SOURCE
+    && source?.sourceKey === 'router-controlled:v1'
+    && source?.configRevision === 1
+    && source?.configured === true
+    && Array.isArray(source?.models)
+    && source.models.length === CONTROLLED_MODELS.size
+    && source.models.every(model => CONTROLLED_MODELS.has(model.model) && source.candidateIds?.[model.model] === model.model);
+  if (!validIdentity) throw new TypeError('Invalid controlled fixture registration');
+  return structuredClone(source);
+}
+
+function normalizeOwnedSource(source) {
+  const normalized = ownedSourceSchema.parse(source);
+  for (const model of normalized.models) for (const fact of Object.values(model.capability)) {
+    fact.confidence = fact.supported === null ? 'unknown' : 'declared';
+    fact.source ??= 'owned-provider-metadata';
+  }
+  return normalized;
 }
 
 export class ConnectionRegistry {
@@ -70,10 +123,15 @@ export class ConnectionRegistry {
   }
   get epoch() { return this.#state.connections.revision; }
   registerOwned(source) {
-    validateOwned(source);
+    return this.#registerOwned(normalizeOwnedSource(source));
+  }
+  registerControlledFixture(source) {
+    return this.#registerOwned(normalizeControlledSource(source));
+  }
+  #registerOwned(source) {
     if (this.#owned.has(source.provider)) throw new TypeError(`Owned route already registered: ${source.provider}`);
     this.#refreshGeneration += 1;
-    this.#owned.set(source.provider, structuredClone(source));
+    this.#owned.set(source.provider, source);
     this.#upsert(source);
     return () => {
       if (!this.#owned.delete(source.provider)) return;
@@ -216,7 +274,7 @@ export class ConnectionRegistry {
     const pool = stableRouterSnapshot.pool ?? [];
     const entry = pool.find(item => matchesCandidate(item, candidate));
     const priced = (stableRouterSnapshot.prices ?? []).find(item => item.candidateId === candidate.candidateId || sameIdentity(item, candidate));
-    const controlled = candidate.source === 'controlled-protocol-fixture';
+    const controlled = isControlledFixture(candidate);
     const contextWindow = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: controlled ? 'known' : 'declared', source: controlled ? candidate.source : 'provider-model-metadata' };
     const unknownCapacity = { value: null, confidence: 'unknown', source: 'host-public-contract' };
     return structuredClone({
@@ -246,7 +304,7 @@ export class ConnectionRegistry {
     const candidates = this.#state.connections.candidates.map(candidate => {
       const entry = (config.pool ?? []).find(item => matchesCandidate(item, candidate));
       const quote = (config.prices ?? []).find(item => item.candidateId === candidate.candidateId || sameIdentity(item, candidate));
-      const controlled = candidate.source === 'controlled-protocol-fixture';
+      const controlled = isControlledFixture(candidate);
       const knownCapacity = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: controlled ? 'known' : 'declared', source: controlled ? candidate.source : 'provider-model-metadata' };
       const unknownCapacity = { value: null, confidence: 'unknown', source: 'host-public-contract' };
       const normalizedQuote = quote ? { ...structuredClone(quote.quote), quoteVersion: quote.quoteVersion ?? null, estimatedCost: null } : null;
@@ -257,8 +315,8 @@ export class ConnectionRegistry {
         enabled: Boolean(entry?.enabled),
         inPool: Boolean(entry),
         routerAuthorization: { status: entry?.enabled ? 'enabled' : 'disabled' },
-        providerAuthorization: { status: candidate.source === 'controlled-protocol-fixture' ? 'controlled-fixture' : candidate.authorizationStatus ?? 'unknown' },
-        authorization: { status: entry?.enabled ? 'enabled' : 'disabled', providerStatus: candidate.source === 'controlled-protocol-fixture' ? 'controlled-fixture' : candidate.authorizationStatus ?? 'unknown' },
+        providerAuthorization: { status: controlled ? 'controlled-fixture' : candidate.authorizationStatus ?? 'unknown' },
+        authorization: { status: entry?.enabled ? 'enabled' : 'disabled', providerStatus: controlled ? 'controlled-fixture' : candidate.authorizationStatus ?? 'unknown' },
         availability: { status: candidate.available ? 'available' : 'unavailable' },
         inferenceVerification: structuredClone(candidate.inferenceVerification ?? { status: 'unknown' }),
         capabilities: { modalities: { text: candidate.capability.text, image: candidate.capability.image }, text: candidate.capability.text, image: candidate.capability.image, tools: candidate.capability.tools, contextWindow: knownCapacity, inputLimit: unknownCapacity, maxOutput: unknownCapacity, maxContextTokens: candidate.maxContextTokens, confidence: candidate.capability.text.confidence, source: candidate.capability.text.source ?? candidate.source },

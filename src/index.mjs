@@ -836,7 +836,7 @@ export async function apply(ctx) {
   }
   ctx.llm.registerAdapter([CONTROLLED_PROVIDER], new ControlledAdapter());
   const connections = new ConnectionRegistry(ctx, state, () => state.config);
-  const disposeControlled = connections.registerOwned({
+  const disposeControlled = connections.registerControlledFixture({
     provider: CONTROLLED_PROVIDER,
     connectionId: 'controlled-local',
     accountId: 'local',
