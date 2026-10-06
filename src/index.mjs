@@ -1,11 +1,12 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { descriptors, quoteSchema, budgetSchema, extensionSchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
+import { runInitialAssessment, selectInitialRoute } from './routing.mjs';
 
 export const inject = ['llm', 'profileContext'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -16,6 +17,8 @@ const catalog = [
   { model: CONTROLLED_TOOLS_MODEL, name: 'Controlled tools fixture', capability: { text: { supported: true, confidence: 'known' }, image: { supported: null, confidence: 'unknown' }, tools: { supported: true, confidence: 'declared' } } },
 ];
 const defaultPool = () => catalog.map(model => ({ candidateId: model.model, ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), enabled: true }));
+const ROUTING_OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'quality']);
+const MAX_ASSESSMENT_CONTEXT_BYTES = 16_384;
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
@@ -28,6 +31,109 @@ function legacyDispatchIsAmbiguous(call) {
 function recordOwnedChunk(owner, chunk) {
   if (chunk.type === 'usage') owner.usage = chunk.usage;
   if (chunk.type === 'finish') owner.finish = chunk.reason;
+}
+function contentRequirements(content = []) {
+  const text = content.filter(part => part.type === 'text').map(part => part.text).join('\n');
+  const contextBytes = new TextEncoder().encode(text).length;
+  const requirements = {
+    modalities: [...new Set(['text', ...content.some(part => part.type === 'image') ? ['image'] : []])],
+    contextBytes,
+  };
+  if (text.includes('[router:tool]')) requirements.tools = true;
+  const assessment = /\[router:assess:(image|tools)\]/u.exec(text)?.[1] ?? null;
+  return { requirements, assessment };
+}
+function mergeTaskRequirements(current, next) {
+  const merged = {
+    modalities: [...new Set([...(current?.modalities ?? ['text']), ...(next.modalities ?? [])])],
+    contextBytes: (current?.contextBytes ?? 0) + (next.contextBytes ?? 0),
+  };
+  if (current?.tools || next.tools) merged.tools = true;
+  return merged;
+}
+function publicRequirements(task, history = []) {
+  const historyModalities = history.some(message => message.content?.some(part => part.type === 'image')) ? ['image'] : [];
+  const requirements = { modalities: [...new Set([...(task.requirements?.modalities ?? ['text']), ...historyModalities])] };
+  if (task.requirements?.tools) requirements.tools = true;
+  const historyBytes = history.reduce((sum, message) => sum + (message.content ?? []).filter(part => part.type === 'text').reduce((total, part) => total + new TextEncoder().encode(part.text).length, 0), 0);
+  const contextTokens = historyBytes + (task.requirements?.contextBytes ?? 0);
+  if (contextTokens > 8192) requirements.contextTokens = contextTokens;
+  return requirements;
+}
+function assessmentPart(part) {
+  if (part?.type === 'text') return { type: 'text', text: part.text };
+  if (part?.type === 'image') return { type: 'image', mediaType: part.mediaType ?? null, binary: 'omitted' };
+  if (part?.type === 'tool-call') return { type: 'tool-call', name: part.name, arguments: part.arguments };
+  return { type: part?.type ?? 'unknown' };
+}
+function boundedAssessmentInput(requirements, history, inputs, requestedFocus) {
+  if (!inputs.length) return { status: 'unavailable', reason: 'ASSESSMENT_CONTEXT_UNAVAILABLE' };
+  const payload = {
+    schemaVersion: 1,
+    requirements,
+    requestedFocus,
+    recentContext: history.slice(-12).map(message => ({ role: message.role, content: (message.content ?? []).map(assessmentPart) })),
+    taskInputs: inputs.map(input => ({ role: 'user', content: input.content.map(assessmentPart) })),
+  };
+  const text = `ROUTER_INITIAL_ASSESSMENT_V1\n${JSON.stringify(payload)}`;
+  const bytes = new TextEncoder().encode(text).length;
+  if (bytes > MAX_ASSESSMENT_CONTEXT_BYTES) return { status: 'too-large', reason: 'ASSESSMENT_CONTEXT_TOO_LARGE', bytes };
+  return { status: 'ready', text, bytes };
+}
+function assessmentRevision(task) {
+  return createHash('sha256').update(JSON.stringify({ requirements: task.requirements, inputs: task.inputs.map(input => input.contentHash) })).digest('hex');
+}
+function workloadFingerprint(requirements, messages, inputs) {
+  const workload = {
+    version: 1,
+    requirements,
+    inputs: inputs.map(input => input.contentHash),
+    messages: messages.map(message => ({ role: message.role, content: message.content })),
+  };
+  return `sha256:${createHash('sha256').update(JSON.stringify(workload)).digest('hex')}`;
+}
+function hasComparableAcceptance(task) {
+  const acceptance = task.acceptance;
+  return acceptance?.schemaVersion === 1
+    && acceptance.version === 1
+    && acceptance.phase === 'checked'
+    && acceptance.scope === 'explicit-requirements'
+    && acceptance.verdict === 'passed'
+    && acceptance.artifact?.complete === true
+    && Number.isSafeInteger(acceptance.coverage?.required)
+    && acceptance.coverage.required > 0
+    && acceptance.coverage.covered === acceptance.coverage.required
+    && acceptance.coverage.failedIds?.length === 0
+    && acceptance.coverage.uncoveredIds?.length === 0;
+}
+function routingPauseReason(decision) {
+  const reason = decision.reasonCodes[0];
+  if (decision.excluded.some(item => item.reasons.includes('CANDIDATE_UNAVAILABLE')) && ['FIXED_CANDIDATE_INELIGIBLE', 'NATIVE_PENDING_INELIGIBLE'].includes(reason)) return 'CONNECTION_REMOVED';
+  if (decision.excluded.some(item => item.reasons.some(code => code.startsWith('IMAGE_CAPABILITY_'))) && ['NO_ELIGIBLE_CANDIDATE', 'FIXED_CANDIDATE_INELIGIBLE', 'NATIVE_PENDING_INELIGIBLE'].includes(reason)) return 'NO_COMPATIBLE_IMAGE_CANDIDATE';
+  if (reason === 'FIXED_NATIVE_SELECTION_CONFLICT') return 'FIXED_MODEL_CONFLICT';
+  if (reason === 'FIXED_CANDIDATE_NOT_IN_SNAPSHOT' || reason === 'FIXED_CANDIDATE_INELIGIBLE') return 'FIXED_MODEL_UNAVAILABLE';
+  if (reason === 'NO_ELIGIBLE_CANDIDATE') return 'NO_ENABLED_CANDIDATE';
+  return reason;
+}
+function selectionForecast(requirements, outputTokens = 512) {
+  const inputTokens = Math.max(1, requirements.contextTokens ?? 1);
+  return { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: inputTokens + outputTokens };
+}
+function routingObservations(tasks, candidateSnapshot, comparisonKey) {
+  const candidates = new Map(candidateSnapshot.candidates.map(candidate => [candidate.candidateId, candidate]));
+  const samples = new Map();
+  for (const task of tasks) {
+    if (!hasComparableAcceptance(task) || task.routing?.comparisonKey !== comparisonKey) continue;
+    for (const call of task.calls ?? []) {
+      const candidate = candidates.get(call.candidateId);
+      if (!candidate || candidate.provider === CONTROLLED_PROVIDER || candidate.source === 'controlled-protocol-fixture' || call.purpose !== 'execution' || call.status !== 'completed') continue;
+      const entry = samples.get(call.candidateId) ?? { totalTokens: [], latencyMs: [] };
+      if (Number.isSafeInteger(call.usage?.totalTokens) && call.usage.totalTokens >= 0) entry.totalTokens.push(call.usage.totalTokens);
+      if (Number.isFinite(call.elapsedMs) && call.elapsedMs >= 0) entry.latencyMs.push(call.elapsedMs);
+      samples.set(call.candidateId, entry);
+    }
+  }
+  return Object.fromEntries([...samples].map(([candidateId, metrics]) => [candidateId, Object.fromEntries(Object.entries(metrics).filter(([_name, values]) => values.length).map(([name, values]) => [name, { value: values.reduce((sum, value) => sum + value, 0) / values.length, sampleCount: values.length, source: 'measured', acceptance: 'passed', coverage: 'comparable' }]))]));
 }
 
 /** A local fixture: never reads credentials, opens a socket, or calls a model service. */
@@ -44,6 +150,18 @@ class ControlledAdapter extends LlmAdapter {
     const message = options.messages.findLast(item => item.role === 'user' && (item.source?.kind === 'user' || item.source === undefined));
     const prompt = message?.content.filter(item => item.type === 'text').map(item => item.text).join('\n') ?? '';
     if (prompt.includes('[router:fail]')) throw new LlmError('Controlled connection failure; no provider request was sent', 'CONNECTION');
+    if (prompt.startsWith('ROUTER_INITIAL_ASSESSMENT_V1')) {
+      let requestedFocus = null;
+      try { requestedFocus = JSON.parse(prompt.slice('ROUTER_INITIAL_ASSESSMENT_V1\n'.length)).requestedFocus; } catch { /* invalid fixture input stays insufficient */ }
+      const requirement = requestedFocus === 'image' ? { modalities: ['image'] } : requestedFocus === 'tools' ? { tools: true } : null;
+      const text = JSON.stringify(requirement ? { evidence: 'sufficient', requirements: requirement } : { evidence: 'insufficient' });
+      yield { type: 'block-start', index: 0, blockType: 'text' };
+      yield { type: 'text-delta', index: 0, text };
+      yield { type: 'block-end', index: 0, block: { type: 'text', text } };
+      yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 8, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 16 } };
+      yield { type: 'finish', reason: { kind: 'stop' } };
+      return;
+    }
     const toolId = `router-${message?.id}`;
     if (prompt.includes('[router:tool]') && !options.messages.some(item => item.role === 'tool' && item.source?.callId === toolId)) {
       if (!options.tools?.some(tool => tool.name === 'router_test_wait')) throw new LlmError('The controlled wait tool is unavailable', 'TOOL_NOT_FOUND');
@@ -86,6 +204,8 @@ export class RouterService extends TypertRemoteService {
   #automaticOwners = new WeakMap();
   #publicStreamEntries = new WeakSet();
   #auxiliarySources = new Map();
+  #assessmentInputs = new Map();
+  #stableRouterSnapshots = new WeakSet();
   #connections;
   constructor(ctx, state, path, connections, files = { writeFile, rename }) {
     super(ctx, 'router');
@@ -95,7 +215,7 @@ export class RouterService extends TypertRemoteService {
     this.#connections = connections;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'exactTask', 'publishAcceptance']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance']) this[method] = this[method].bind(this);
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
@@ -130,35 +250,127 @@ export class RouterService extends TypertRemoteService {
     ctx.on('agent/inbox/claimed', ({ agent, turn, message }) => {
       const task = this.#active.get(`${agent.session.id}:${turn}`);
       if (!task || message.source?.kind !== 'user') return;
-      task.inputs.push({ messageId: message.id, requestId: message.source.rpcId ?? null, turn, claimedAt: new Date().toISOString() });
+      const inferred = contentRequirements(message.content);
+      task.requirements = mergeTaskRequirements(task.requirements, inferred.requirements);
+      task.assessmentHint ??= inferred.assessment;
+      const inputs = this.#assessmentInputs.get(task.id) ?? [];
+      inputs.push({ messageId: message.id, content: structuredClone(message.content) });
+      this.#assessmentInputs.set(task.id, inputs);
+      task.inputs.push({ messageId: message.id, requestId: message.source.rpcId ?? null, turn, contentHash: createHash('sha256').update(JSON.stringify(message.content)).digest('hex'), claimedAt: new Date().toISOString() });
       task.timeline.push({ kind: 'input-claimed', messageId: message.id, requestId: message.source.rpcId ?? null, turn });
       this.#persist();
     });
-    ctx.on('system-prompt/assemble', async (_assembly, { agent }, next) => {
+    ctx.on('system-prompt/assemble', async (_assembly, { agent, signal }, next) => {
       if (!agent) return next();
-      await this.#refreshEligibility();
+      await this.#refreshEligibility(signal);
+      const turn = ctx.get('sessionProjections')?.stateOf(agent.session, 'turnBoundary')?.lastTurn;
+      const task = this.#active.get(`${agent.session.id}:${turn}`);
       const config = structuredClone(this.#state.config);
+      this.#stableRouterSnapshots.add(config);
       const pending = ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection');
       const step = { config, pending: pending?.pending ? { ...pending.pending } : null, route: null };
-      const fixedId = config.fixedCandidateId ?? config.fixedModel;
-      const fixed = config.pool.find(candidate => (candidate.candidateId ?? candidate.model) === fixedId && candidate.enabled);
-      if (config.automatic && fixedId) {
-        if (!fixed) step.blocked = 'FIXED_MODEL_UNAVAILABLE';
-        else if (step.pending && !sameRoute(step.pending, fixed)) step.blocked = 'FIXED_MODEL_CONFLICT';
-      }
-      if (pending !== undefined && config.automatic && !step.pending) {
-        const previous = agent.session.requestHeader()?.config;
-        const enabled = config.pool.filter(model => model.enabled);
-        step.route = fixedId ? fixed ?? null : enabled.find(model => sameRoute(model, previous)) ?? enabled[0] ?? null;
-        if (!step.route) step.blocked = fixedId ? 'FIXED_MODEL_UNAVAILABLE' : 'NO_ENABLED_CANDIDATE';
-      }
       this.#steps.set(agent, step);
       const assembled = await next();
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
+      if (task && pending !== undefined && config.automatic && task.routing?.status === 'selected' && !step.blocked) {
+        const fixedId = config.fixedCandidateId ?? config.fixedModel;
+        const fixed = config.pool.find(candidate => (candidate.candidateId ?? candidate.model) === fixedId && candidate.enabled);
+        if (fixedId && !fixed) step.blocked = 'FIXED_MODEL_UNAVAILABLE';
+        else if (fixedId && step.pending && !sameRoute(step.pending, fixed)) step.blocked = 'FIXED_MODEL_CONFLICT';
+        else if (!step.pending) {
+          const previous = agent.session.requestHeader()?.config;
+          const enabled = config.pool.filter(model => model.enabled);
+          step.route = fixedId ? fixed : enabled.find(model => sameRoute(model, previous)) ?? enabled[0] ?? null;
+          if (!step.route) step.blocked = fixedId ? 'FIXED_MODEL_UNAVAILABLE' : 'NO_ENABLED_CANDIDATE';
+        }
+      } else if (task && pending !== undefined && config.automatic && !step.blocked) {
+        let decision;
+        const candidateSnapshot = this.#connections.snapshot(config);
+        const currentRoute = agent.session.requestHeader()?.config ?? agent.options;
+        const current = this.#connections.candidateForRoute(currentRoute);
+        const manual = step.pending ? this.#connections.candidateForRoute(step.pending) : null;
+        const messages = agent.session.deriveMessages();
+        const requirements = publicRequirements(task, messages);
+        const comparisonKey = workloadFingerprint(requirements, messages, task.inputs);
+        const forecastsByCandidate = Object.fromEntries(candidateSnapshot.candidates.map(candidate => [candidate.candidateId, selectionForecast(requirements)]));
+        const input = {
+          task: { requirements }, candidateSnapshot, objective: config.routingObjective,
+          currentCandidateId: current?.candidateId ?? null,
+          fixedCandidateId: config.fixedCandidateId ?? null,
+          manualCandidateId: step.pending ? manual?.candidateId ?? '__missing-native-pending__' : null,
+          forecastsByCandidate,
+          observationsByCandidate: routingObservations(this.#state.tasks, candidateSnapshot, comparisonKey),
+          assessmentRequest: task.assessmentRequested || task.assessmentHint ? { required: true, enabled: config.semanticAssessment, budgetApproved: config.semanticAssessment, maxOutputTokens: 128, budgetEstimate: selectionForecast(requirements, 128) } : null,
+        };
+        decision = selectInitialRoute(input);
+        if (decision.kind === 'assessment-required') {
+          task.routing = { status: 'assessing', objective: config.routingObjective, requirements, comparisonKey, snapshotEpoch: decision.snapshotEpoch, reasonCodes: decision.reasonCodes, excluded: decision.excluded, assessment: { status: 'running', budgetEstimate: decision.assessment.budgetEstimate } };
+          this.#persist();
+          let assessment;
+          const capturedAssessor = await this.captureCandidate(decision.assessor.candidateId, { config, signal });
+          if (!sameIdentity(capturedAssessor.identity, decision.assessor.identity)
+            || capturedAssessor.authEpoch !== decision.assessor.authEpoch
+            || capturedAssessor.connectionConfigRevision !== decision.assessor.connectionConfigRevision) {
+            step.blocked = 'CONNECTION_CHANGED';
+            assessment = { purpose: 'assessment', evidence: 'insufficient', callId: null, reason: 'ASSESSMENT_CANDIDATE_CHANGED' };
+          } else {
+            decision = { ...decision, assessor: capturedAssessor };
+            const revision = assessmentRevision(task);
+            const context = boundedAssessmentInput(requirements, messages, this.#assessmentInputs.get(task.id) ?? [], task.assessmentHint);
+            if (context.status !== 'ready') {
+              assessment = { purpose: 'assessment', evidence: 'insufficient', callId: null, reason: context.reason };
+            } else {
+              assessment = await runInitialAssessment({
+                router: this, taskId: task.id, decision, signal,
+                forecast: selectionForecast({ contextTokens: context.bytes }, decision.assessment.maxOutputTokens),
+                routerSnapshot: config, configVersion: config.version,
+                request: {
+                  signal,
+                  messages: [
+                    { role: 'system', content: [{ type: 'text', text: 'Assess only the supplied Task context. Return strict JSON {"evidence":"sufficient","requirements":{"modalities":["text"|"image"],"tools":boolean,"contextTokens":number}}. Add only necessary requirements. If the context is insufficient, return {"evidence":"insufficient"}.' }] },
+                    createUserMessage({ content: [{ type: 'text', text: context.text }] }),
+                  ],
+                },
+              });
+              if (assessmentRevision(task) !== revision) assessment = { ...assessment, evidence: 'insufficient', requirements: undefined, reason: 'ASSESSMENT_CONTEXT_CHANGED' };
+            }
+          }
+          if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
+          decision = step.blocked ? decision : selectInitialRoute({ ...input, assessmentResult: assessment });
+          task.routing.assessment = { status: assessment.evidence === 'sufficient' ? 'completed' : 'insufficient', callId: assessment.callId, evidence: assessment.evidence, ...(assessment.reason ? { reason: assessment.reason } : {}) };
+          if (step.blocked) task.routing.status = 'paused';
+        }
+        if (!step.blocked && decision.kind === 'execute') {
+          const captured = await this.captureCandidate(decision.selected.candidateId, { config, signal });
+          if (!sameIdentity(captured.identity, decision.selected.identity) || captured.authEpoch !== decision.selected.authEpoch || captured.connectionConfigRevision !== decision.selected.connectionConfigRevision) step.blocked = 'CONNECTION_CHANGED';
+          else {
+            step.route = { candidateId: captured.candidateId, ...captured.identity };
+            step.selectionSnapshot = captured;
+            step.enforceCandidate = true;
+            task.routing = {
+              ...task.routing,
+              status: 'selected', objective: config.routingObjective,
+              requirements: decision.appliedRequirements ?? requirements, comparisonKey,
+              snapshotEpoch: decision.snapshotEpoch,
+              selected: structuredClone(decision.selected), reasonCodes: structuredClone(decision.reasonCodes),
+              excluded: structuredClone(decision.excluded), comparison: structuredClone(decision.comparison),
+            };
+            task.configVersion = config.version;
+            task.timeline.push({ kind: 'routing-decision', candidateId: captured.candidateId, reasons: structuredClone(decision.reasonCodes), excluded: structuredClone(decision.excluded), snapshotEpoch: decision.snapshotEpoch });
+            this.#persist();
+          }
+        } else if (!step.blocked) {
+          step.blocked = routingPauseReason(decision);
+          task.routing = { ...task.routing, status: 'paused', objective: config.routingObjective, requirements, comparisonKey, snapshotEpoch: decision.snapshotEpoch, reasonCodes: structuredClone(decision.reasonCodes), excluded: structuredClone(decision.excluded), ...(decision.assessment ? { assessment: { ...decision.assessment, status: 'required' } } : {}) };
+          this.#persist();
+        }
+      }
       step.effectiveRoute = step.route ?? { provider: assembled.variables.provider, model: assembled.variables.model };
-      const candidate = step.route ? this.#connections.resolve(step.route.candidateId ?? step.route.model) : this.#connections.candidateForRoute(step.effectiveRoute);
-      if (candidate) step.selectionSnapshot = this.#connections.capture(candidate.candidateId, config);
-      step.enforceCandidate = Boolean(candidate && (step.route || candidate.managed || candidate.ownership === 'router-owned'));
+      if (!step.selectionSnapshot) {
+        const candidate = step.route ? this.#connections.resolve(step.route.candidateId ?? step.route.model) : this.#connections.candidateForRoute(step.effectiveRoute);
+        if (candidate) step.selectionSnapshot = this.#connections.capture(candidate.candidateId, config);
+        step.enforceCandidate = Boolean(candidate && (step.route || candidate.managed || candidate.ownership === 'router-owned'));
+      }
       return step.route ? { ...assembled, variables: { ...assembled.variables, provider: step.route.provider, model: step.route.model } } : assembled;
     }, { prepend: true });
     ctx.on('agent/pre-step', async ({ agent, signal, turn, step: index, messages }, next) => {
@@ -175,7 +387,7 @@ export class RouterService extends TypertRemoteService {
         return { kind: 'reject' };
       }
       const previous = agent.session.requestHeader()?.config;
-      if (!step.route || !previous || sameRoute(step.route, previous) || (decision.messages.length === 0 && (index === 1 || messages.length > 0))) return decision;
+      if (!step.route || step.pending || !previous || sameRoute(step.route, previous) || (decision.messages.length === 0 && (index === 1 || messages.length > 0))) return decision;
       return { ...decision, messages: [...decision.messages, createUserMessage({ content: [{ type: 'text', text: `[model changed: assistant turns above this point were generated by ${previous.provider}/${previous.model}; the session continues with ${step.route.provider}/${step.route.model}]` }], source: { kind: 'model-selection', form: 'notice', summary: `${previous.model} → ${step.route.model}` } })] };
     }, { prepend: true });
     ctx.on('agent/assistant-stream', ({ agent, frame }) => {
@@ -460,6 +672,7 @@ export class RouterService extends TypertRemoteService {
     task.endedAt = new Date().toISOString();
     task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: task.acceptance?.verdict ?? 'unconfirmed' });
     this.#active.delete(`${task.sessionId}:${task.turn}`);
+    this.#assessmentInputs.delete(task.id);
     for (const call of task.calls) this.#callSignals.delete(call.id);
     this.#persist();
   }
@@ -474,6 +687,13 @@ export class RouterService extends TypertRemoteService {
     await this.#connections.refresh();
     this.#persist(); await this.flush();
     return this.snapshot();
+  }
+  /** Host-only capture seam: callers receive registry-owned identity and revisions, never construct them. */
+  async captureCandidate(candidateId, { config, signal } = {}) {
+    if (config !== undefined && !this.#stableRouterSnapshots.has(config)) throw new TypeError('Candidate capture requires a Router-owned stable config snapshot');
+    await this.#refreshEligibility(signal);
+    signal?.throwIfAborted();
+    return structuredClone(this.#connections.capture(candidateId, config ?? this.#state.config));
   }
   async #refreshEligibility(signal) {
     signal?.throwIfAborted();
@@ -712,6 +932,49 @@ export class RouterService extends TypertRemoteService {
     if (typeof automatic !== 'boolean') throw new TypeError('automatic must be boolean');
     return this.#change({ automatic });
   }
+  async setRoutingObjective(objective) {
+    if (!ROUTING_OBJECTIVES.has(objective)) throw new TypeError('Invalid routing objective');
+    return this.#change({ routingObjective: objective });
+  }
+  async setSemanticAssessment(enabled) {
+    if (typeof enabled !== 'boolean') throw new TypeError('semantic assessment must be boolean');
+    if (!enabled) this.#state.semanticAssessmentRequest = null;
+    return this.#change({ semanticAssessment: enabled });
+  }
+  async requestSemanticAssessment() {
+    if (!this.#state.config.automatic || !this.#state.config.semanticAssessment) throw new TypeError('Enable automatic routing and semantic assessment before requesting a Task assessment');
+    this.#state.semanticAssessmentRequest = { status: 'armed', requestedAt: new Date().toISOString() };
+    this.#persist();
+    await this.flush();
+    if (this.#storageError) throw new Error('Router storage is unavailable; the assessment request was not persisted');
+    return this.snapshot();
+  }
+  async previewCalibrationBudget() {
+    await this.#refreshEligibility();
+    const candidateSnapshot = this.#connections.snapshot(this.#state.config);
+    const requirements = { modalities: ['text'] };
+    const forecast = selectionForecast(requirements, 128);
+    const decision = selectInitialRoute({ task: { requirements }, candidateSnapshot, forecastsByCandidate: Object.fromEntries(candidateSnapshot.candidates.map(candidate => [candidate.candidateId, forecast])) });
+    const excluded = new Set(decision.excluded.map(item => item.candidateId));
+    const eligible = candidateSnapshot.candidates.filter(candidate => !excluded.has(candidate.candidateId));
+    const money = new Map();
+    let unknownPriceCandidates = 0;
+    for (const candidate of eligible) {
+      const cost = costOf(tokensOf(forecast), candidate.quote);
+      if (cost.amount === null || !cost.currency || !cost.kind) { unknownPriceCandidates += 1; continue; }
+      const key = `${cost.currency}:${cost.kind}`;
+      const current = money.get(key) ?? { currency: cost.currency, kind: cost.kind, amount: 0 };
+      current.amount += cost.amount;
+      money.set(key, current);
+    }
+    this.#state.calibrationPreview = {
+      status: 'authorization-required', candidateSnapshotEpoch: candidateSnapshot.snapshotEpoch,
+      budgetEstimate: { calls: eligible.length, totalTokens: eligible.length * forecast.totalTokens, money: [...money.values()], unknownPriceCandidates },
+      excluded: decision.excluded, createdAt: new Date().toISOString(),
+    };
+    this.#persist(); await this.flush();
+    return this.snapshot();
+  }
   async #change(change) {
     if (this.#storageError) throw new Error('Router storage is unavailable; repair DSH-local storage before changing settings');
     this.#state.config = { ...this.#state.config, ...change, version: this.#state.config.version + 1 };
@@ -746,7 +1009,9 @@ export class RouterService extends TypertRemoteService {
       return;
     }
     if (event.type === 'turn/start') {
-      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, activeSelection: null, configVersion: this.#state.config.version, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(this.#state.config.budget), extensions: [], unenforceableLimits: [] } };
+      const assessmentRequested = this.#state.semanticAssessmentRequest?.status === 'armed';
+      if (assessmentRequested) this.#state.semanticAssessmentRequest = null;
+      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(this.#state.config.budget), extensions: [], unenforceableLimits: [] } };
       this.#active.set(`${session.id}:${event.data.turn}`, task);
       this.#state.tasks.push(task);
       this.#persist();
@@ -809,6 +1074,11 @@ export async function apply(ctx) {
   state.config.fixedCandidateId ??= state.config.fixedModel;
   state.config.prices ??= [];
   state.config.budget ??= emptyBudget();
+  state.config.routingObjective ??= 'balanced';
+  state.config.semanticAssessment ??= false;
+  state.semanticAssessmentRequest ??= null;
+  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean') throw new Error('Unsupported DSH Router routing configuration');
+  if (state.semanticAssessmentRequest !== null && (state.semanticAssessmentRequest?.status !== 'armed' || typeof state.semanticAssessmentRequest.requestedAt !== 'string')) throw new Error('Unsupported DSH Router assessment request');
   if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
   if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
   if (!Array.isArray(state.config.prices) || !state.config.prices.every(item => typeof item.provider === 'string' && item.provider && typeof item.model === 'string' && item.model && quoteSchema().safeParse(item.quote).success && (item.provider !== CONTROLLED_PROVIDER || item.quote.kind === 'fixture-reference'))) throw new Error('Unsupported DSH Router prices');
