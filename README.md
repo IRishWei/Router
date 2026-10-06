@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.3.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.4.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。
@@ -39,6 +39,8 @@ Host 的公开 `router/setPriceQuote` 设置命令接受 provider、model 和报
 原生 `steer` 补充按已认领消息归当前任务；`queue` 输入属于后续 turn 和新任务。预算等待不取消 signal，取消后不存在公开的原 turn 恢复入口。0.3.1 在允许下游请求前持久化可能派发的意图，写入失败不进入 adapter；写盘等待结束后再次检查原 signal、模型资格和原生待执行选择。重启中的未完成任务标记 `HOST_RESTARTED`，不自动重复请求。只有可能派发意图、或 0.3.0 中无法证明未发送的已确认 header 时，保留未知消耗，页面明确说明实际发送无法确认。0.3.2 同时纠正旧 Host 已重启并保存为 `HOST_RESTARTED/not-dispatched/header-confirmed` 的模糊记录，保留原身份、报价和预算；有明确未发送证据的记录仍为零。跨取消/重启恢复属于 T18。
 
 0.3.3 为原生标题生成分配独立 `auxiliary` Call，并保存 `nativePurpose=session-title` 和公开源事件/消息序列。标题与主请求各产生12个 fixture token 时，Task 共计24；标题也受同一预算约束。主 turn 完成后，所属辅助调用仍在途或等待预算时 Task 保持活动，扩展或停止仍生效，主结果保留。标题原 signal 在预算等待中保持不变；派发时将它与 Router 的 Task 停止信号合成，取消其中任一个均中止所属调用。旧标题延迟消费、同会话下一 turn 已运行时仍归原 Task，不按最新会话任务猜测。
+
+0.3.4 保留主产物和原生完成事实，但辅助请求失败时 Task 暂停并显示原因。标题预算等待后撤销模型显示 MODEL_REMOVED；外层中间件在流消费前拒绝或关闭时释放未发送归属，不等待 deadline 取消。正常延迟消费仍保留原 Task；已入流后提前关闭保留报告 usage，未报告消耗保持未知。Router 通过 Cordis 公开服务读取 hook 为 plugin 的 ctx.llm.stream 提供读取范围内的 facade，不赋值或修改原生服务。缓存裸服务或 ctx.get('llm') 绕过该完整生命周期边界的辅助请求会在传输前以 AUXILIARY_LIFECYCLE_UNAVAILABLE 拒绝并记录原因；显式 Host 协作者使用 streamReservedCall，并消费或明确 return/throw 关闭返回的流。
 
 只有公开源事件能证明归属的自动辅助请求才可发送。当前验证首消息标题；手动刷新已结束任务的标题、没有可信来源映射的压缩或其他辅助调用会在传输前阻止，`blockedRequests` 和设置页显示 `AUXILIARY_TASK_UNAVAILABLE`。未修改原生功能设置，也未验证成功压缩。旧0.3.1/0.3.2的无精确所有权 v1 标记可能被辅助失败清除；模糊重启记录升级后保留未知，不把旧 `blocked` 当作未消耗证明。新调用使用 `durable-intent-v2`。
 

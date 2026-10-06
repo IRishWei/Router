@@ -23,6 +23,9 @@ function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_M
   const identity = config.provider === CONTROLLED_PROVIDER ? { connectionId: 'controlled-local', accountId: 'local', billingPath: 'controlled' } : { connectionId: `dsh-native:${config.provider}`, accountId: 'unknown', billingPath: 'unknown' };
   return { ...identity, provider: config.provider, model: config.model };
 }
+function legacyDispatchIsAmbiguous(call) {
+  return call.dispatchState === 'header-confirmed' && (!call.dispatchProtocol || (call.dispatchProtocol === 'durable-intent-v1' && call.dispatchIntent === 'blocked'));
+}
 
 /** A local fixture: never reads credentials, opens a socket, or calls a model service. */
 class ControlledAdapter extends LlmAdapter {
@@ -76,6 +79,8 @@ export class RouterService extends TypertRemoteService {
   #ownedRequests = new WeakMap();
   #ownedCalls = new Map();
   #automaticStreams = new WeakMap();
+  #automaticOwners = new WeakMap();
+  #publicStreamEntries = new WeakSet();
   #auxiliarySources = new Map();
   constructor(ctx, state, path, files = { writeFile, rename }) {
     super(ctx, 'router');
@@ -104,6 +109,17 @@ export class RouterService extends TypertRemoteService {
     ctx.on('internal/dispatch', (mode, name, args) => {
       const request = args[0];
       if (mode === 'waterfall' && name === 'llm/stream' && !isAgentLoopRequest(request) && !this.#ownedRequests.has(request)) this.#automaticStreams.set(request, this.#auxiliaryStream(request));
+    });
+    // Public service-read interception surrounds the complete middleware chain.
+    ctx.on('internal/get', (_caller, name, _error, next) => {
+      const value = next();
+      if (name !== 'llm' || !value) return value;
+      const service = this;
+      return new Proxy(value, { get(target, key, receiver) {
+        if (key !== 'stream') return Reflect.get(target, key, receiver);
+        const stream = Reflect.get(target, key, target);
+        return request => service.#watchPublicStream(request, () => Reflect.apply(stream, target, [request]));
+      } });
     });
     ctx.on('agent/inbox/claimed', ({ agent, turn, message }) => {
       const task = this.#active.get(`${agent.session.id}:${turn}`);
@@ -248,15 +264,37 @@ export class RouterService extends TypertRemoteService {
     this.#auxiliarySources.delete(key);
     const task = source?.task;
     const active = task && this.#active.has(`${task.sessionId}:${task.turn}`) && !task.budget.stopRequested;
-    if (!active) {
+    const reason = !active ? 'AUXILIARY_TASK_UNAVAILABLE' : !this.#publicStreamEntries.has(request) ? 'AUXILIARY_LIFECYCLE_UNAVAILABLE' : null;
+    if (reason) {
       this.#state.blockedRequests ??= [];
-      this.#state.blockedRequests.push({ at: new Date().toISOString(), sessionId: request.sessionId ?? null, provider: request.provider, model: request.model, nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', status: 'not-dispatched', reason: 'AUXILIARY_TASK_UNAVAILABLE' });
+      this.#state.blockedRequests.push({ at: new Date().toISOString(), sessionId: request.sessionId ?? null, ...(active ? { taskId: task.id } : {}), provider: request.provider, model: request.model, nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', status: 'not-dispatched', reason });
       this.#state.blockedRequests = this.#state.blockedRequests.slice(-100); this.#persist();
-      return (async function* () { throw new LlmError('Router cannot safely attribute this auxiliary request to an active task: AUXILIARY_TASK_UNAVAILABLE', 'MODEL_NOT_FOUND'); })();
+      if (active) { task.auxiliaryPauseReason ??= reason; task.timeline.push({ kind: 'auxiliary-not-dispatched', sourceEventSeq: source.sourceEventSeq, reason }); this.#finishTask(task); this.#persist(); }
+      return (async function* () { throw new LlmError(`Router cannot safely own this auxiliary request: ${reason}`, 'MODEL_NOT_FOUND'); })();
     }
     return this.#ownedCallStream(task, request, null, source);
   }
   #sourceKey(sessionId, purpose, messages) { return JSON.stringify([sessionId, purpose, messages?.map(message => message.id)]); }
+  #watchPublicStream(request, invoke) {
+    if (isAgentLoopRequest(request) || this.#ownedRequests.has(request)) return invoke();
+    this.#publicStreamEntries.add(request);
+    try {
+      const stream = invoke(), owner = this.#automaticOwners.get(request);
+      return owner ? this.#watchUnconsumed(stream, owner) : stream;
+    } catch (error) { this.#automaticOwners.get(request)?.close('AUXILIARY_STREAM_REJECTED'); throw error; }
+    finally { this.#publicStreamEntries.delete(request); }
+  }
+  #watchUnconsumed(stream, owner) {
+    const iterator = stream[Symbol.asyncIterator]();
+    const advance = async (method, value) => {
+      try {
+        const result = iterator[method] ? await iterator[method](value) : method === 'throw' ? await Promise.reject(value) : { done: true, value };
+        if (result.done) owner.close('AUXILIARY_STREAM_CLOSED');
+        return result;
+      } catch (error) { owner.close('AUXILIARY_STREAM_REJECTED'); throw error; }
+    };
+    return { [Symbol.asyncIterator]() { return this; }, next: value => advance('next', value), return: value => advance('return', value), throw: error => advance('throw', error) };
+  }
   /** Host-only exact request owner. Persists intent and settles this reserved call once. */
   streamReservedCall(taskId, callId, request) {
     const task = [...this.#active.values()].find(task => task.id === taskId);
@@ -272,9 +310,23 @@ export class RouterService extends TypertRemoteService {
     const owner = { task, call: existingCall, controller, started: false, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
     const owners = this.#ownedCalls.get(task.id) ?? new Set(); owners.add(owner); this.#ownedCalls.set(task.id, owners);
     const cleanup = () => { originalSignal.removeEventListener('abort', abandon); controller.signal.removeEventListener('abort', abandon); owners.delete(owner); if (!owners.size) this.#ownedCalls.delete(task.id); this.#finishTask(task); };
-    const abandon = () => { if (!owner.started) cleanup(); };
+    const abandon = () => {
+      if (owner.started || !owners.has(owner)) return;
+      if (owner.call && !['settled', 'released'].includes(owner.call.reservation.state)) service.settleCall(task.id, owner.call.id, { status: 'not-dispatched', usage: null, finishReason: 'aborted', failureCode: 'ABORTED' });
+      cleanup();
+    };
+    owner.close = reason => {
+      if (owner.started || !owners.has(owner)) return;
+      task.auxiliaryPauseReason ??= reason;
+      task.timeline.push({ kind: 'auxiliary-not-dispatched', nativePurpose: request.purpose ?? null, sourceEventSeq: source?.sourceEventSeq ?? null, reason });
+      if (owner.call) service.settleCall(task.id, owner.call.id, { status: 'not-dispatched', usage: null, finishReason: 'unknown', failureCode: reason });
+      controller.abort(new LlmError('Auxiliary stream closed before dispatch', reason));
+      cleanup();
+    };
     originalSignal.addEventListener('abort', abandon, { once: true }); controller.signal.addEventListener('abort', abandon, { once: true });
-    return (async function* () {
+    if (originalSignal.aborted) abandon();
+    if (!existingCall) this.#automaticOwners.set(request, owner);
+    const stream = (async function* () {
       owner.started = true;
       let usage = null, finish = null, failureCode;
       try {
@@ -304,10 +356,16 @@ export class RouterService extends TypertRemoteService {
         failureCode = typeof error.code === 'string' ? error.code : 'AUXILIARY_CALL_FAILED'; throw error;
       } finally {
         try {
-          if (owner.call) service.settleCall(task.id, owner.call.id, { status: originalSignal.aborted || controller.signal.aborted || finish?.kind === 'aborted' || finish?.kind === 'max-tokens' ? 'interrupted' : finish?.kind === 'stop' ? 'completed' : 'failed', usage, finishReason: originalSignal.aborted || controller.signal.aborted ? 'aborted' : finish?.kind ?? 'unknown', failureCode: finish?.failure?.code ?? failureCode });
+          if (owner.call && owners.has(owner)) {
+            const canceled = originalSignal.aborted || controller.signal.aborted;
+            const status = canceled || finish?.kind === 'aborted' || finish?.kind === 'max-tokens' ? 'interrupted' : finish?.kind === 'stop' ? 'completed' : 'failed';
+            if (status !== 'completed' && !canceled) task.auxiliaryPauseReason ??= finish?.failure?.code ?? failureCode ?? (finish?.kind === 'max-tokens' ? 'AUXILIARY_MAX_TOKENS' : 'AUXILIARY_CALL_FAILED');
+            service.settleCall(task.id, owner.call.id, { status, usage, finishReason: canceled ? 'aborted' : finish?.kind ?? 'unknown', failureCode: finish?.failure?.code ?? failureCode });
+          }
         } finally { cleanup(); }
       }
     })();
+    return this.#watchUnconsumed(stream, owner);
   }
   #cancelOwnedCalls(task) {
     for (const owner of this.#ownedCalls.get(task.id) ?? []) owner.controller.abort(new LlmError('Router task stopped its auxiliary request', 'ABORTED'));
@@ -315,9 +373,9 @@ export class RouterService extends TypertRemoteService {
   }
   #finishTask(task) {
     if (!this.#active.has(`${task.sessionId}:${task.turn}`) || !task.nativeLifecycle || this.#ownedCalls.get(task.id)?.size) return;
-    task.lifecycle = this.#storageError || task.budget.stopRequested ? 'paused' : task.nativeLifecycle;
+    task.lifecycle = this.#storageError || task.budget.stopRequested || task.routingPauseReason || task.auxiliaryPauseReason ? 'paused' : task.nativeLifecycle;
     if (task.lifecycle === 'paused') {
-      task.pauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : task.nativePauseReason) ?? 'UNKNOWN_TERMINAL';
+      task.pauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : null) ?? task.nativePauseReason ?? task.routingPauseReason ?? task.auxiliaryPauseReason ?? 'UNKNOWN_TERMINAL';
       task.fault = { kind: ['CONNECTION', 'AUTH', 'RATE_LIMIT', 'NO_ADAPTER'].includes(task.pauseReason) ? 'connection' : 'execution', code: task.pauseReason, retryable: task.pauseReason === 'CONNECTION' || task.pauseReason === 'RATE_LIMIT' };
     }
     task.endedAt = new Date().toISOString();
@@ -599,7 +657,7 @@ export async function apply(ctx) {
     for (const event of task.timeline ?? []) if (event.kind === 'budget-wait' && event.blockedBy) event.blockedBy = event.blockedBy.map(value => normalizeBudgetConstraint(value));
     // 0.3.0 may have persisted its own mistaken zero-consumption restart classification.
     if (task.lifecycle === 'paused' && task.pauseReason === 'HOST_RESTARTED') {
-      for (const call of task.calls) if ((!call.dispatchProtocol || (call.dispatchProtocol === 'durable-intent-v1' && call.dispatchIntent === 'blocked')) && call.status === 'not-dispatched' && call.dispatchState === 'header-confirmed') {
+      for (const call of task.calls) if (call.status === 'not-dispatched' && legacyDispatchIsAmbiguous(call)) {
         call.dispatchUncertain = true; call.status = 'interrupted';
         if (!call.usage) call.cost = costOf(tokensOf(null), call.priceQuote);
       }
@@ -609,7 +667,7 @@ export async function apply(ctx) {
     task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; task.endedAt = new Date().toISOString();
     for (const call of task.calls) if (['prepared', 'waiting'].includes(call.status)) {
       // 0.3.0 header-confirmed calls had no durable dispatch gate; their state is ambiguous.
-      if ((!call.dispatchProtocol || (call.dispatchProtocol === 'durable-intent-v1' && call.dispatchIntent === 'blocked')) && call.status === 'prepared' && call.dispatchState === 'header-confirmed') call.dispatchUncertain = true;
+      if (call.status === 'prepared' && legacyDispatchIsAmbiguous(call)) call.dispatchUncertain = true;
       call.status = possiblyDispatched(call) ? 'interrupted' : 'not-dispatched';
       if (call.reservation) call.reservation.state = 'released';
       if (possiblyDispatched(call) && !call.usage) call.cost = costOf(tokensOf(null), call.priceQuote);
