@@ -33,7 +33,8 @@ T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
   provider 错误正文统一泛化，避免其携带的凭据文本进入 Session 或 Task 记录。
 - 独立 `deepseek-client.mjs` 将保存凭据、连接、candidate 启用和检测分为四个
   明确动作。API key 只在非受控 password input ref 与一次提交参数中短暂存在；
-  页面状态、普通错误和安全 DTO 不含 key。
+  页面状态、普通错误和安全 DTO 不含 key。检测列表以“模型候选”命名，
+  同时展示连接、账号与计费来源，同名模型不合并。
 - `deepseek-ui-contract.mjs` 用可注册到 Typert 的严格 schema 限制检测为
   1–4096 token、1–60000 ms。客户端只提交 candidateId 和预算；Host 从 T08
   权威 candidate snapshot 解析模型，并逐 Call 核对五元身份、auth epoch、配置

@@ -3,7 +3,7 @@ import React from 'react';
 const h = React.createElement;
 
 function candidateLabel(candidate) {
-  return `${candidate.name ?? candidate.model} (${candidate.model})`;
+  return `${candidate.name ?? candidate.model} (${candidate.model}) · 连接 ${candidate.connectionId} · 账号 ${candidate.accountId} · 计费 ${candidate.billingPath}`;
 }
 
 export function DeepSeekSettings({ service, routerApi }) {
@@ -102,8 +102,8 @@ export function DeepSeekSettings({ service, routerApi }) {
         }, `启用 ${candidate.name ?? candidate.model}`))),
       h('h4', null, '有限预算连接检测'),
       h('p', null, '检测会创建可见的 Router Task 并逐 Call 记账。当前无已确认价格时费用保持未知，不能按零处理。'),
-      h('label', null, '检测模型 ', h('select', {
-        'aria-label': '检测模型',
+      h('label', null, '检测模型候选 ', h('select', {
+        'aria-label': '检测模型候选',
         value: selected?.candidateId ?? '',
         disabled: busy || candidates.length === 0,
         onChange: event => setCandidateId(event.target.value),

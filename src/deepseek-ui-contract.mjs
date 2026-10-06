@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { candidateSnapshotSchema } from './connections.mjs';
+import { candidateSnapshotSchema, sameIdentity } from './connections.mjs';
 import { assertDeepSeekModelId } from './deepseek-connections.mjs';
 
 const id = z.string().min(1).max(500);
@@ -105,11 +105,6 @@ async function call(callback, input, outputSchema) {
   } catch {
     throw operationFailed();
   }
-}
-
-function sameIdentity(left, right) {
-  return ['connectionId', 'accountId', 'billingPath', 'provider', 'model']
-    .every(key => left?.[key] === right?.[key]);
 }
 
 function resolveDetectionCandidate(snapshot, candidateId) {

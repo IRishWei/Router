@@ -13,10 +13,11 @@ import TypertRegistry from '@deepseek-ai/dsh-typert-registry';
 import { createDeepSeekSettingsPlugin } from '../src/deepseek-client.mjs';
 import { createDeepSeekUiService, deepSeekUiSchemaFactories } from '../src/deepseek-ui-contract.mjs';
 
-function routerCandidate(candidateId = 'candidate-ui') {
+function routerCandidate(candidateId = 'candidate-ui', overrides = {}) {
   const identity = {
     connectionId: 'connection-ui', accountId: 'account-ui-binding', billingPath: 'deepseek-api',
     provider: 'router-deepseek-account-ui-binding', model: 'deepseek-flash',
+    ...overrides,
   };
   return {
     candidateId, identity, connectionConfigRevision: 1, authEpoch: 1, observedSettingsRevision: null,
@@ -112,7 +113,11 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
       actions.push({ action: 'connect', accountId });
       const connection = { connectionId: 'connection-ui', accountId, provider: `router-deepseek-${accountId}`, configured: true };
       safe.connections.push(connection);
-      router.models.push({ candidateId: 'candidate-ui', provider: connection.provider, model: 'deepseek-flash', name: 'DeepSeek V4.1 Flash', source: 'deepseek-official-api', available: true, enabled: false, inPool: false });
+      router.models.push({
+        candidateId: 'candidate-ui', connectionId: connection.connectionId, accountId,
+        billingPath: 'deepseek-api', provider: connection.provider, model: 'deepseek-flash',
+        name: 'DeepSeek V4.1 Flash', source: 'deepseek-official-api', available: true, enabled: false, inPool: false,
+      });
       return connection;
     },
     disconnect: async request => {
@@ -174,6 +179,51 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
     assert.equal(actions.at(-1).action, 'connect');
     assert.equal(router.models[0].enabled, false);
     assert.match(JSON.stringify(page.toJSON()), /未启用/);
+  } finally {
+    if (mounted) await mounted.dispose();
+  }
+});
+
+test('the DeepSeek Renderer distinguishes same-model candidates by connection, account and billing source', async () => {
+  const first = routerCandidate('candidate-first', {
+    connectionId: 'connection-first', accountId: 'account-first', provider: 'router-deepseek-account-first',
+  });
+  const second = routerCandidate('candidate-second', {
+    connectionId: 'connection-second', accountId: 'account-second', provider: 'router-deepseek-account-second',
+  });
+  const actions = [];
+  const models = [first, second].map(candidate => ({
+    candidateId: candidate.candidateId,
+    ...candidate.identity,
+    name: 'DeepSeek V4.1 Flash', source: 'deepseek-official-api', available: true, enabled: true, inPool: true,
+  }));
+  const service = createDeepSeekUiService({
+    snapshot: async () => ({ bindings: [], connections: [], catalog: { status: 'not-requested', models: [], unrecognizedModelIds: [] } }),
+    routerSnapshot: async () => ({ candidateSnapshot: { ...routerCandidateSnapshot(first), candidates: [first, second] } }),
+    saveCredential: async () => { throw new Error('unused'); },
+    discoverCatalog: async () => { throw new Error('unused'); },
+    connect: async () => { throw new Error('unused'); },
+    disconnect: async () => { throw new Error('unused'); },
+    runDetection: async request => {
+      actions.push(request);
+      return detectionTask(request, request.candidateId === second.candidateId ? second : first);
+    },
+  });
+  const routerApi = {
+    snapshot: async () => ({ models: structuredClone(models) }),
+    setModelEnabled: async () => ({ models: structuredClone(models) }),
+  };
+  let mounted;
+  try {
+    mounted = await mountDeepSeekSettings(service, routerApi);
+    const select = mounted.page.root.findByProps({ 'aria-label': '检测模型候选' });
+    const labels = select.findAllByType('option').map(option => option.children.join(''));
+    assert.equal(labels.some(label => label.includes('connection-first') && label.includes('account-first') && label.includes('deepseek-api')), true);
+    assert.equal(labels.some(label => label.includes('connection-second') && label.includes('account-second') && label.includes('deepseek-api')), true);
+    await act(async () => { select.props.onChange({ target: { value: second.candidateId } }); });
+    const detect = mounted.page.root.findAllByType('button').find(item => item.children.includes('运行有限预算检测'));
+    await act(async () => { await detect.props.onClick(); });
+    assert.equal(actions.at(-1).candidateId, second.candidateId);
   } finally {
     if (mounted) await mounted.dispose();
   }
