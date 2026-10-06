@@ -1,6 +1,6 @@
 # T03 任务账本与预算自动化证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.3；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
+目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.4；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
 
 ## 行为与共享入口
 
@@ -104,3 +104,17 @@ native turn结束记录nativeLifecycle/nativeEndedAt；Task直到所属owned Cal
 迁移只将旧无精确owner证明的v1、HOST_RESTARTED、header-confirmed/blocked/not-dispatched记录保守纠正；保留原Task/Call/Session身份、selection、输入、Router快照、版本、报价、预留及预算。已有真实usage的同形记录保留12并且未知调用0，公开保存后再次重启仍保持纠正。预算等待/proposed和新v2有证据的blocked未发记录保持零。正常测试只加载固定fixture，不要求旧Git源码存在；跨取消重放/继续仍属T18范围。
 
 最终npm test 67/67、npm run check、npm run bundle、git diff --check通过；相比0.3.2增加15项真实辅助/显式所有权完整任务测试和1项真实旧输入迁移，已有Renderer/RPC及晚标题回归同步增强。交付包artifacts/irishwei-dsh-router-0.3.3.tgz，90143字节，SHA256 `96C0F63A0B2997DDC7B4AC8FCFE64B8FAF9BC6D9E210F6215DB12B2923B879F5`。所有传输均为本地有界fixture，未用Computer Use、真实Desktop、用户凭据或付费请求。本页仅声明代码/CLI/公开Host自动验收；独立双轴复审与目标安装RPC验收由集成owner完成。
+
+## 0.3.4 辅助故障终结与消费前生命周期
+
+Spec的两项P2通过真实rc.2三个Title模块完整任务先红：预算等待后removeModel并扩展，辅助零派发但Task错误completed；public prepend llm/stream同步拒绝原标题，在消费前捕获的owner永久保留，Task一直running。修复后分别paused/MODEL_REMOVED和paused/AUXILIARY_STREAM_REJECTED；nativeLifecycle=completed、主产物和已知12保留，主Call的possible标记不被更改。未发送标题的timeline auxiliary-not-dispatched说明原因，未假定deadline dispose会abort。
+
+完整流构造和消费生命周期通过官方Cordis4.0.4导出的internal/get(ctx,name,error,next)服务读取waterfall（src/events.ts:343、src/reflect.ts:153-167，lib/types/events.d.ts中的同名声明）围住。hook只返回读取范围的llm facade，原stream以原receiver、原request调用；不赋值服务、方法或Framework状态。包装返回的公开AsyncIterator next/return/throw/done，外层构造throw、懒消费throw或未消费done立即关闭本入口尚未发送的owner。内部显式prepared.stream runner自己持有并结算Call；native品牌和已绑定请求直接委托，没有二次aux预留、signal或request替换。内部诊断捕获正常晚消费的归属仍保留。
+
+两个消费后丢弃回归分别在text-prefix和usage后关闭标题：前者main已知12、aux可能消费未知1、total=null；后者报告24、未知0。两者均Taskpaused/AUXILIARY_CALL_FAILED、原标题signal不abort，没有把未完整流算为零。显式Host回归覆盖未消费runner return/throw、prepareCall.stream外层拒绝/empty done，预留释放、主结果保留；原signal已取消时新绑定也不保留无人消费的owner，实际未发Call保持零。正常延迟、排队、停止、取消、crash及native精确绑定回归继续验证。
+
+未通过可观察服务读取的裸辅助入口（ctx.get('llm')、加载前缓存服务或根context直接应用provider）不能安全获得完整外层生命周期：传输前拒绝AUXILIARY_LIFECYCLE_UNAVAILABLE，并记录taskId、源事件和未发送原因；真实三个Title模块的根context直接apply回归先红于永久running，修复后明确暂停且仅main12。普通安装的Title插件每次从plugin ctx.llm读取，真实首消息回归仍两个Call/24。客户端区分生命周期不足与Task归属不足，不修改native功能设置。此边界不授予RPC Call权限。
+
+Standards所指出的历史歧义判断提取为legacyDispatchIsAmbiguous；两条迁移分支保留各自not-dispatched/prepared条件，原旧输入迁移与v2明确未发边界继续测试。
+
+提交前合并集成a3f3fed。最终npm test 79/79（增加12项完整任务故障/生命周期回归）、npm run check、npm run bundle及git diff --check通过。交付artifacts/irishwei-dsh-router-0.3.4.tgz，91437字节，SHA256 `8FC8D8805A0D448000337C190C04C78E6D848A1D82F8E9955B3FD779F91A253C`。没有Computer Use、真实Desktop、用户凭据或付费请求；固定提交之后由集成owner进行独立双轴复审及实际安装RPC验收，本页不将方案认可当作复审通过。

@@ -125,7 +125,7 @@ window.__ModuleLoader__.load({
           h('p', { role: 'status' }, `期望配置 ${state.config.version} · ${state.application?.status === 'pending' ? '待生效：下一稳定请求应用' : '已生效'}`),
           ...(state.application?.active ?? []).map(task => h('p', { key: task.taskId }, `当前任务有效配置 ${task.appliedVersion} · 期望配置 ${task.desiredVersion}`)),
           state.storageError ? h('p', { role: 'alert' }, state.storageError) : null,
-          ...(state.blockedRequests ?? []).slice(-5).map((request, index) => h('p', { key: `${request.at}:${index}`, role: 'status' }, `辅助请求 ${request.nativePurpose} 无法安全关联活动任务，尚未发送：${request.reason}`)),
+          ...(state.blockedRequests ?? []).slice(-5).map((request, index) => h('p', { key: `${request.at}:${index}`, role: 'status' }, `辅助请求 ${request.nativePurpose} ${request.reason === 'AUXILIARY_LIFECYCLE_UNAVAILABLE' ? '缺少可观察的流生命周期' : '无法安全关联活动任务'}，尚未发送：${request.reason}`)),
           h('button', { type: 'button', onClick: refresh }, '刷新任务记录'),
           page === '连接与模型' ? pool() : page === '路由与预算' ? routing() : history()));
     }

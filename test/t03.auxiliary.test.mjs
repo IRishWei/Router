@@ -69,6 +69,215 @@ for (const action of ['extend', 'stop', 'original-abort']) test(`a completed nat
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
+test('a removed model pauses a completed native task when its waiting title is released', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-removal-'));
+  const ctx = await withTitles(home);
+  try {
+    await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN');
+    const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.nativeLifecycle === 'completed' && state.tasks.at(-1)?.calls[1]?.status === 'waiting')).tasks.at(-1);
+    await ctx.router.removeModel('controlled');
+    await ctx.router.extendTaskBudget(waiting.id, { tokens: 12 });
+    const task = (await waitFor(ctx, state => ['completed', 'paused'].includes(state.tasks.at(-1)?.lifecycle))).tasks.at(-1);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'MODEL_REMOVED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 12);
+    assert.equal(task.calls[0].dispatchIntent, 'possible');
+    assert.equal(task.calls[1].dispatchStarted, false);
+    assert.equal(task.calls[1].reservation.state, 'released');
+    assert.equal(task.timeline.at(-1).reason, 'MODEL_REMOVED');
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('an outer synchronous title rejection releases its unsent owner without waiting for deadline cancellation', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-outer-reject-'));
+  const ctx = await withTitles(home);
+  let originalSignal;
+  ctx.on('llm/stream', (request, next) => {
+    if (request.purpose === 'session-title') { originalSignal = request.signal; throw new Error('Local outer middleware rejection'); }
+    return next();
+  }, { prepend: true });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN');
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'paused')).tasks.at(-1);
+    assert.equal(task.pauseReason, 'AUXILIARY_STREAM_REJECTED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 12);
+    assert.equal(task.ledger.callCount, 1);
+    assert.equal(task.calls[0].dispatchIntent, 'possible');
+    assert.equal(originalSignal.aborted, false);
+    assert.equal(task.timeline.find(event => event.kind === 'auxiliary-not-dispatched').reason, 'AUXILIARY_STREAM_REJECTED');
+    assert.equal(ctx.sessionTitle.get(ctx.sessions.get(sessionId)).source.kind, 'fallback');
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('a real title provider using a bare public service fails closed without retaining an unobservable owner', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-bare-service-'));
+  const ctx = await startNative(home);
+  ctx.provide('logger', { warn() {}, info() {}, error() {} });
+  await ctx.plugin(SessionTitle, { fallbackMaxWords: 8, fallbackMaxBytes: 120, maxTitleBytes: 120 });
+  // Direct public apply captures the root's bare service read instead of a plugin-scoped read.
+  FirstPromptTitle.apply(ctx, { targetWords: 8, targetCjkCharacters: 16, maxInputBytes: 4096, maxOutputTokens: 128, timeoutMs: 5000 });
+  ctx.on('llm/stream', (request, next) => { if (request.purpose === 'session-title') throw new Error('Bare service outer rejection'); return next(); }, { prepend: true });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN');
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'paused')).tasks.at(-1);
+    assert.equal(task.pauseReason, 'AUXILIARY_LIFECYCLE_UNAVAILABLE');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 12);
+    assert.equal(task.ledger.unknownTokenCalls.total, 0);
+    const blocked = (await ctx.router.snapshot()).blockedRequests.at(-1);
+    assert.equal(blocked.reason, 'AUXILIARY_LIFECYCLE_UNAVAILABLE');
+    assert.equal(blocked.taskId, task.id);
+    assert.equal(blocked.status, 'not-dispatched');
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const mode of ['reject', 'close']) test(`an outer title iterator ${mode} releases the unconsumed owned stream`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-outer-iterator-'));
+  const ctx = await withTitles(home);
+  let originalSignal;
+  ctx.on('llm/stream', async function* (request, next) {
+    if (request.purpose === 'session-title') {
+      originalSignal = request.signal;
+      if (mode === 'reject') throw new Error('Local lazy middleware rejection');
+      return;
+    }
+    yield* next();
+  }, { prepend: true });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN');
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'paused')).tasks.at(-1);
+    assert.equal(task.pauseReason, mode === 'reject' ? 'AUXILIARY_STREAM_REJECTED' : 'AUXILIARY_STREAM_CLOSED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 12);
+    assert.equal(task.ledger.unknownTokenCalls.total, 0);
+    assert.equal(task.ledger.callCount, 1);
+    assert.equal(originalSignal.aborted, false);
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const reported of [false, true]) test(`a public title consumer closing after ${reported ? 'reported usage' : 'a text prefix'} preserves its consumption ledger`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-consumer-close-'));
+  const ctx = await withTitles(home);
+  let originalSignal;
+  ctx.on('llm/stream', async function* (request, next) {
+    if (request.purpose === 'session-title') originalSignal ??= request.signal;
+    for await (const chunk of next()) {
+      yield chunk;
+      if (request.purpose === 'session-title' && chunk.type === (reported ? 'usage' : 'text-delta')) return;
+    }
+  }, { prepend: true });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN');
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'paused')).tasks.at(-1);
+    assert.equal(task.pauseReason, 'AUXILIARY_CALL_FAILED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.calls[1].dispatchIntent, 'possible');
+    assert.equal(task.calls[1].dispatchStarted, true);
+    assert.equal(task.ledger.tokens.total, reported ? 24 : null);
+    assert.equal(task.ledger.knownTokens.total, reported ? 24 : 12);
+    assert.equal(task.ledger.unknownTokenCalls.total, reported ? 0 : 1);
+    assert.equal(task.ledger.callCount, 2);
+    assert.equal(originalSignal.aborted, false);
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const method of ['return', 'throw']) test(`an explicit reserved stream ${method} before consumption releases its call and task ownership`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-explicit-return-'));
+  const ctx = await startNative(home);
+  let signal;
+  ctx.on('agent/request', (request, next) => { signal = request.signal; return next(); });
+  ctx.tools.register({ name: 'router_test_wait', description: 'Close an unused consultation stream', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() {
+    const task = (await ctx.router.snapshot()).tasks.at(-1);
+    const id = await ctx.router.reserveCall(task.id, { purpose: 'consultation', selection: task.activeSelection, forecast: { totalTokens: 12 } }, signal);
+    const stream = ctx.router.streamReservedCall(task.id, id, { provider: task.activeSelection.provider, model: task.activeSelection.model, signal, messages: [createUserMessage({ content: [{ type: 'text', text: 'Reply UNUSED' }] })] });
+    if (method === 'return') assert.equal((await stream.return()).done, true);
+    else await assert.rejects(stream.throw(new Error('Caller rejected the unconsumed stream')), /Caller rejected/);
+    return 'TOOL_OK';
+  } });
+  ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, '[router:tool]\nReply MAIN');
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, method === 'return' ? 'AUXILIARY_STREAM_CLOSED' : 'AUXILIARY_STREAM_REJECTED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 24);
+    assert.equal(task.calls.find(call => call.purpose === 'consultation').status, 'not-dispatched');
+    assert.equal(task.calls.find(call => call.purpose === 'consultation').reservation.state, 'released');
+    assert.equal(signal.aborted, false);
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('an already canceled explicit call cannot retain unconsumed task ownership', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-explicit-aborted-'));
+  const ctx = await startNative(home);
+  ctx.tools.register({ name: 'router_test_wait', description: 'Bind an already canceled consultation', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() {
+    const task = (await ctx.router.snapshot()).tasks.at(-1), controller = new AbortController();
+    const id = await ctx.router.reserveCall(task.id, { purpose: 'consultation', selection: task.activeSelection, forecast: { totalTokens: 12 } }, controller.signal);
+    controller.abort(new Error('Canceled before binding'));
+    ctx.router.streamReservedCall(task.id, id, { provider: task.activeSelection.provider, model: task.activeSelection.model, signal: controller.signal, messages: [createUserMessage({ content: [{ type: 'text', text: 'Reply UNUSED' }] })] });
+    return 'TOOL_OK';
+  } });
+  ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, '[router:tool]\nReply MAIN');
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'completed')).tasks.at(-1);
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 24);
+    assert.equal(task.calls.find(call => call.purpose === 'consultation').status, 'not-dispatched');
+    assert.equal(task.calls.find(call => call.purpose === 'consultation').reservation.state, 'released');
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const mode of ['rejection', 'close']) test(`an outer prepared-stream ${mode} settles only its explicit call and pauses the task`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-explicit-outer-reject-'));
+  const ctx = await startNative(home);
+  let signal;
+  ctx.on('agent/request', (request, next) => { signal = request.signal; return next(); });
+  ctx.on('llm/stream', (request, next) => {
+    if (request.sessionId) return next();
+    if (mode === 'rejection') throw new Error('Local prepared-stream rejection');
+    return (async function* () {})();
+  }, { prepend: true });
+  ctx.tools.register({ name: 'router_test_wait', description: 'Run a rejected consultation stream', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() {
+    const task = (await ctx.router.snapshot()).tasks.at(-1);
+    const id = await ctx.router.reserveCall(task.id, { purpose: 'consultation', selection: task.activeSelection, forecast: { totalTokens: 12 } }, signal);
+    const stream = ctx.router.streamReservedCall(task.id, id, { provider: task.activeSelection.provider, model: task.activeSelection.model, signal, messages: [createUserMessage({ content: [{ type: 'text', text: 'Reply UNUSED' }] })] });
+    if (mode === 'rejection') await assert.rejects(async () => { for await (const _chunk of stream) {} }, /Local prepared-stream rejection/);
+    else for await (const _chunk of stream) {}
+    return 'TOOL_OK';
+  } });
+  ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, '[router:tool]\nReply MAIN');
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'AUXILIARY_CALL_FAILED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 24);
+    const call = task.calls.find(call => call.purpose === 'consultation');
+    assert.equal(call.dispatchStarted, false);
+    assert.equal(call.reservation.state, 'released');
+    assert.equal(task.calls.filter(call => call.purpose === 'execution').every(call => call.dispatchIntent === 'possible'), true);
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
 test('an explicit consultation request owns its reserved call without an extra auxiliary reservation', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t03-explicit-call-'));
   const ctx = await startNative(home);
