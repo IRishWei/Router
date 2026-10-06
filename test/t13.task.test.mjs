@@ -249,15 +249,13 @@ test('trusted Host checks keep programming behavior, build and missing test cove
   await writeFile(testPath, "import test from 'node:test';\nimport assert from 'node:assert/strict';\nimport { add } from '../src/add.mjs';\ntest('adds', () => assert.equal(add(1, 2), 3));\n");
   const sourceHash = digest(await readFile(sourcePath));
   const ctx = await startNative(home);
-  const programChecks = createNodeProgramChecks(ctx, {
-    resolveArtifact: async () => ({ workspace: home, path: sourcePath, revision: 1 }),
-  });
+  const programChecks = createNodeProgramChecks(ctx);
   const acceptance = new AcceptanceCoordinator(ctx, {
     checks: programChecks.checks,
   });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
-    const task = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n编程行为「加法返回3」由可信检查「node-test」验证。\n必须通过构建检查「node-check」。\n必须通过测试检查「tests-add」。');
+    const task = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n编程行为「加法返回3」由可信检查「node-test」验证，工作区产物「src/add.mjs」。\n必须通过构建检查「node-check」，工作区产物「src/add.mjs」。\n必须通过测试检查「tests-add」，工作区产物「src/add.mjs」。');
     const result = acceptance.getResult(task.id);
     assert.equal(result.verdict, 'failed');
     assert.deepEqual(result.evidence.map(item => item.verdict), ['failed', 'passed', 'unconfirmed']);
@@ -267,8 +265,10 @@ test('trusted Host checks keep programming behavior, build and missing test cove
     assert.equal(result.evidence[2].reason, 'CHECK_NOT_AUTHORIZED');
     assert.equal(result.evidence[0].artifactHash, sourceHash);
     assert.equal(result.evidence[0].artifactRef.path, sourcePath);
+    assert.equal(result.evidence[0].artifactRef.revision, result.artifact.revision);
     assert.equal(result.evidence[0].artifactRef.scope.workspace, home);
     assert.equal(result.evidence[0].artifactRef.scope.paths.includes(testPath), true);
+    assert.equal(result.requirements.every(requirement => requirement.artifactPath === 'src/add.mjs'), true);
     assert.equal(result.evidence[0].source.execution.commandId, 'node-test-workspace-v1');
     assert.match(result.evidence[0].source.execution.inputHash, /^[a-f0-9]{64}$/u);
     assert.notEqual(result.evidence[0].source.execution.exitCode, 0);
@@ -325,14 +325,33 @@ test('the production Node checker rejects a captured workspace after its artifac
     const signal = new AbortController().signal;
     const plan = await programChecks.checks.resolvePlan({
       task: { id: 'task-stale', sessionId: 'session-stale', turn: 1 },
-      artifact: { id: 'assistant-artifact', complete: true },
-      requirement: { id: 'requirement-stale', planId: 'node-check', checkKind: 'build', origin: { kind: 'user-message', messageId: 'user-stale' } },
+      artifact: { id: 'assistant-artifact', revision: 1, complete: true },
+      requirement: { id: 'requirement-stale', planId: 'node-check', checkKind: 'build', artifactPath: 'app.mjs', origin: { kind: 'user-message', messageId: 'user-stale' } },
       signal,
     });
     await writeFile(sourcePath, 'export default 2;\n');
     const outcome = await ctx.tools.execute({ callId: 'program-stale-call', name: plan.toolName, arguments: plan.arguments, signal });
     assert.equal(outcome.isError, true);
     assert.equal(outcome.error.info.code, 'CHECK_INPUT_CHANGED');
+  } finally { programChecks.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('production checks stay not configured without a safe explicit workspace artifact path', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-program-contract-'));
+  const ctx = await startNative(home);
+  const programChecks = createNodeProgramChecks(ctx);
+  const acceptance = new AcceptanceCoordinator(ctx, { checks: programChecks.checks });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const missing = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n必须通过构建检查「node-check」。');
+    const missingResult = acceptance.getResult(missing.id);
+    assert.equal(missingResult.evidence[0].reason, 'CHECK_NOT_CONFIGURED');
+    assert.equal(missing.calls.length, 1);
+
+    const traversal = await submit(ctx, sessionId, 'Reply IMPLEMENTED\n仅检查以下明确要求：\n必须通过构建检查「node-check」，工作区产物「../outside.mjs」。');
+    const traversalResult = acceptance.getResult(traversal.id);
+    assert.equal(traversalResult.evidence[0].reason, 'CHECK_NOT_CONFIGURED');
+    assert.equal(traversal.calls.length, 1);
   } finally { programChecks.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 

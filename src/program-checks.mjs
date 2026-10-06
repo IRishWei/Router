@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { HarnessError } from '@deepseek-ai/dsh-llm';
 
@@ -18,6 +18,13 @@ const inside = (workspace, path) => {
   return child === '' || (!child.startsWith('..') && !isAbsolute(child));
 };
 const failure = (message, code) => new HarnessError(message, code);
+const notConfigured = () => Object.freeze({ authorized: false, reason: 'CHECK_NOT_CONFIGURED' });
+const relativeArtifactPath = value => {
+  if (typeof value !== 'string' || !value || value.length > 500 || isAbsolute(value) || /[\u0000-\u001f<>:"|?*]/u.test(value)) return null;
+  const segments = value.split(/[\\/]/u);
+  if (segments.some(segment => !segment || segment === '.' || segment === '..')) return null;
+  return segments.join(sep);
+};
 
 async function scopeFiles(workspace) {
   const found = [];
@@ -114,7 +121,7 @@ function toolOutputSchema() {
 
 /** Host-only Node project checker. Commands are fixed; model/user text can only name the published plan IDs. */
 export function createNodeProgramChecks(ctx, { resolveArtifact } = {}) {
-  if (typeof resolveArtifact !== 'function') throw new TypeError('A Host artifact resolver is required');
+  if (resolveArtifact !== undefined && typeof resolveArtifact !== 'function') throw new TypeError('Host artifact resolver must be a function');
   const prepared = new Map();
   const unregister = ctx.tools.register({
     name: TOOL_NAME,
@@ -148,14 +155,27 @@ export function createNodeProgramChecks(ctx, { resolveArtifact } = {}) {
     const mode = requirement.planId === 'node-test' && ['behavior', 'test'].includes(requirement.checkKind) ? 'test'
       : requirement.planId === 'node-check' && requirement.checkKind === 'build' ? 'check' : null;
     if (!mode || requirement.origin?.kind !== 'user-message' || typeof requirement.origin.messageId !== 'string') return null;
-    const resolvedArtifact = await resolveArtifact({ task, requirement, artifact, agent, signal });
+    const artifactPath = relativeArtifactPath(requirement.artifactPath);
+    if (!artifactPath) return notConfigured();
+    const sessionWorkspace = agent?.session?.header?.cwd;
+    const resolvedArtifact = resolveArtifact
+      ? await resolveArtifact({ task, requirement, artifact, agent, signal })
+      : { workspace: sessionWorkspace, path: typeof sessionWorkspace === 'string' ? resolve(sessionWorkspace, artifactPath) : null, revision: artifact.revision };
     signal.throwIfAborted();
-    const workspace = resolve(resolvedArtifact?.workspace ?? '');
-    const path = resolve(resolvedArtifact?.path ?? '');
-    if (!isAbsolute(resolvedArtifact?.workspace) || !isAbsolute(resolvedArtifact?.path) || !inside(workspace, path) || !positiveInteger(resolvedArtifact?.revision)) return null;
-    const workspaceInfo = await stat(workspace);
-    const artifactInfo = await stat(path);
-    if (!workspaceInfo.isDirectory() || !artifactInfo.isFile() || !/\.(?:cjs|js|mjs)$/iu.test(path)) return null;
+    if (!isAbsolute(resolvedArtifact?.workspace) || !isAbsolute(resolvedArtifact?.path) || !positiveInteger(resolvedArtifact?.revision)) return notConfigured();
+    const requestedPath = resolve(resolvedArtifact.workspace, artifactPath);
+    if (resolve(resolvedArtifact.path) !== requestedPath || !inside(resolvedArtifact.workspace, requestedPath)) return notConfigured();
+    let workspace;
+    let path;
+    let workspaceInfo;
+    let artifactInfo;
+    try {
+      workspace = await realpath(resolvedArtifact.workspace);
+      path = await realpath(resolvedArtifact.path);
+      workspaceInfo = await stat(workspace);
+      artifactInfo = await stat(path);
+    } catch { return notConfigured(); }
+    if (!inside(workspace, path) || !workspaceInfo.isDirectory() || !artifactInfo.isFile() || !/\.(?:cjs|js|mjs)$/iu.test(path)) return notConfigured();
     const paths = mode === 'test' ? await scopeFiles(workspace) : [path];
     if (!paths.some(item => resolve(item) === path)) paths.push(path);
     paths.sort((left, right) => relative(workspace, left).localeCompare(relative(workspace, right)));

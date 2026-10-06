@@ -25,7 +25,7 @@ const historyEntry = (result, reason) => ({
   requirementRevision: result.requirementRevision,
   requirementHash: result.requirementHash,
   artifact: result.artifact ? pick(result.artifact, ['id', 'version', 'revision', 'kind', 'sessionId', 'turn', 'step', 'messageId', 'seq', 'hash', 'text', 'complete']) : null,
-  requirements: result.requirements.map(item => pick(item, ['id', 'version', 'kind', 'literal', 'min', 'max', 'unit', 'literals', 'rubric', 'risk', 'checkKind', 'planId', 'behavior', 'description', 'required', 'origin'])),
+  requirements: result.requirements.map(item => pick(item, ['id', 'version', 'kind', 'literal', 'min', 'max', 'unit', 'literals', 'rubric', 'risk', 'checkKind', 'planId', 'artifactPath', 'behavior', 'description', 'required', 'origin'])),
   evidence: result.evidence.map(item => pick(item, ['id', 'version', 'requirementId', 'artifactHash', 'artifactRef', 'verdict', 'source', 'evidenceRef', 'measurement', 'observed', 'reason', 'artifactQuote', 'explanation'])),
   coverage: pick(result.coverage, ['required', 'requiredIds', 'covered', 'coveredIds', 'failedIds', 'uncovered', 'uncoveredIds']),
   verdict: result.verdict,
@@ -118,11 +118,11 @@ export class AcceptanceCoordinator {
         const length = clause.match(/^正文长度为(\d+)至(\d+)个字符$/u);
         const structure = clause.match(/^正文结构依次包含((?:「[^」]+」)+)$/u);
         const rubric = clause.match(/^(高风险)?评审标准：「([^」]+)」$/u);
-        const behavior = clause.match(/^编程行为「([^」]+)」由可信检查「([^」]+)」验证$/u);
-        const projectCheck = clause.match(/^必须通过(测试|构建)检查「([^」]+)」$/u);
+        const behavior = clause.match(/^编程行为「([^」]+)」由可信检查「([^」]+)」验证(?:，工作区产物「([^」]+)」)?$/u);
+        const projectCheck = clause.match(/^必须通过(测试|构建)检查「([^」]+)」(?:，工作区产物「([^」]+)」)?$/u);
         const literals = structure ? [...structure[1].matchAll(/「([^」]+)」/gu)].map(item => item[1]) : null;
         const checkKind = behavior ? 'behavior' : projectCheck?.[1] === '测试' ? 'test' : projectCheck ? 'build' : null;
-        return { id: `requirement:v1:${input.messageId}:${index}`, version: 1, kind: match ? match[1] === '必须' ? 'includes-literal' : 'excludes-literal' : length && Number(length[1]) <= Number(length[2]) ? 'character-length' : literals?.length ? 'ordered-literals' : rubric ? 'rubric' : checkKind ? 'host-check' : 'unresolved', literal: match?.[2] ?? null, ...(length ? { min: Number(length[1]), max: Number(length[2]), unit: 'unicode-code-points' } : {}), ...(literals?.length ? { literals } : {}), ...(rubric ? { rubric: rubric[2], risk: rubric[1] ? 'high' : 'standard' } : {}), ...(checkKind ? { checkKind, planId: behavior?.[2] ?? projectCheck[2], behavior: behavior?.[1] ?? null } : {}), description: clause, required: true, origin: { kind: 'user-message', messageId: input.messageId, requestId: input.requestId, seq: input.seq } };
+        return { id: `requirement:v1:${input.messageId}:${index}`, version: 1, kind: match ? match[1] === '必须' ? 'includes-literal' : 'excludes-literal' : length && Number(length[1]) <= Number(length[2]) ? 'character-length' : literals?.length ? 'ordered-literals' : rubric ? 'rubric' : checkKind ? 'host-check' : 'unresolved', literal: match?.[2] ?? null, ...(length ? { min: Number(length[1]), max: Number(length[2]), unit: 'unicode-code-points' } : {}), ...(literals?.length ? { literals } : {}), ...(rubric ? { rubric: rubric[2], risk: rubric[1] ? 'high' : 'standard' } : {}), ...(checkKind ? { checkKind, planId: behavior?.[2] ?? projectCheck[2], artifactPath: behavior?.[3] ?? projectCheck?.[3] ?? null, behavior: behavior?.[1] ?? null } : {}), description: clause, required: true, origin: { kind: 'user-message', messageId: input.messageId, requestId: input.requestId, seq: input.seq } };
       });
     });
     const artifact = structuredClone(state.artifact);
@@ -240,6 +240,7 @@ export class AcceptanceCoordinator {
     if (signal.aborted) return { ...base, verdict: 'unconfirmed', source: { kind: 'host-check', planId: requirement.planId, checkKind: requirement.checkKind, toolName: null, authorizationRef: null }, reason: 'CANCELED' };
     const artifactRef = artifactRefOf(plan?.artifactRef);
     const source = { kind: 'host-check', planId: requirement.planId, checkKind: requirement.checkKind, toolName: plan?.toolName ?? null, authorizationRef: plan?.authorizationRef ?? null };
+    if (plan?.authorized === false && plan.reason === 'CHECK_NOT_CONFIGURED') return { ...base, verdict: 'unconfirmed', source, reason: plan.reason };
     if (!plan || plan.authorized !== true || plan.kind !== requirement.checkKind || typeof plan.toolName !== 'string' || !plan.toolName || typeof plan.authorizationRef !== 'string' || !plan.authorizationRef || !artifactRef || !positiveInteger(plan.version) || typeof plan.commandId !== 'string' || !plan.commandId || (plan.inputHash !== undefined && !isDigest(plan.inputHash))) return { ...base, verdict: 'unconfirmed', source, reason: 'CHECK_NOT_AUTHORIZED' };
     try {
       const outcome = await this.#ctx.tools.execute({ callId: `router-acceptance-${randomUUID()}`, name: plan.toolName, arguments: structuredClone(plan.arguments ?? {}), agent, signal });
