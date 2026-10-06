@@ -32,3 +32,11 @@ Spec 独立复核：原 2 项 P2 均解决，没有新增可复现规格缺陷�
 2026-10-07 用户已从原生插件管理安装并启用 0.1.1。真实桌面复验发现 Router 设置项存在但内容区域为空；自动化客户端测试未覆盖宿主设置页挂载链路。T01 仍未通过桌面验收，Issue 保持打开，待修复及真实页面复验。
 
 首次审查汇总：Standards 为 0 项硬性违反、1 项判断性气味；Spec 为 2 项 P2，风险分别是误报执行完成和丢失失败调用记录。
+
+## 空白页修复复核
+
+修复提交 `98a61d2`，集成提交 `b53b58f`。Standards 独立复核：0 项硬性违反、0 项判断性气味。Spec 独立复核：无新增可操作发现；独立复现旧版 Cordis 依赖错误，修复后真实 rc.2 Renderer 加载成功，连续卸载/重载 3 次清理正常，每次仅注册一个设置项。
+
+回归执行真实 Cordis、Renderer、Typert registry、Gateway 和 RPC codec，检查 `/api`、`router/setAutomatic` 与实际参数格式，没有直接注入 `remote.router` 或绕过 slot 渲染。Connection 与 DOM 为测试边界，另由集成负责人完成真实 Windows Desktop 页面/Host RPC、暂停保存、完整可控任务、停用/重新启用和 owner 进程重启验证。详见 `t01-host-evidence.md`。
+
+集成分支 `npm test` 11/11、`npm run check`、`git diff --check` 通过。T01 可关闭；不将可控响应计为真实提供商、授权或自动路由收益的验收证据。

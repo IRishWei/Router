@@ -1,6 +1,6 @@
 # T01 宿主接入与验证证据
 
-日期：2026-10-07。T01/#2 实现准备完成；本文件的自动化结果不替代真实桌面安装与加载验收。桌面证据由集成负责人验证后补充。
+日期：2026-10-07。T01/#2 已通过目标 Windows Desktop 的安装、页面、完整可控任务、暂停、停用/重新启用及进程重启验收。自动化与真实桌面证据分别记录如下。
 
 ## 实际目标与接入依据
 
@@ -35,9 +35,9 @@ T01 使用实际 native 可控 provider/model pair，既不使用 virtual→real
 | 设置排队写失败 | 磁盘异常仍成功返回设置；后续旧enable快照可落盘 | 新写入在执行前重查storageError；设置明确失败，重启仍读到此前持久化false/version2 |
 | 执行中存储异常 | 正常模型响应覆盖存储异常暂停 | 保留输出；路由/task仍暂停，验收无法确认 |
 
-命令：`npm test` **11/11 通过**；`npm run build` 和 `npm run check` 通过；`npm run bundle` 生成 **0.1.1** 可安装 tgz。包内容为 Host/Client/codec、patch、元数据、README 和许可证，不包含 node_modules 或另一个 Cordis Framework。
+命令：`npm test` **11/11 通过**；`npm run build` 和 `npm run check` 通过；`npm run bundle` 生成 **0.1.2** 可安装 tgz。包内容为 Host/Client/codec、patch、元数据、README 和许可证，不包含 node_modules 或另一个 Cordis Framework。
 
-实际 native controller 测试只替换外部 HTTP carrier 的 route registration；SessionController、modelSelection projection、SessionQuery、附件文字准入、FileUploads、AgentLoop、LLM 及 Session 均为实际目标版本实现。无图片、真实授权或付费网络请求。客户端 React 测试在公开 RemoteResult 系统边界使用可控成功返回；真实浏览器 wire、桌面安装、重启和停用仍需桌面验证。
+实际 native controller 测试只替换外部 HTTP carrier 的 route registration；SessionController、modelSelection projection、SessionQuery、附件文字准入、FileUploads、AgentLoop、LLM 及 Session 均为实际目标版本实现。无图片、真实授权或付费网络请求。客户端回归使用真实 rc.2 Cordis、Renderer、Typert registry、Gateway 和 RPC codec，仅替换外部 Connection JSON carrier 与 DOM 挂载；真实桌面 wire 和生命周期另见下节。
 
 存储故障测试在文件系统边界注入一次EIO，其余写入及重启读取使用真实临时目录；仅检验当前进程的故障状态和旧排队写入保护，不承诺磁盘不可写时能持久化失败标记。Host可注入的 `routerFileSystem` 只提供 writeFile/rename，常规运行直接使用Node原生文件API。
 
@@ -52,12 +52,21 @@ T01 使用实际 native 可控 provider/model pair，既不使用 virtual→real
 - 没有读写 Codex 配置、认证或原用户 DSH profile。隔离桌面运行要同时确认 Electron singleton/userData 与 DSH_HOME；只改变 DSH_HOME 不足以证明实例隔离。
 - `npm audit --omit=dev` 报告目标 DSH peer 的 Office→libreoffice-kit→fflate 依赖链 8 项 moderate，源头为同一 ZIP64 解析 advisory。Router 不打包或调用 Office 链，没有升级目标宿主依赖。
 
-## 尚待真实桌面验证
+## 真实桌面 red → green
 
-1. 原生插件管理安装/启用已由用户完成并由桌面复验确认（0.1.1，一个组件运行中）。settings section 侧栏出现，但内容为空，RPC/页面完整加载验收失败，正在修复。
-2. 原生 session 菜单选可控模型，完成任务，实际请求/状态/记录一致。
-3. 暂停路由、重启、停用与再次启用，原生路径和配置入口行为。
+0.1.1 由用户原生安装并启用，一个组件运行中。设置侧栏出现但内容为空；内容断言失败。已安装的 `lib/client.js` 与集成构建 SHA256 同为 `29910C1FCD5C63B504A8FCAAAB381A7E794C73CB1DDB33F11E0189BDB896BD1B`，排除旧包缓存。真实 Electron DevTools 显示 `cannot get property "remote.router" without inject` 和 `slot entry crashed in 'settings.section'`。原直接渲染 React 组件的测试遗漏了 Cordis 依赖检查。
 
-此处不提前标记真实桌面、真实提供商、授权、跨模型协作或收益门槛通过。
+修复提交 `98a61d2`：父插件先挂载 Remote namespace，再加载显式声明 `remote.router` 依赖的设置子插件；使用宿主生命周期清理子插件、slot 与 namespace。真实 rc.2 Renderer 回归先复现旧版错误，再证明新版加载和卸载/重载。集成提交 `b53b58f`。
 
-空白页复现：在真实 0.2.0-rc.2 设置中点击 DSH Router，原生可访问性树仅含侧栏按钮，没有自动路由、任务记录、加载中或读取失败提示。对当前页面执行内容断言稳定失败。已安装的 `lib/client.js` 与集成构建 SHA256 同为 `29910C1FCD5C63B504A8FCAAAB381A7E794C73CB1DDB33F11E0189BDB896BD1B`，排除旧包缓存。失败发生在实际页面挂载层，原直接渲染注册组件的 React 测试不足以证明这一层正常。
+验收在隔离 `DSH_HOME` 的真实已安装 Desktop 进行；使用安装自带 `dsh plugin --profile desktop add <tgz>` 更新包，不改桌面依赖。没有读取或修改原用户 profile。0.1.2 tgz SHA256：`15EA0B20C7AC3CFEEF7B994A3B5D0F4DC4DBCFBFDEAEA538B77B5F581B2E18F1`；安装后的 client 与构建 SHA256 同为 `DF3AB57FD8221F485575B03A6F89A56BF26C77C4BEB06190BA3FF6BC13034CD4`。
+
+| 桌面验收 | 实际观察 |
+| --- | --- |
+| 设置加载与 Host RPC | 显示自动路由已启用、配置版本 1、暂停按钮与空任务记录；内容断言由 red 转 green |
+| 暂停保存 | 点击暂停后显示已暂停、版本 2；真实 state.json 保存 `automatic:false` / `version:2`，设置入口保留 |
+| 暂停后的原生任务 | 原生模型菜单显式选择 Controlled fixture，发送 `Reply ROUTER_OK`；原生会话输出 ROUTER_OK，12 个可控 token，无付费请求 |
+| 请求/状态/记录一致 | task `6106b988-9256-4e46-b512-1b84bf839350`、session `8482e86c-1266-4d20-b82c-bcd4bc380ae7`；durable header 与记录均为 `router-controlled/controlled`，call 为 header-confirmed/completed，配置版本 2；设置实际 RPC 显示同一 pair、结果及“验收：无法确认” |
+| 停用与再次启用 | 原生插件开关停用后 Router 设置槽消失，原生通用设置仍可用；重新启用仅出现一个 Router 设置项，版本 2 和任务记录保持 |
+| 完整进程重启 | 正常“应用 → 退出”，确认原 owner 进程退出，再启动同一隔离 profile；原生会话和 Controlled fixture 选择恢复，Router RPC 显示已暂停/版本 2、同一 task 与 ROUTER_OK |
+
+基础连接故障、截断、取消、重试与磁盘故障由上节外部完整任务入口验证。T01 桌面与可控任务门槛通过；真实提供商授权、跨模型自动路由与收益门槛仍由后续 ticket 验收。
