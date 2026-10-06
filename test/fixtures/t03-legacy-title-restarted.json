@@ -1,0 +1,273 @@
+{
+  "schemaVersion": 1,
+  "config": {
+    "automatic": false,
+    "version": 5,
+    "pool": [
+      {
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled",
+        "enabled": true
+      },
+      {
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled-tools",
+        "enabled": true
+      }
+    ],
+    "fixedModel": null,
+    "prices": [
+      {
+        "connectionId": "dsh-native:native-main-fixture",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "native-main-fixture",
+        "model": "main",
+        "quote": {
+          "source": "fixture:recorded-0.3.2-title-clobber",
+          "date": "2026-10-07",
+          "currency": "USD",
+          "kind": "fixture-reference",
+          "confidence": "declared",
+          "perMillion": {
+            "input": 2,
+            "output": 6,
+            "cacheRead": 0,
+            "cacheWrite": 0
+          },
+          "reasoning": "included-in-output"
+        }
+      }
+    ],
+    "budget": {
+      "tokens": 100,
+      "durationMs": 60000,
+      "money": [
+        {
+          "currency": "USD",
+          "kind": "fixture-reference",
+          "amount": 1
+        }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "14dbb8f2-daf4-432e-affc-6875a43b5a5f",
+      "sessionId": "session-92859e40-8497-4d7a-81e5-a10c298b8174",
+      "turn": 1,
+      "lifecycle": "paused",
+      "acceptance": {
+        "verdict": "unconfirmed",
+        "evidence": []
+      },
+      "activeSelection": {
+        "connectionId": "dsh-native:native-main-fixture",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "native-main-fixture",
+        "model": "main"
+      },
+      "configVersion": 4,
+      "result": "",
+      "calls": [
+        {
+          "id": "dca01987-002d-4872-af91-070d9aff5073",
+          "taskId": "14dbb8f2-daf4-432e-affc-6875a43b5a5f",
+          "purpose": "execution",
+          "accountingEntry": "task-call-v1",
+          "dispatchProtocol": "durable-intent-v1",
+          "attempt": 1,
+          "step": 1,
+          "selection": {
+            "connectionId": "dsh-native:native-main-fixture",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "native-main-fixture",
+            "model": "main"
+          },
+          "configVersion": 4,
+          "routerSnapshot": {
+            "automatic": false,
+            "version": 4,
+            "pool": [
+              {
+                "connectionId": "controlled-local",
+                "accountId": "local",
+                "billingPath": "controlled",
+                "provider": "router-controlled",
+                "model": "controlled",
+                "enabled": true
+              },
+              {
+                "connectionId": "controlled-local",
+                "accountId": "local",
+                "billingPath": "controlled",
+                "provider": "router-controlled",
+                "model": "controlled-tools",
+                "enabled": true
+              }
+            ],
+            "fixedModel": null,
+            "prices": [
+              {
+                "connectionId": "dsh-native:native-main-fixture",
+                "accountId": "unknown",
+                "billingPath": "unknown",
+                "provider": "native-main-fixture",
+                "model": "main",
+                "quote": {
+                  "source": "fixture:recorded-0.3.2-title-clobber",
+                  "date": "2026-10-07",
+                  "currency": "USD",
+                  "kind": "fixture-reference",
+                  "confidence": "declared",
+                  "perMillion": {
+                    "input": 2,
+                    "output": 6,
+                    "cacheRead": 0,
+                    "cacheWrite": 0
+                  },
+                  "reasoning": "included-in-output"
+                }
+              }
+            ],
+            "budget": {
+              "tokens": 100,
+              "durationMs": 60000,
+              "money": [
+                {
+                  "currency": "USD",
+                  "kind": "fixture-reference",
+                  "amount": 1
+                }
+              ]
+            }
+          },
+          "status": "not-dispatched",
+          "dispatchState": "header-confirmed",
+          "dispatchStarted": false,
+          "usage": null,
+          "priceQuote": {
+            "source": "fixture:recorded-0.3.2-title-clobber",
+            "date": "2026-10-07",
+            "currency": "USD",
+            "kind": "fixture-reference",
+            "confidence": "declared",
+            "perMillion": {
+              "input": 2,
+              "output": 6,
+              "cacheRead": 0,
+              "cacheWrite": 0
+            },
+            "reasoning": "included-in-output"
+          },
+          "reservation": {
+            "state": "released",
+            "tokens": {
+              "input": null,
+              "output": null,
+              "cacheRead": null,
+              "cacheWrite": null,
+              "reasoning": null,
+              "total": null
+            },
+            "money": {
+              "currency": "USD",
+              "kind": "fixture-reference",
+              "amount": null,
+              "knownSubtotal": 0,
+              "parts": {
+                "input": null,
+                "output": null,
+                "cacheRead": null,
+                "cacheWrite": null
+              },
+              "missing": [
+                "input",
+                "output",
+                "cacheRead",
+                "cacheWrite"
+              ],
+              "reasoning": "included-in-output",
+              "billingConfirmation": "unconfirmed"
+            },
+            "durationMs": null,
+            "source": "unknown",
+            "confidence": "unknown"
+          },
+          "preparedAt": "2026-10-06T20:15:51.257Z",
+          "snapshot": {
+            "provider": "native-main-fixture",
+            "model": "main"
+          },
+          "hostAttemptId": "session-92859e40-8497-4d7a-81e5-a10c298b8174:1",
+          "dispatchIntent": "blocked",
+          "dispatchIntentAt": "2026-10-06T20:15:51.271Z"
+        }
+      ],
+      "inputs": [
+        {
+          "messageId": "3164c76b-5d5a-4eb3-b917-4b3e38a1dcb1",
+          "requestId": "87def626-b5db-4038-bb5d-ab1342ba3d89",
+          "turn": 1,
+          "claimedAt": "2026-10-06T20:15:51.253Z"
+        }
+      ],
+      "timeline": [
+        {
+          "kind": "input-claimed",
+          "messageId": "3164c76b-5d5a-4eb3-b917-4b3e38a1dcb1",
+          "requestId": "87def626-b5db-4038-bb5d-ab1342ba3d89",
+          "turn": 1
+        },
+        {
+          "kind": "selection",
+          "reason": "native-pending",
+          "provider": "native-main-fixture",
+          "model": "main",
+          "configVersion": 4
+        }
+      ],
+      "startedAt": "2026-10-06T20:15:51.252Z",
+      "budget": {
+        "limits": {
+          "tokens": 100,
+          "durationMs": 60000,
+          "money": [
+            {
+              "currency": "USD",
+              "kind": "fixture-reference",
+              "amount": 1
+            }
+          ]
+        },
+        "extensions": [],
+        "unenforceableLimits": [
+          {
+            "resource": "tokens",
+            "reason": "UNKNOWN_USAGE_OR_FORECAST"
+          },
+          {
+            "resource": "durationMs",
+            "reason": "UNKNOWN_NEXT_CALL_DURATION"
+          },
+          {
+            "resource": "money",
+            "currency": "USD",
+            "kind": "fixture-reference",
+            "reason": "UNKNOWN_PRICE_USAGE_OR_CURRENCY"
+          }
+        ]
+      },
+      "pauseReason": "HOST_RESTARTED",
+      "endedAt": "2026-10-06T20:15:51.334Z"
+    }
+  ]
+}

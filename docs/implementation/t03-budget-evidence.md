@@ -1,12 +1,12 @@
 # T03 任务账本与预算自动化证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.2；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 修复基于集成 ad0bb07，提交前合并 ae9c945。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
+目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.3；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
 
 ## 行为与共享入口
 
 任务在真实 turn/start 创建，steer 和 queue 的归属取自公开 agent/inbox/claimed 的 turn 与消息/request 身份。所有调用保留完整 selection（connectionId、accountId、billingPath、provider、model）、taskId、独立 callId、purpose、稳定配置版本、真实 header/attempt、报价与预留。自动路由不写原生全局默认。
 
-Host-only await reserveCall(taskId, details, signal) → await persistDispatchIntent(taskId, callId) → settleCall(taskId, callId, settlement) 是统一预算/账本入口。可声明 assessment、execution、review、consultation、retry、redo；这只是公共契约，不产生尚未实现的策略。当前执行和原生 loop retry 实际走相同入口。调用前持久化预留、等待预算；persistDispatchIntent 必须 await 持久化可能派发意图成功后才允许进入传输，它沿用 reserveCall 内部保存的原 signal，不新增可遗漏的 signal 参数。该意图不证明实际发送。原生流在 await 后同步复查 pending、当前资格和 signal，再消费下游并记录 dispatchStarted；后续 Host-only 调用方也须保留自己负责的最终资格与选择检查。结束时按报告用量结算。并发预留在结算前仍计入预留总数；结算释放后唤醒同任务等待方再检查。未来调用必须沿用该入口，不得另建预算。
+Host-only await reserveCall(taskId, details, signal) → streamReservedCall(taskId, callId, request) 是0.3.3协作者统一预算/派发/账本入口；runner负责绑定一次请求、await意图和实际结算，不另行 persist/settle。可声明 assessment、execution、review、consultation、retry、redo、auxiliary；实际策略不因此被实现。当前执行、原生 loop retry 和有来源的辅助调用走相同底层 reserve/persist/settle。低层persistDispatchIntent沿用reserve保存的原signal，只证明可能派发，不替代精确请求所有权。原生流在await后同步复查pending、资格和signal；显式调用方保留自己负责的最终原生选择检查。并发预留结算前仍计入预算，释放后唤醒同任务等待方复查，不另建预算。
 
 公开预算命令为 setBudgetDefaults(budget)、extendTaskBudget(taskId, extension)、stopTask(taskId)。默认各项不限；修改默认只影响新任务。扩展只能增加仍活动任务的明确上限，保存成功后释放等待，不替换 signal、任务、turn 或 step。停止通过原生 Agent.cancel，属于取消；不能把取消说成可恢复等待。等待期间持久化失败会拒绝等待，使 native turn 终结并显示 STATE_WRITE_FAILED，避免等待泄漏。
 
@@ -82,3 +82,25 @@ test/fixtures/t03-legacy-restarted.json 是上述真实旧 Host 保存的状态�
 Standards 的命名修复将 Host-only markCallDispatched 改为 persistDispatchIntent；绑定、原生流、测试调用与当前文档均使用新名，没有误导别名。它只持久化可能派发意图，必须 await；实际下游开始仍由原生流最终同步检查后记录。
 
 最终 npm test 51/51，npm run check、npm run bundle、git diff --check 通过。0.3.2 交付包 artifacts/irishwei-dsh-router-0.3.2.tgz，87007字节，SHA256 `345BD093967335792875D6BA4F57D2F5A0336FE4CB7B6787E12C52F260C8168E`。没有 Computer Use、真实 Desktop 操作、付费请求或凭据操作；本页不声明最终安装宿主验收或独立复审已完成。
+
+## 0.3.3 实际原生标题并发与所有权
+
+安装Host发现completed/usage12/dispatchStarted=true却intent=blocked。真实rc.2 SessionTitleService、first-prompt provider及共享title-llm在同session发起独立deadline的辅助请求。旧guard按session借用主Call，aux拒绝又清除主意图，既会污染完成记录，也可在主adapter进入且usage未报告时将崩溃重启误计为零。真实3个Title模块完整Task测试先红于主intent=blocked，再绿为两个独立Call/24token；子进程主/辅助在途crash都保留已知12和另一个未知Call，不重放。
+
+辅助source来自公开session/title-llm-request，消息seq映射公开user/message的messageId，再绑定已认领Task inputs；Call保留sourceEventSeq/sourceMessageSeqs。所有权在公开Cordis事件构造边界捕获：官方@deepseek-ai/cordis@4.0.4导出Events接口的src/events.ts:326-351及lib/types/events.d.ts:213-238声明internal/dispatch(mode,name,args,thisArg)，注释其在公共事件交付前暴露event-bus diagnostics；package exports包含该声明及src。Router仅ctx.on观察llm/stream对象身份，不修改args/request/框架状态、不中断或重排next、不访问_hooks。实际core dispatch在waterfall监听器之前发出该事件，因此外层延迟消费和同session排队不能改归属。
+
+native品牌流只取得native Call；非native已绑定stream只取得自己的Call。无派发owner入口不能清除别人的意图。新记录durable-intent-v2包含精确所有权保护，旧v1无此证明。允许的aux单独预留/报价/usage，purpose=auxiliary/nativePurpose=session-title；DSH purpose原样不被Router域purpose替换。调用前使用公开prepareCall，保存安全请求控制字段；停止派发使用原signal与Task-owned signal的合成，预算等待继续使用原signal，无替换或用户凭据。
+
+native turn结束记录nativeLifecycle/nativeEndedAt；Task直到所属owned Call结束才终结。主已完成且title预算等待时可扩展或停止；停止直接唤醒waiter并中止所属派发，不依赖已空闲的Agent.cancel。已知流usage保留，未知不零化；预算等待crash重启保留主12、辅助未发0并标HOST_RESTARTED。公开标题源事件和消息身份绑定使延迟title仍归原Task，队列下一Task仅自己的12，不串账。
+
+显式Host协作者用reserveCall→streamReservedCall；无sessionId的consultation完整Task回归只有1个consultation Call，总共3Call/36token，拒绝异route及重复绑定，不新增aux预留。该runner只暴露Host，不提供RPC任意Call授权。自动捕获当前验证首消息标题；无可信公开来源的compaction/其他aux、已结束Task手动刷新title会在传输前拒绝，bounded blockedRequests和实际Renderer/RPC显示AUXILIARY_TASK_UNAVAILABLE。没有修改native设置；未宣称支持成功压缩。
+
+同step显式consultation在途回归先红于native执行仍prepared、咨询被native认领。修复将agent/request创建的精确Call ID与taskId/turn/step绑定，assistant-stream/start、request/header和原生失败结算只认这一预留；native retry也只参考上一原生预留。咨询延迟至主响应完成后仍无native hostAttemptId，释放后分别12、Task共24。晚标题回归切换下一Task为controlled-tools，先红于旧执行selection被新header改写；精确绑定后旧Call保留controlled。停止旧标题Task而下一原生turn在工具等待的回归先红于下一Task被取消；现仅该Task仍有原生执行时调用Agent.cancel，旧辅助停止直接控制所属Call，下一Task完成并保留自己的24。
+
+新增Title完整Task回归覆盖24token、两次金额扩展至USD参考值0.00008、缺价2Call unknownPrice2、主结束后扩展/停止/原signal取消、辅助流停止保留已报告12、同session下一turn、无安全归属、三种crash重启及显式协作者绑定。目标版本3个title模块固定为0.2.0-rc.2开发依赖；不会打包第二份Host runtime。
+
+历史迁移使用独立复审录制的真实0.3.2输入：test/fixtures/t03-legacy-title-restarted.json，SHA256 `F74753747288E86270A418A9D568A1F703C993B9C90ACE0D878C5D74A81C521F`。来源为集成47561d4/0.3.2及实际三个Title模块：主adapter已进入、标题辅助拒绝清除主marker、flush并退出、旧Host重启误判零、公开setAutomatic(false)保存；录制过程未改Call或持久化文件。旧版本公开Host加载该记录先红：not-dispatched、total=0、unknownTokenCalls.total=0。0.3.3公开Host加载后为interrupted、dispatchUncertain=true、total=null、未知调用1；不会把blocked称为实际已发送。
+
+迁移只将旧无精确owner证明的v1、HOST_RESTARTED、header-confirmed/blocked/not-dispatched记录保守纠正；保留原Task/Call/Session身份、selection、输入、Router快照、版本、报价、预留及预算。已有真实usage的同形记录保留12并且未知调用0，公开保存后再次重启仍保持纠正。预算等待/proposed和新v2有证据的blocked未发记录保持零。正常测试只加载固定fixture，不要求旧Git源码存在；跨取消重放/继续仍属T18范围。
+
+最终npm test 67/67、npm run check、npm run bundle、git diff --check通过；相比0.3.2增加15项真实辅助/显式所有权完整任务测试和1项真实旧输入迁移，已有Renderer/RPC及晚标题回归同步增强。交付包artifacts/irishwei-dsh-router-0.3.3.tgz，90143字节，SHA256 `96C0F63A0B2997DDC7B4AC8FCFE64B8FAF9BC6D9E210F6215DB12B2923B879F5`。所有传输均为本地有界fixture，未用Computer Use、真实Desktop、用户凭据或付费请求。本页仅声明代码/CLI/公开Host自动验收；独立双轴复审与目标安装RPC验收由集成owner完成。

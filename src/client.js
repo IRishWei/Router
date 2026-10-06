@@ -69,10 +69,11 @@ window.__ModuleLoader__.load({
       return h('div', null,
         h('p', null, `token：${number(ledger.tokens.total)}${ledger.tokens.total === null ? `（已知部分 ${ledger.knownTokens.total}）` : ''} · 输入 ${number(ledger.tokens.input)} · 输出 ${number(ledger.tokens.output)} · 缓存读 ${number(ledger.tokens.cacheRead)} · 缓存写 ${number(ledger.tokens.cacheWrite)} · 推理 ${number(ledger.tokens.reasoning)}`),
         h('p', null, `耗时：${(ledger.elapsedMs / 1000).toFixed(3)} 秒 · 记账调用 ${ledger.callCount}`),
+        task.nativeLifecycle === 'completed' && ['running', 'waiting-budget'].includes(task.lifecycle) ? h('p', null, '原生 turn 已完成，所属辅助调用仍在处理；任务预算继续生效。') : null,
         ledger.uncertainDispatchCalls ? h('p', null, `${ledger.uncertainDispatchCalls} 次调用仅保留可能派发的意图；是否实际发送及消耗未知，不能按零计算。`) : null,
         ...ledger.money.map(item => h('p', { key: `${item.currency}:${item.kind}` }, `${amountKind(item.kind)}：${item.currency} ${number(item.amount)}${item.amount === null ? `（已知部分 ${item.knownSubtotal}；${item.unknownCalls} 次用量未完整）` : ''} · 估算，账单未确认`)),
         ledger.unknownPriceCalls ? h('p', null, `${ledger.unknownPriceCalls} 次调用缺少价格，费用未知，不能按零支出或执行完整金额上限。`) : null,
-        ...task.calls.map(call => h('details', { key: call.id }, h('summary', null, `${call.purpose} · ${call.selection.provider}/${call.selection.model} · ${call.status}`),
+        ...task.calls.map(call => h('details', { key: call.id }, h('summary', null, `${call.purpose}${call.nativePurpose ? ` (${call.nativePurpose})` : ''} · ${call.selection.provider}/${call.selection.model} · ${call.status}`),
           call.priceQuote ? h('p', null, `${amountKind(call.priceQuote.kind)}报价来源：${call.priceQuote.source} · ${call.priceQuote.date} · ${call.priceQuote.currency} · ${confidence(call.priceQuote.confidence)} · ${call.priceQuote.reasoning === 'included-in-output' ? '推理已含于输出，不重复计价' : call.priceQuote.reasoning === 'separate' ? '推理单独计价' : '推理重叠关系未知'}`) : h('p', null, '价格未知'),
           call.overEstimate?.length ? h('p', null, '实际用量超过预留；单次请求可能超出预算估算。') : null,
           h('pre', null, JSON.stringify({ selection: call.selection, reservation: call.reservation, usage: call.usage, cost: call.cost, priceQuote: call.priceQuote }, null, 2)))));
@@ -124,6 +125,7 @@ window.__ModuleLoader__.load({
           h('p', { role: 'status' }, `期望配置 ${state.config.version} · ${state.application?.status === 'pending' ? '待生效：下一稳定请求应用' : '已生效'}`),
           ...(state.application?.active ?? []).map(task => h('p', { key: task.taskId }, `当前任务有效配置 ${task.appliedVersion} · 期望配置 ${task.desiredVersion}`)),
           state.storageError ? h('p', { role: 'alert' }, state.storageError) : null,
+          ...(state.blockedRequests ?? []).slice(-5).map((request, index) => h('p', { key: `${request.at}:${index}`, role: 'status' }, `辅助请求 ${request.nativePurpose} 无法安全关联活动任务，尚未发送：${request.reason}`)),
           h('button', { type: 'button', onClick: refresh }, '刷新任务记录'),
           page === '连接与模型' ? pool() : page === '路由与预算' ? routing() : history()));
     }

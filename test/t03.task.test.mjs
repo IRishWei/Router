@@ -509,7 +509,7 @@ test('upgrade corrects an ambiguous record already restarted and saved by 0.3.0 
       { id: 'budget-wait-proven-unsent', lifecycle: 'waiting-budget', status: 'waiting', dispatchState: 'proposed' },
       { id: 'restarted-proposed-unsent', lifecycle: 'paused', status: 'not-dispatched', dispatchState: 'proposed' },
       { id: 'revoked-header-proven-unsent', lifecycle: 'paused', status: 'not-dispatched', dispatchState: 'header-confirmed', pauseReason: 'MODEL_REMOVED' },
-      { id: 'new-protocol-blocked-unsent', lifecycle: 'paused', status: 'not-dispatched', dispatchState: 'header-confirmed', dispatchProtocol: 'durable-intent-v1', dispatchIntent: 'blocked' },
+      { id: 'new-protocol-blocked-unsent', lifecycle: 'paused', status: 'not-dispatched', dispatchState: 'header-confirmed', dispatchProtocol: 'durable-intent-v2', dispatchIntent: 'blocked' },
     ];
     for (const variant of variants) {
       const task = structuredClone(before);
@@ -549,5 +549,37 @@ test('upgrade corrects an ambiguous record already restarted and saved by 0.3.0 
     const reloaded = (await ctx.router.snapshot()).tasks.find(task => task.id === before.id);
     assert.equal(reloaded.calls[0].status, 'interrupted');
     assert.equal(reloaded.ledger.unknownTokenCalls.total, 1);
+  } finally { if (ctx) await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('legacy 0.3.2 title-clobbered v1 markers migrate as uncertain without discarding known usage or task context', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-legacy-title-'));
+  let ctx;
+  try {
+    const state = JSON.parse(await readFile(new URL('./fixtures/t03-legacy-title-restarted.json', import.meta.url), 'utf8'));
+    const before = structuredClone(state.tasks[0]);
+    const known = structuredClone(before);
+    known.id = 'legacy-title-known-usage'; known.calls[0].taskId = known.id;
+    known.calls[0].usage = { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 };
+    state.tasks.push(known);
+    await mkdir(join(home, 'router', 'test'), { recursive: true });
+    await writeFile(join(home, 'router', 'test', 'state.json'), JSON.stringify(state));
+    ctx = await startNative(home);
+    const snapshot = await ctx.router.snapshot(), task = snapshot.tasks[0];
+    assert.equal(task.calls[0].status, 'interrupted');
+    assert.equal(task.calls[0].dispatchStarted, false);
+    assert.equal(task.calls[0].dispatchUncertain, true);
+    assert.equal(task.ledger.tokens.total, null);
+    assert.equal(task.ledger.callCount, 1);
+    assert.equal(task.ledger.unknownTokenCalls.total, 1);
+    for (const key of ['id', 'sessionId', 'turn', 'configVersion', 'activeSelection', 'inputs', 'startedAt', 'endedAt', 'result']) assert.deepEqual(task[key], before[key]);
+    for (const key of ['id', 'taskId', 'selection', 'priceQuote', 'routerSnapshot', 'configVersion', 'reservation']) assert.deepEqual(task.calls[0][key], before.calls[0][key]);
+    assert.deepEqual(task.budget, before.budget);
+    assert.equal(snapshot.tasks[1].ledger.tokens.total, 12);
+    assert.equal(snapshot.tasks[1].ledger.unknownTokenCalls.total, 0);
+    assert.deepEqual(snapshot.tasks[1].calls[0].usage, known.calls[0].usage);
+    await ctx.router.setAutomatic(false);
+    await ctx.fiber.dispose(); ctx = await startNative(home);
+    assert.equal((await ctx.router.snapshot()).tasks[0].ledger.unknownTokenCalls.total, 1);
   } finally { if (ctx) await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });

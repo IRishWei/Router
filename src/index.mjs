@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
-import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage } from '@deepseek-ai/dsh-llm';
+import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { descriptors, quoteSchema, budgetSchema, extensionSchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
@@ -67,9 +67,16 @@ export class RouterService extends TypertRemoteService {
   #storageError;
   #active = new Map();
   #inflight = new Map();
+  #nativeReservations = new WeakMap();
   #steps = new WeakMap();
   #waiters = new Map();
   #callSignals = new Map();
+  #dispatchClaims = new WeakSet();
+  #requestBindings = new WeakSet();
+  #ownedRequests = new WeakMap();
+  #ownedCalls = new Map();
+  #automaticStreams = new WeakMap();
+  #auxiliarySources = new Map();
   constructor(ctx, state, path, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
@@ -77,16 +84,26 @@ export class RouterService extends TypertRemoteService {
     this.#files = files;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall']) this[method] = this[method].bind(this);
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
     ctx.on('session/event', (session, event) => {
+      if (event.type === 'session/title-llm-request') {
+        const sourceIds = event.data.messageSeqs.map(seq => session.snapshotEvents().find(item => item.seq === seq && item.type === 'user/message')?.data.id);
+        const task = [...this.#active.values()].find(task => task.sessionId === session.id && sourceIds.length && sourceIds.every(id => id && task.inputs.some(input => input.messageId === id)));
+        if (task) this.#auxiliarySources.set(this.#sourceKey(session.id, 'session-title', event.data.messages), { task, sourceEventSeq: event.seq, messageSeqs: event.data.messageSeqs });
+      }
       if (event.type === 'request/header') {
         const step = this.#steps.get(ctx.get('agents')?.get(session.id));
         if (step?.pending && sameChoice(step.pending, event.data.header.config)) step.pendingConsumed = true;
       }
       this.#observe(session, event);
+    });
+    // The public dispatch event precedes every waterfall listener/consumer delay.
+    ctx.on('internal/dispatch', (mode, name, args) => {
+      const request = args[0];
+      if (mode === 'waterfall' && name === 'llm/stream' && !isAgentLoopRequest(request) && !this.#ownedRequests.has(request)) this.#automaticStreams.set(request, this.#auxiliaryStream(request));
     });
     ctx.on('agent/inbox/claimed', ({ agent, turn, message }) => {
       const task = this.#active.get(`${agent.session.id}:${turn}`);
@@ -117,7 +134,7 @@ export class RouterService extends TypertRemoteService {
       step.effectiveRoute = step.route ?? { provider: assembled.variables.provider, model: assembled.variables.model };
       return step.route ? { ...assembled, variables: { ...assembled.variables, provider: step.route.provider, model: step.route.model } } : assembled;
     }, { prepend: true });
-    ctx.on('agent/pre-step', async ({ agent, signal, step: index, messages }, next) => {
+    ctx.on('agent/pre-step', async ({ agent, signal, turn, step: index, messages }, next) => {
       const decision = await next();
       const step = this.#steps.get(agent);
       if (!step || decision.kind === 'reject' || signal.aborted) return decision;
@@ -126,7 +143,7 @@ export class RouterService extends TypertRemoteService {
       const incompatible = step.effectiveRoute.provider === CONTROLLED_PROVIDER && hasImage && capability?.image.supported !== true;
       const blocked = step.blocked ?? this.#restriction(step.effectiveRoute) ?? (incompatible ? 'NO_COMPATIBLE_IMAGE_CANDIDATE' : null);
       if (blocked) {
-        const task = [...this.#active.values()].find(task => task.sessionId === agent.session.id);
+        const task = this.#active.get(`${agent.session.id}:${turn}`);
         if (task) task.routingPauseReason = blocked;
         return { kind: 'reject' };
       }
@@ -137,7 +154,8 @@ export class RouterService extends TypertRemoteService {
     ctx.on('agent/assistant-stream', ({ agent, frame }) => {
       if (frame.type === 'start') {
         const task = this.#active.get(`${agent.session.id}:${frame.turn}`);
-        const call = task?.calls.find(item => item.step === frame.step && item.status === 'prepared' && !item.hostAttemptId);
+        const reservation = this.#nativeReservations.get(agent);
+        const call = reservation?.taskId === task?.id && reservation.turn === frame.turn && reservation.step === frame.step ? task.calls.find(item => item.id === reservation.callId && item.status === 'prepared' && !item.hostAttemptId) : null;
         if (!call) return;
         call.hostAttemptId = frame.attemptId;
         this.#inflight.set(agent.session.id, call);
@@ -168,7 +186,11 @@ export class RouterService extends TypertRemoteService {
         const forecast = config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
         const reason = stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? stepSnapshot.config.fixedModel ? 'fixed-model' : 'enabled-pool' : 'native-routing';
         task.timeline.push({ kind: 'selection', reason, provider: config.provider, model: config.model, configVersion: task.configVersion });
-        await this.reserveCall(task.id, { purpose: task.calls.some(call => call.step === step) ? 'retry' : 'execution', step, selection: task.activeSelection, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
+        const previous = this.#nativeReservations.get(agent);
+        const before = task.calls.length;
+        const reservation = this.reserveCall(task.id, { purpose: previous?.taskId === task.id && previous.turn === turn && previous.step === step ? 'retry' : 'execution', step, selection: task.activeSelection, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
+        this.#nativeReservations.set(agent, { taskId: task.id, turn, step, callId: task.calls[before].id });
+        await reservation;
         if (manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) {
           task.routingPauseReason = 'NATIVE_SELECTION_CHANGED';
           throw new LlmError('Native selection changed while waiting for budget', 'MODEL_NOT_FOUND');
@@ -178,17 +200,25 @@ export class RouterService extends TypertRemoteService {
       return config;
     }, { prepend: true });
     const service = this;
-    ctx.on('llm/stream', async function* (request, next) {
+    ctx.on('llm/stream', (request, next) => {
+      const auxiliary = service.#ownedRequests.get(request);
+      const native = isAgentLoopRequest(request);
+      if (!native && !auxiliary) return service.#automaticStreams.get(request) ?? service.#auxiliaryStream(request);
+      return (async function* () {
       // Check when consumed: outer request/budget middleware may have waited.
       // Revocation blocks dispatch; fixed/automatic changes await full assembly.
       const agent = ctx.get('agents')?.get(request.sessionId);
       const step = agent && service.#steps.get(agent);
-      const call = service.#inflight.get(request.sessionId);
+      const call = auxiliary?.call ?? service.#inflight.get(request.sessionId);
+      // A rejected entrant has no authority to clear another stream's durable marker.
+      if (!call || service.#dispatchClaims.has(call)) throw new LlmError('Router call already has a dispatch owner', 'MODEL_NOT_FOUND');
+      service.#dispatchClaims.add(call);
       const verify = () => {
         request.signal?.throwIfAborted();
-        const blocked = step && manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : service.#restriction(request);
+        if (auxiliary?.task.budget.stopRequested) throw new LlmError('Router task has been stopped', 'ABORTED');
+        const blocked = native && step && manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : service.#restriction(request);
         if (blocked) {
-          const task = [...service.#active.values()].find(task => task.sessionId === request.sessionId);
+          const task = [...service.#active.values()].find(task => task.id === call.taskId);
           if (task) task.routingPauseReason = blocked;
           throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND');
         }
@@ -204,11 +234,97 @@ export class RouterService extends TypertRemoteService {
         throw error;
       }
       yield* next();
+      })();
     });
     ctx.effect(() => () => {
       for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router disabled during budget wait', 'MODEL_NOT_FOUND'));
       return this.flush();
     }, 'router: persist on dispose');
+  }
+  #auxiliaryStream(request) {
+    // Capture ownership at stream construction, before an outer consumer may defer it.
+    const key = this.#sourceKey(request.sessionId, request.purpose, request.messages);
+    const source = this.#auxiliarySources.get(key);
+    this.#auxiliarySources.delete(key);
+    const task = source?.task;
+    const active = task && this.#active.has(`${task.sessionId}:${task.turn}`) && !task.budget.stopRequested;
+    if (!active) {
+      this.#state.blockedRequests ??= [];
+      this.#state.blockedRequests.push({ at: new Date().toISOString(), sessionId: request.sessionId ?? null, provider: request.provider, model: request.model, nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', status: 'not-dispatched', reason: 'AUXILIARY_TASK_UNAVAILABLE' });
+      this.#state.blockedRequests = this.#state.blockedRequests.slice(-100); this.#persist();
+      return (async function* () { throw new LlmError('Router cannot safely attribute this auxiliary request to an active task: AUXILIARY_TASK_UNAVAILABLE', 'MODEL_NOT_FOUND'); })();
+    }
+    return this.#ownedCallStream(task, request, null, source);
+  }
+  #sourceKey(sessionId, purpose, messages) { return JSON.stringify([sessionId, purpose, messages?.map(message => message.id)]); }
+  /** Host-only exact request owner. Persists intent and settles this reserved call once. */
+  streamReservedCall(taskId, callId, request) {
+    const task = [...this.#active.values()].find(task => task.id === taskId);
+    const call = task?.calls.find(call => call.id === callId);
+    const signal = this.#callSignals.get(callId);
+    if (!call || !signal || call.reservation.state !== 'reserved' || call.dispatchIntent || this.#requestBindings.has(call) || this.#dispatchClaims.has(call) || !sameRoute(call.selection, request) || (request.signal && request.signal !== signal)) throw new TypeError('The request does not own this reserved call');
+    this.#requestBindings.add(call);
+    return this.#ownedCallStream(task, request, call);
+  }
+  #ownedCallStream(task, request, existingCall = null, source = null) {
+    const service = this, controller = new AbortController();
+    const originalSignal = existingCall ? this.#callSignals.get(existingCall.id) : request.signal ?? new AbortController().signal;
+    const owner = { task, call: existingCall, controller, started: false, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
+    const owners = this.#ownedCalls.get(task.id) ?? new Set(); owners.add(owner); this.#ownedCalls.set(task.id, owners);
+    const cleanup = () => { originalSignal.removeEventListener('abort', abandon); controller.signal.removeEventListener('abort', abandon); owners.delete(owner); if (!owners.size) this.#ownedCalls.delete(task.id); this.#finishTask(task); };
+    const abandon = () => { if (!owner.started) cleanup(); };
+    originalSignal.addEventListener('abort', abandon, { once: true }); controller.signal.addEventListener('abort', abandon, { once: true });
+    return (async function* () {
+      owner.started = true;
+      let usage = null, finish = null, failureCode;
+      try {
+        originalSignal.throwIfAborted(); controller.signal.throwIfAborted();
+        if (!owner.call) {
+          const before = task.calls.length;
+          const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: selection(request), configVersion: owner.config.version, routerSnapshot: owner.config, forecast: request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null }, originalSignal);
+          owner.call = task.calls[before];
+          owner.call.sourceEventSeq = source.sourceEventSeq;
+          owner.call.sourceMessageSeqs = source.messageSeqs;
+          service.#requestBindings.add(owner.call);
+          await reservation;
+        }
+        const signal = AbortSignal.any([originalSignal, controller.signal]); signal.throwIfAborted();
+        const prepared = await service.ctx.llm.prepareCall(request, signal);
+        const options = Object.freeze({ ...request, ...prepared.config, signal });
+        owner.call.snapshot = Object.fromEntries(['provider', 'model', 'temperature', 'maxTokens', 'reasoningEffort', 'stop'].filter(key => prepared.config[key] !== undefined).map(key => [key, structuredClone(prepared.config[key])]));
+        owner.call.dispatchState = 'request-confirmed';
+        service.#ownedRequests.set(options, owner);
+        for await (const chunk of prepared.stream(options)) {
+          if (chunk.type === 'usage') usage = chunk.usage;
+          if (chunk.type === 'finish') finish = chunk.reason;
+          signal.throwIfAborted();
+          yield chunk;
+        }
+      } catch (error) {
+        failureCode = typeof error.code === 'string' ? error.code : 'AUXILIARY_CALL_FAILED'; throw error;
+      } finally {
+        try {
+          if (owner.call) service.settleCall(task.id, owner.call.id, { status: originalSignal.aborted || controller.signal.aborted || finish?.kind === 'aborted' || finish?.kind === 'max-tokens' ? 'interrupted' : finish?.kind === 'stop' ? 'completed' : 'failed', usage, finishReason: originalSignal.aborted || controller.signal.aborted ? 'aborted' : finish?.kind ?? 'unknown', failureCode: finish?.failure?.code ?? failureCode });
+        } finally { cleanup(); }
+      }
+    })();
+  }
+  #cancelOwnedCalls(task) {
+    for (const owner of this.#ownedCalls.get(task.id) ?? []) owner.controller.abort(new LlmError('Router task stopped its auxiliary request', 'ABORTED'));
+    for (const call of task.calls) this.#waiters.get(call.id)?.resolve();
+  }
+  #finishTask(task) {
+    if (!this.#active.has(`${task.sessionId}:${task.turn}`) || !task.nativeLifecycle || this.#ownedCalls.get(task.id)?.size) return;
+    task.lifecycle = this.#storageError || task.budget.stopRequested ? 'paused' : task.nativeLifecycle;
+    if (task.lifecycle === 'paused') {
+      task.pauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : task.nativePauseReason) ?? 'UNKNOWN_TERMINAL';
+      task.fault = { kind: ['CONNECTION', 'AUTH', 'RATE_LIMIT', 'NO_ADAPTER'].includes(task.pauseReason) ? 'connection' : 'execution', code: task.pauseReason, retryable: task.pauseReason === 'CONNECTION' || task.pauseReason === 'RATE_LIMIT' };
+    }
+    task.endedAt = new Date().toISOString();
+    task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: 'unconfirmed' });
+    this.#active.delete(`${task.sessionId}:${task.turn}`);
+    for (const call of task.calls) this.#callSignals.delete(call.id);
+    this.#persist();
   }
   async snapshot() {
     await this.flush();
@@ -233,13 +349,14 @@ export class RouterService extends TypertRemoteService {
   /** Host-only accounting seam. Future collaborators use this same gate; it grants no model authorization. */
   async reserveCall(taskId, details, signal) {
     const task = [...this.#active.values()].find(task => task.id === taskId);
-    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo'].includes(details.purpose) || !signal) throw new TypeError('Invalid task call reservation');
+    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary'].includes(details.purpose) || !signal) throw new TypeError('Invalid task call reservation');
     const identity = Object.fromEntries(['connectionId', 'accountId', 'billingPath', 'provider', 'model'].map(key => [key, details.selection?.[key]]));
     if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
     const snapshot = structuredClone(details.routerSnapshot ?? this.#state.config);
     const priceQuote = (snapshot.prices ?? []).find(item => sameIdentity(item, identity))?.quote ?? null;
-    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v1', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
+    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v2', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
     task.calls.push(call);
+    if (details.nativePurpose !== undefined) call.nativePurpose = details.nativePurpose;
     this.#callSignals.set(call.id, signal);
     this.#persist();
     await this.#waitBudget(task, call, signal);
@@ -320,7 +437,8 @@ export class RouterService extends TypertRemoteService {
     if (!task) throw new TypeError('The task is not active');
     task.budget.stopRequested = true;
     task.timeline.push({ kind: 'budget-stop', at: new Date().toISOString() });
-    this.ctx.get('agents')?.get(task.sessionId)?.cancel({ kind: 'user' }, { keepInbox: true });
+    if (!task.nativeLifecycle) this.ctx.get('agents')?.get(task.sessionId)?.cancel({ kind: 'user' }, { keepInbox: true });
+    this.#cancelOwnedCalls(task);
     this.#persist();
     return this.snapshot();
   }
@@ -329,6 +447,7 @@ export class RouterService extends TypertRemoteService {
     await this.flush();
     while (true) {
       signal.throwIfAborted();
+      if (task.budget.stopRequested || task.nativeLifecycle === 'paused') throw new LlmError('Router task no longer permits another call', 'ABORTED');
       if (this.#storageError) throw new LlmError('Router storage is unavailable', 'MODEL_NOT_FOUND');
       const decision = budgetCheck(task, call);
       task.budget.unenforceableLimits = decision.unenforceable;
@@ -403,8 +522,10 @@ export class RouterService extends TypertRemoteService {
   }
   #observe(session, event) {
     if (event.type === 'request/header') {
-      const task = [...this.#active.values()].find(item => item.sessionId === session.id);
-      if (task) { this.#confirm(task, event.data.header.config); this.#persist(); }
+      const reservation = this.#nativeReservations.get(this.ctx.get('agents')?.get(session.id));
+      const task = reservation && this.#active.get(`${session.id}:${reservation.turn}`);
+      const call = task?.id === reservation?.taskId && task?.calls.find(call => call.id === reservation.callId);
+      if (call) { this.#confirm(task, event.data.header.config, call); this.#persist(); }
       return;
     }
     if (event.type === 'turn/start') {
@@ -427,21 +548,21 @@ export class RouterService extends TypertRemoteService {
     }
     if (event.type === 'turn/end') {
       const reason = event.data.reason;
-      task.lifecycle = reason?.kind === 'completed' && !this.#storageError ? 'completed' : 'paused';
-      if (task.lifecycle === 'paused') {
-        task.pauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : null) ?? task.routingPauseReason ?? reason?.error?.code ?? reason?.kind ?? 'UNKNOWN_TERMINAL';
-        task.fault = { kind: ['CONNECTION', 'AUTH', 'RATE_LIMIT', 'NO_ADAPTER'].includes(task.pauseReason) ? 'connection' : 'execution', code: task.pauseReason, retryable: task.pauseReason === 'CONNECTION' || task.pauseReason === 'RATE_LIMIT' };
-        const call = task.calls.at(-1);
+      task.nativeLifecycle = reason?.kind === 'completed' && !this.#storageError ? 'completed' : 'paused';
+      task.nativeEndedAt = new Date().toISOString();
+      if (task.nativeLifecycle === 'paused') {
+        task.nativePauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : null) ?? task.routingPauseReason ?? reason?.error?.code ?? reason?.kind ?? 'UNKNOWN_TERMINAL';
+        const reservation = this.#nativeReservations.get(this.ctx.get('agents')?.get(session.id));
+        const call = reservation?.taskId === task.id && task.calls.find(call => call.id === reservation.callId);
         if (call && ['prepared', 'waiting'].includes(call.status)) { call.status = call.dispatchStarted ? 'failed' : 'not-dispatched'; call.reservation.state = 'released'; }
+        this.#cancelOwnedCalls(task);
       }
-      task.endedAt = new Date().toISOString();
-      task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: 'unconfirmed' });
-      this.#active.delete(`${session.id}:${event.data.turn}`);
-      for (const call of task.calls) this.#callSignals.delete(call.id);
+      task.timeline.push({ kind: 'native-terminal', lifecycle: task.nativeLifecycle, reason: task.nativePauseReason ?? 'response-completed' });
+      this.#finishTask(task);
     }
     this.#persist();
   }
-  #confirm(task, config, call = task.calls.at(-1)) {
+  #confirm(task, config, call) {
     task.activeSelection = selection(config);
     if (call) {
       call.selection = { ...task.activeSelection };
@@ -478,7 +599,7 @@ export async function apply(ctx) {
     for (const event of task.timeline ?? []) if (event.kind === 'budget-wait' && event.blockedBy) event.blockedBy = event.blockedBy.map(value => normalizeBudgetConstraint(value));
     // 0.3.0 may have persisted its own mistaken zero-consumption restart classification.
     if (task.lifecycle === 'paused' && task.pauseReason === 'HOST_RESTARTED') {
-      for (const call of task.calls) if (!call.dispatchProtocol && call.status === 'not-dispatched' && call.dispatchState === 'header-confirmed') {
+      for (const call of task.calls) if ((!call.dispatchProtocol || (call.dispatchProtocol === 'durable-intent-v1' && call.dispatchIntent === 'blocked')) && call.status === 'not-dispatched' && call.dispatchState === 'header-confirmed') {
         call.dispatchUncertain = true; call.status = 'interrupted';
         if (!call.usage) call.cost = costOf(tokensOf(null), call.priceQuote);
       }
@@ -488,7 +609,7 @@ export async function apply(ctx) {
     task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; task.endedAt = new Date().toISOString();
     for (const call of task.calls) if (['prepared', 'waiting'].includes(call.status)) {
       // 0.3.0 header-confirmed calls had no durable dispatch gate; their state is ambiguous.
-      if (!call.dispatchProtocol && call.status === 'prepared' && call.dispatchState === 'header-confirmed') call.dispatchUncertain = true;
+      if ((!call.dispatchProtocol || (call.dispatchProtocol === 'durable-intent-v1' && call.dispatchIntent === 'blocked')) && call.status === 'prepared' && call.dispatchState === 'header-confirmed') call.dispatchUncertain = true;
       call.status = possiblyDispatched(call) ? 'interrupted' : 'not-dispatched';
       if (call.reservation) call.reservation.state = 'released';
       if (possiblyDispatched(call) && !call.usage) call.cost = costOf(tokensOf(null), call.priceQuote);
