@@ -37,6 +37,19 @@ T04 已实际验证旧 oh-my-dsh 原包在目标 Desktop 被官方 CLI 与公开
 
 5% 初始试用限制应控制实际合格任务比例并持久化计数，不能仅采用 5% 随机概率。实验充分性政策需在实验冻结前版本化；不能临时挑选门槛。
 
+## T08—T13 整合约束（实现中）
+
+T08 的首轮固定复审发现四项需要修复的问题：真实请求与 Call 的 provider/model 不匹配仍会派发、native 转 owned 后继承原身份许可、同名 owned 模型通过旧字符串串用许可、无事件目录变更未在新调用及预算释放后刷新。0.4.0 尚未接受；以下是后续实现必须共同满足的契约，不能据此声称已经验收。
+
+- T08 统一导出 `candidateSnapshotSchema`；T12 消费该 schema，不另建宽松快照验证器。`candidateId` 标识完整五元身份；身份变更保留旧 tombstone，新身份默认未启用。旧 model 字符串兼容只适用于已知 controlled fixture。
+- 用户启用许可、提供商凭据状态、目录声明能力、推理实测分别记录。未知提供商状态不冒充已认证，也不能与用户明确启用许可混为一个字段。Router revision/epoch 为正整数；Host 公开 settings revision 可为零或未知。
+- 新调用及预算等待释放后主动刷新公开 Host 资格，再同步校验所捕获候选。真实 request provider/model 必须匹配 Call selection；不匹配在派发意图及 adapter 消费前拒绝，不能调用后才暂停。刷新发现失效时暂停原请求，不临时换模型。
+- T12 的判断和 T13 的评审必须使用真实 registry capture 和同一个 owned Call runner；固定候选、预算、取消与当前资格检查不能由模块自己绕过。模型调用用途在 Router Call 中记录，不向 DSH 填入不存在的 `purpose` 值。
+- T13 按实际产物、明确要求及覆盖发布版本化证据。编程检查要绑定实际工作区产物和真实工具执行，构建通过不能代替行为测试；预设失败 JSON 只验证协调逻辑。评审次数按整体 Router Task 及已记账 Call 控制，后续恢复不能重置额度。
+- T13 发布阻塞键及证据；T16 的任务协调器负责首次自修和有条件咨询。两个模块不能各自注入一次“首次”修复。补充、产物版本和新证据使旧结论失效时，保留旧记录并标记 superseded。
+
+T05、T12、T13 的首阶段独立模块可并行开发；共享 `index/protocol/client` 的整合顺序由明确交接控制。最终提交先合并最新 integration，再固定双轴复审；阶段模块测试不替代完整 Controller、Renderer 和目标桌面验收。
+
 ## 目标宿主的选择边界
 
 目标为 Windows DSH Desktop 0.2.0-rc.2，安装包 build `04f392c9ddd144fa426da2045178797da6db6c11`，内置 Cordis 4.0.4，Host protocol 4。T01 已完成本目标的真实运行验证，证据见 `t01-host-evidence.md`；新增路由行为仍需各票独立验证。
