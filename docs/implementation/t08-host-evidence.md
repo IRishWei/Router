@@ -23,4 +23,4 @@
 - owned route 在 native 目录已可见时只保留一个 active 候选，旧身份以 tombstone 留证；snapshot 不投影未识别字段或 secret。candidateId 与另一候选五元 identity 拼接的 reserveCall 在创建 Call 前拒绝。
 - 实际 rc.2 Renderer 通过 RPC 刷新、显示来源/未知授权/不支持 provider，并以 candidateId 加入模型池。
 
-独立 `companion/native-provider` bundle 仅用公开 LLM 注册合同。`scripts/verify-native-companion.mjs` 为 root 的隔离 Desktop 安装验收准备两阶段 RPC：发现→未启用对照→主动启用→完整 Task，以及卸载→旧 fixed candidate 完整 Task 阻止→历史/default/config 恢复。实际 Desktop 结果由 root 单独记录；本页不以自动 fixture 认证远端 API、真实账号或通用社区兼容。
+独立 `companion/native-provider` bundle 仅用公开 LLM 注册合同。`scripts/verify-native-companion.mjs` 的两阶段 RPC 已在 root 的隔离 Desktop 完成：发现→未启用对照→主动启用→完整 Task，以及卸载→旧 fixed candidate 完整 Task 阻止→历史/default/config 恢复。最终严格配置恢复和两次重启结果见 [目标桌面验收](t08-installed-host-evidence.md)，双轴结果见 [复审记录](t08-review.md)。本页不以受控服务认证远端 API、真实账号或通用社区兼容。
