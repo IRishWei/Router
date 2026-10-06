@@ -274,7 +274,7 @@ test('Router permission is separate from provider credential evidence', () => {
   assert.equal(allowed.selected.candidateId, 'native');
 
   const revoked = candidate('revoked', {
-    providerAuthorization: { status: 'revoked' },
+    providerAuthorization: { status: 'unauthorized' },
   });
   const blocked = selectInitialRoute({
     task: { requirements: { modalities: ['text'] } },
@@ -396,7 +396,7 @@ test('the routing boundary rejects ambiguous candidate identities and duplicate 
   assert.throws(() => selectInitialRoute({ task: { requirements: { modalities: ['text'] } }, candidateSnapshot: duplicate }), /duplicate candidateId/);
 
   const incomplete = candidate('incomplete', { identity: { ...candidate('incomplete').identity, accountId: '' } });
-  assert.throws(() => selectInitialRoute({ task: { requirements: { modalities: ['text'] } }, candidateSnapshot: snapshot(incomplete) }), /candidate identity/);
+  assert.throws(() => selectInitialRoute({ task: { requirements: { modalities: ['text'] } }, candidateSnapshot: snapshot(incomplete) }), /too_small/);
 });
 
 test('owned assessment uses one reservation, the original signal and the selected snapshot', async () => {
@@ -427,6 +427,8 @@ test('owned assessment uses one reservation, the original signal and the selecte
     taskId: 'task-1',
     decision,
     signal,
+    routerSnapshot: { version: 17, pool: [] },
+    configVersion: 17,
     forecast: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
     request: { signal, messages: [{ role: 'user', content: [{ type: 'text', text: 'bounded assessment input' }] }], purpose: 'must-not-forward' },
   });
@@ -439,6 +441,8 @@ test('owned assessment uses one reservation, the original signal and the selecte
   assert.equal(calls[0].details.candidateId, 'assessor');
   assert.deepEqual(calls[0].details.selection, assessor.identity);
   assert.equal(calls[0].details.selectionSnapshot.candidateId, 'assessor');
+  assert.deepEqual(calls[0].details.routerSnapshot, { version: 17, pool: [] });
+  assert.equal(calls[0].details.configVersion, 17);
   assert.equal(calls[0].signal, signal);
   assert.equal(calls[1].request.signal, signal);
   assert.equal(calls[1].request.provider, assessor.identity.provider);

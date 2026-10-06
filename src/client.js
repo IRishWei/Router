@@ -14,7 +14,12 @@ window.__ModuleLoader__.load({
       FIXED_MODEL_CONFLICT: '原生待执行选择与固定模型冲突，请解除固定或在原生菜单选择固定模型。',
       NATIVE_SELECTION_CHANGED: '组装请求时原生选择发生变化，已暂停并保留手动选择；确认固定设置后再次发送任务。',
       BUDGET_STOPPED: '用户已停止此任务；已报告的消耗保留。',
+      NO_ELIGIBLE_CANDIDATE: '没有满足当前任务要求的候选。',
+      ASSESSMENT_NOT_ENABLED: '任务请求语义判断，但判断调用尚未启用。',
+      ASSESSMENT_BUDGET_REQUIRED: '语义判断需要先获得预算许可。',
+      ASSESSMENT_EVIDENCE_INSUFFICIENT: '语义判断证据不足，未改变候选资格。',
     };
+    const objectiveName = value => ({ balanced: '均衡', cost: '费用', tokens: 'token', speed: '速度', quality: '质量' })[value] ?? value;
     const amountKind = kind => ({ 'api-calculated': '计算费用', 'subscription-reference': '订阅参考价值', 'fixture-reference': '本地 fixture 参考值' })[kind] ?? '未知费用';
     const budgetReason = value => value.resource === 'tokens' ? 'token 上限' : value.resource === 'durationMs' ? '耗时上限' : value.resource === 'money' ? `${value.currency} ${amountKind(value.kind)}上限` : '预算限制';
     const budgetWarning = value => value.reason === 'UNKNOWN_USAGE_OR_FORECAST' ? 'token 用量或预测不完整，只能检查已知消耗。' : value.reason === 'UNKNOWN_NEXT_CALL_DURATION' ? '下一次调用耗时未知，只能检查已耗用时间；运行中的调用可能超过估算。' : value.reason === 'UNKNOWN_PRICE_USAGE_OR_CURRENCY' ? `${value.currency} ${amountKind(value.kind)}缺少适用报价、完整用量或同币种预测，无法完整执行金额上限。` : '旧记录的预算限制无法确认。';
@@ -78,6 +83,16 @@ window.__ModuleLoader__.load({
           call.overEstimate?.length ? h('p', null, '实际用量超过预留；单次请求可能超出预算估算。') : null,
           h('pre', null, JSON.stringify({ selection: call.selection, reservation: call.reservation, usage: call.usage, cost: call.cost, priceQuote: call.priceQuote }, null, 2)))));
     }
+    function RoutingDecision({ task }) {
+      if (!task.routing) return h('p', null, '此任务没有起始路由记录。');
+      const routing = task.routing;
+      return h('div', null,
+        h('p', null, `起始路由：${routing.status === 'selected' ? `${routing.selected.identity.provider}/${routing.selected.identity.model}` : routing.status === 'paused' ? '已暂停' : '判断中'} · 目标 ${objectiveName(routing.objective)} · 快照 ${routing.snapshotEpoch ?? '未知'}`),
+        h('p', null, `理由：${(routing.reasonCodes ?? []).map(code => reasons[code] ?? code).join('、') || '未知'} · 要求：${(routing.requirements?.modalities ?? ['text']).join('+')}${routing.requirements?.tools ? ' + 工具' : ''} · 上下文估算 ${number(routing.requirements?.contextTokens)}`),
+        ...(routing.excluded ?? []).map(item => h('p', { key: item.candidateId }, `排除 ${item.candidateId}：${item.reasons.join('、')}`)),
+        routing.assessment ? h('p', null, `语义判断：${routing.assessment.status}${routing.assessment.callId ? ` · 调用 ${routing.assessment.callId}` : ''}${routing.assessment.reason ? ` · ${routing.assessment.reason}` : ''}`) : null,
+        routing.comparison?.unknowns?.length ? h('p', null, `不可比较：${routing.comparison.unknowns.join('、')}`) : null);
+    }
     function RouterSettings({ api }) {
       const [state, setState] = React.useState(null);
       const [page, setPage] = React.useState('连接与模型');
@@ -107,18 +122,23 @@ window.__ModuleLoader__.load({
         h('h3', null, '路由与预算'),
         h('p', null, `自动路由：${state.config.automatic ? '已启用' : '已暂停；原生模型选择仍可用'}`),
         h('button', { type: 'button', disabled, onClick: () => change(() => api.setAutomatic(!state.config.automatic)) }, state.config.automatic ? '暂停自动路由' : '启用自动路由'),
+        h('label', null, '路由目标 ', h('select', { 'aria-label': '路由目标', value: state.config.routingObjective, disabled, onChange: event => change(() => api.setRoutingObjective(event.target.value)) }, ...['balanced', 'cost', 'tokens', 'speed', 'quality'].map(value => h('option', { key: value, value }, objectiveName(value))))),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '允许有界语义判断', checked: state.config.semanticAssessment, disabled, onChange: event => change(() => api.setSemanticAssessment(event.target.checked)) }), '允许有界语义判断'),
+        h('p', null, '语义判断默认关闭；只有任务明确请求补充判断时才使用同一任务预算，最多一次且限制输出。'),
+        h('button', { type: 'button', disabled, onClick: () => change(() => api.previewCalibrationBudget()) }, '查看校准预算'),
+        state.calibrationPreview ? h('p', null, `校准预算预览：${state.calibrationPreview.budgetEstimate.calls} 次调用 · ${state.calibrationPreview.budgetEstimate.totalTokens} token${state.calibrationPreview.budgetEstimate.unknownPriceCandidates ? ` · ${state.calibrationPreview.budgetEstimate.unknownPriceCandidates} 个候选价格未知` : ''}。尚未授权，未发送校准调用。`) : h('p', null, '校准默认关闭；查看预算不会发送模型调用。'),
         h('label', null, '固定执行模型 ', h('select', { 'aria-label': '固定执行模型', value: state.config.fixedCandidateId ?? state.config.fixedModel ?? '', disabled, onChange: event => change(() => api.setFixedModel(event.target.value || null)) },
           h('option', { value: '' }, '自动选择已启用模型'), ...state.models.map(model => h('option', { key: model.candidateId ?? model.id, value: model.candidateId ?? model.id, disabled: !model.enabled || !model.available }, `${model.name}${model.enabled && model.available ? '' : '（不可用）'}`)))),
         h('button', { type: 'button', disabled: disabled || !(state.config.fixedCandidateId ?? state.config.fixedModel), onClick: () => change(() => api.setFixedModel(null)) }, '解除固定'),
         h('p', null, '固定时不自动更换执行模型。与原生待执行选择冲突时暂停并保留手动意图。暂停自动路由后保留设置，使用有效的原生选择。'),
         h('p', null, 'Router 受控连接仅生成本地测试响应；主动启用的 DSH 原生连接会使用其宿主 provider。参考报价由公开设置命令保存，不代表官方价格或实际账单。'),
         h(BudgetEditor, { budget: state.config.budget, disabled, save: budget => change(() => api.setBudgetDefaults(budget)) }),
-        ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
+        ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
       const history = () => h('div', null, h('h3', null, '任务记录'), state.tasks.length === 0 ? h('p', null, '尚无任务。') : h('ol', null, ...state.tasks.slice(-20).reverse().map(task => h('li', { key: task.id, style: { padding: '12px 0', whiteSpace: 'pre-wrap' } },
         h('strong', null, `${task.activeSelection?.provider ?? '尚未选择'}/${task.activeSelection?.model ?? '—'}`),
         h('p', null, `${task.lifecycle === 'completed' ? '响应完成' : task.lifecycle === 'paused' ? '任务暂停' : task.lifecycle === 'waiting-budget' ? '预算等待' : '执行中'} · 验收：无法确认${task.pauseReason ? ` · ${reasons[task.pauseReason] ?? task.pauseReason}` : ''}`),
         h('p', null, task.result || '尚无输出'), h('small', null, `有效配置 ${task.configVersion} · ${task.id}`),
-        h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }),
+        h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }),
         h('details', null, h('summary', null, '选择与结果记录'), h('pre', null, JSON.stringify(task.timeline, null, 2)))))));
       return h('section', { style: { maxWidth: 720, display: 'grid', gap: 16 } },
         h('h2', null, 'DSH Router'),

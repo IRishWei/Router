@@ -1,11 +1,11 @@
 import { costOf, tokensOf } from './ledger.mjs';
+import { candidateSnapshotSchema } from './connections.mjs';
 
 const OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'quality']);
 const MODALITIES = new Set(['text', 'image']);
 const MAX_ASSESSMENT_OUTPUT_TOKENS = 512;
 const MAX_ASSESSMENT_OUTPUT_CHARS = 65_536;
-const IDENTITY_KEYS = ['connectionId', 'accountId', 'billingPath', 'provider', 'model'];
-const BLOCKED_PROVIDER_AUTHORIZATION = new Set(['disabled', 'invalid', 'not-configured', 'revoked', 'unauthorized']);
+const BLOCKED_PROVIDER_AUTHORIZATION = new Set(['unauthorized', 'error']);
 
 function validRequirements(requirements) {
   if (!requirements || typeof requirements !== 'object') return false;
@@ -40,16 +40,14 @@ function assessmentRequirements(value) {
   return normalized;
 }
 
-function validateSnapshot(snapshot) {
-  if (!Number.isSafeInteger(snapshot.snapshotEpoch) || snapshot.snapshotEpoch < 1) throw new TypeError('candidateSnapshot.snapshotEpoch is invalid');
+function parseSnapshot(snapshot) {
+  const parsed = candidateSnapshotSchema.parse(snapshot);
   const ids = new Set();
-  for (const candidate of snapshot.candidates) {
-    if (typeof candidate.candidateId !== 'string' || !candidate.candidateId) throw new TypeError('candidateId is required');
+  for (const candidate of parsed.candidates) {
     if (ids.has(candidate.candidateId)) throw new TypeError(`duplicate candidateId: ${candidate.candidateId}`);
     ids.add(candidate.candidateId);
-    if (IDENTITY_KEYS.some(key => typeof candidate.identity?.[key] !== 'string' || !candidate.identity[key])) throw new TypeError(`candidate identity is incomplete: ${candidate.candidateId}`);
-    if (!Number.isSafeInteger(candidate.connectionConfigRevision) || candidate.connectionConfigRevision < 1 || !Number.isSafeInteger(candidate.authEpoch) || candidate.authEpoch < 1) throw new TypeError(`candidate revision is invalid: ${candidate.candidateId}`);
   }
+  return parsed;
 }
 
 function capabilityStatus(capability) {
@@ -111,7 +109,7 @@ function insufficientAssessment(callId, reason) {
 }
 
 /** Execute one Host-owned assessment call through the shared Task reservation runner. */
-export async function runInitialAssessment({ router, taskId, decision, request, forecast, signal }) {
+export async function runInitialAssessment({ router, taskId, decision, request, forecast, signal, routerSnapshot, configVersion }) {
   if (!router || typeof router.reserveCall !== 'function' || typeof router.streamReservedCall !== 'function') throw new TypeError('assessment router runner is required');
   if (typeof taskId !== 'string' || !taskId) throw new TypeError('assessment taskId is required');
   if (!signal || request?.signal !== signal) throw new TypeError('assessment request must use the original signal');
@@ -129,6 +127,8 @@ export async function runInitialAssessment({ router, taskId, decision, request, 
     candidateId: assessor.candidateId,
     selectionSnapshot: structuredClone(assessor),
     forecast: structuredClone(forecast),
+    ...(routerSnapshot === undefined ? {} : { routerSnapshot: structuredClone(routerSnapshot) }),
+    ...(configVersion === undefined ? {} : { configVersion }),
   }, signal);
   signal.throwIfAborted();
   const { purpose: _purpose, provider: _provider, model: _model, maxTokens: _maxTokens, ...requestRest } = request;
@@ -235,8 +235,7 @@ export function selectInitialRoute({
   calibrationRequest = null,
 }) {
   if (!OBJECTIVES.has(objective)) throw new TypeError(`Unsupported routing objective: ${objective}`);
-  if (!candidateSnapshot || !Array.isArray(candidateSnapshot.candidates)) throw new TypeError('candidateSnapshot.candidates is required');
-  validateSnapshot(candidateSnapshot);
+  candidateSnapshot = parseSnapshot(candidateSnapshot);
   const explicitRequirements = task?.requirements ?? {};
   if (!validRequirements(explicitRequirements)) throw new TypeError('task requirements are invalid');
   const assessmentApplied = assessmentResult !== null && validAssessment(assessmentResult);
