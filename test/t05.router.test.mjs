@@ -127,6 +127,7 @@ test('a registered DeepSeek candidate completes main and title calls with an unk
     assert.equal(candidate.capabilities.tools.confidence, 'declared');
     assert.equal(JSON.stringify(before).includes(secret), false);
 
+    await ctx.router.setBudgetDefaults({ tokens: 64, durationMs: 5_000, money: [] });
     await ctx.router.setModelEnabled(candidate.candidateId, true);
     await ctx.router.setFixedModel(candidate.candidateId);
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
@@ -137,6 +138,7 @@ test('a registered DeepSeek candidate completes main and title calls with an unk
     })).tasks.at(-1);
 
     assert.equal(task.result, 'DEEPSEEK_ROUTER_OK');
+    assert.deepEqual(task.budget.limits, { tokens: 64, durationMs: 5_000, money: [] });
     assert.deepEqual(task.calls.map(call => call.nativePurpose ?? call.purpose).sort(), ['execution', 'session-title']);
     assert.equal(task.calls.every(call => call.candidateId === candidate.candidateId && call.dispatchStarted && call.status === 'completed'), true);
     assert.equal(task.calls.every(call => call.quoteVersion === null && call.priceQuote === null), true);

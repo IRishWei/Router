@@ -30,6 +30,12 @@ T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
 - 完整 Task 通过真实 rc.2 adapter 和本地 HTTP/SSE 执行。无价格时每个主调用
   与标题调用仍分别记入账本，费用保持 unknown；401、Task stop、重启和凭据
   撤销都保留逐 Call 证据。
+- 独立 `deepseek-client.mjs` 将保存凭据、连接、candidate 启用和检测分为四个
+  明确动作。API key 只在非受控 password input ref 与一次提交参数中短暂存在；
+  页面状态、普通错误和安全 DTO 不含 key。
+- `deepseek-ui-contract.mjs` 用可注册到 Typert 的严格 schema 限制检测为
+  1–4096 token、1–60000 ms，并要求注入 runner 返回同 candidate、逐 Call
+  账本和完全相同的有限预算；无价格必须显示为 unknown。
 
 ## 自动验证
 
@@ -43,8 +49,8 @@ T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
 
 ## 尚未完成
 
-共享设置/Renderer 尚需提供“保存 credential binding”和“显式启用 candidate”
-两个独立动作。目录 GET 只展示非秘密 metadata；任何检测 POST 必须由用户
-显式触发、使用有限预算并进入 Router Task 账本。目标 Desktop 还需用户在
-安全界面选择凭据并授权一次有限预算真实请求。完成这些门槛前，受控 SSE
-不认证真实 DeepSeek API，T05/#6 保持打开。
+上述组件与 contract 尚未接入共享 Remote facade、设置 slot 和 package bundle；
+该 wiring 等共享 facade 所有者交接后完成。目录 GET 只展示非秘密 metadata；
+任何检测 POST 必须由用户显式触发、使用有限预算并进入 Router Task 账本。
+目标 Desktop 还需用户在安全界面选择凭据并授权一次有限预算真实请求。完成
+这些门槛前，受控 SSE 不认证真实 DeepSeek API，T05/#6 保持打开。
