@@ -1,6 +1,6 @@
 # T03 任务账本与预算自动化证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.5；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4，0.3.4 修复合并a3f3fed。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
+目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.6；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4，0.3.4 修复合并a3f3fed，0.3.5 修复合并923a9b7。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
 
 ## 行为与共享入口
 
@@ -137,3 +137,23 @@ Spec 新 P2 的真实三个 rc.2 Title 模块完整任务先红：public prepend
 相比0.3.4新增15项完整任务回归；辅助与任务文件合计65/65通过，旧0.3.0/0.3.2迁移、晚标题/队列、精确 native 绑定、金额/未知成本和三类 crash 回归均保留。最终 npm test 94/94、npm run check、npm run bundle 和 git diff --check 通过，提交前合并集成923a9b7。
 
 交付包 artifacts/irishwei-dsh-router-0.3.5.tgz，92517字节，SHA256 `EA41C65E3062F443D2CF0ED3B86E4234F26D35412EBF8A4200F9A2B454811FEC`；Host lib/index.js SHA256 `D310C6D81A62B97B8C2C26715ECC9492D82AB8BD6D9190F1F2DE2AB42782ECAE`，客户端 lib/client.js SHA256 `38BF362EA7BD2EFF6373F5EE2CE5689F5675700DD8A2EF45FFDE6320E2763C50`。本轮不操作真实Desktop，不使用Computer Use、用户凭据或付费请求，不关闭或push #4。固定提交后的独立双轴复审与目标安装RPC仍由集成owner执行。
+
+## 0.3.6 并发预留的 Task 生命周期
+
+Spec P2 使用公开 native 流中间件启动独立 Host worker：await reserveCall→streamReservedCall，主流继续运行。token上限12、主Call已预留12、咨询预测12等待；主12完成后0.3.5错误删除活动Task，咨询仍waiting、原signal未取消，扩展和停止都被拒绝。新增完整任务先红于lifecycle=completed，而预期waiting-budget。修复使proposed首个写盘、预算waiting及返回callId后尚未绑定的reserved Call都保活同一Task；实际结算或释放后才完成终结。
+
+未绑定预留保存准确Call和原signal的取消监听。原生agent/request或显式runner精确绑定时移交取消责任并移除该监听；停止只释放本Task未绑定的Call，已绑定流沿用其原生/owned关闭路径。await写盘后重新检查预留是否已释放和Task是否允许继续，停止不能被随后返回callId或迟到runner绕过。取消已结算/已释放记录不重复结算，原signal错误和停用等待错误不被Task查找失败覆盖；可能已消耗的意图保持未知，不由释放推导零。
+
+| 新增完整任务分支 | 结果 |
+| --- | --- |
+| 并发咨询等待，主native已完成后扩展 | 原Task、原Call ID继续绑定runner；主12+咨询12=24，只有两个Call，咨询一次结算。 |
+| 首个proposed写盘仍阻塞，主native已完成后扩展/停止 | 两项真正外部文件系统屏障回归，原生turn/end和whenIdle均已完成。扩展得到同Call24；停止零咨询派发/released，预留promise以ABORTED拒绝。 |
+| waiting尚未返回callId时stop/原caller取消/native取消 | 三项回归，未发送Call not-dispatched/released、一次结算、主MAIN/12保留。原caller与native取消保持原signal.reason对象，停止返回ABORTED，不被二次settle异常覆盖。 |
+| 返回ID但未绑定时stop/原caller取消 | 分别先红于reserved未释放，再绿；迟到runner被拒绝，主12保留且没有辅助派发。 |
+| 另一个owned流仍保留Task时停止未绑定Call | Task仍active，迟到runner仍因该准确Call已released而拒绝，证明不靠删除Task偶然阻止派发。释放另一流后Task paused/BUDGET_STOPPED。 |
+| 旧Task等待咨询，同session下一turn在工具执行 | 停止旧Task只释放旧预留，下一turn原signal未abort并完成NEXT/24；旧Task保留OLD/12。 |
+| 停用时waiting/返回ID未绑定 | 两项回归。未发送预留released，Task paused/ROUTER_DISABLED；waiting caller保留原MODEL_NOT_FOUND及停用原因，没有悬挂或覆盖错误。 |
+
+Standards 的两处chunk→owner.usage/finish重复判断统一为recordOwnedChunk；dispatch交付前与runner消费后的两个观察点仍保留。新增12项公开完整任务回归，旧标题故障/未知用量、迁移、原生精确绑定和多预算回归继续保留。最终 npm test 106/106、npm run check、npm run bundle 和 git diff --check 通过，提交前合并集成89cdd14。
+
+交付包 artifacts/irishwei-dsh-router-0.3.6.tgz，92975字节，SHA256 `2FDF76B2B1F517DF2A079B8D2BCA81D87D228E1B2B5440B274E4E86BFADAB130`；Host lib/index.js SHA256 `4C48D05D286B2F0DB485002632121E9E2CFA8FC2678FB5BF8D0010D6619FE4F9`，客户端 SHA256 `38BF362EA7BD2EFF6373F5EE2CE5689F5675700DD8A2EF45FFDE6320E2763C50`。没有Computer Use、真实Desktop、用户凭据或付费操作，未push/关闭issue。固定版本的独立双轴复审与目标安装RPC由root执行，本节不声明这些后续验收已完成。

@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.5.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.6.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。
@@ -43,6 +43,8 @@ Host 的公开 `router/setPriceQuote` 设置命令接受 provider、model 和报
 0.3.4 保留主产物和原生完成事实，但辅助请求失败时 Task 暂停并显示原因。标题预算等待后撤销模型显示 MODEL_REMOVED；外层中间件在流消费前拒绝或关闭时释放未发送归属，不等待 deadline 取消。正常延迟消费仍保留原 Task；已入流后提前关闭保留报告 usage，未报告消耗保持未知。Router 通过 Cordis 公开服务读取 hook 为 plugin 的 ctx.llm.stream 提供读取范围内的 facade，不赋值或修改原生服务。缓存裸服务或 ctx.get('llm') 绕过该完整生命周期边界的辅助请求会在传输前以 AUXILIARY_LIFECYCLE_UNAVAILABLE 拒绝并记录原因；显式 Host 协作者使用 streamReservedCall，并消费或明确 return/throw 关闭返回的流。
 
 0.3.5 同时关闭外层中间件手动 `next()` 后遗弃的所属内部流。已经观察到的 usage 即使没有转发给最终消费者也会结算；只收到文本前缀则保留未知消耗。标题和显式咨询的外层拒绝、结束、停止或取消均保留主结果并结束所属 Call，其他调用的持久化意图保持原归属。评审等调用还在 `reserveCall` 等待预算、尚未返回 callId 时，停止或原 signal 取消由统一入口释放未发送预留，调用方无需补结算。预留和请求归属使用原 signal；adapter 接收原 signal 与 Router 停止信号的合成，取消原因保留。
+
+0.3.6 将尚未绑定流的并发预留也纳入 Task 生命周期。主 turn 已完成时，正在写盘、等待预算或已返回 callId 的预留仍保留同一 Task 的扩展和停止入口；扩展后可绑定原 Call 并结算。停止、原信号取消或停用会释放未发送的预留，随后绑定的 runner 被拒绝。旧 Task 停止不会取消同会话下一 turn。Host 调用方在预留成功后应绑定并消费或关闭 runner，或者取消其提供的原信号；原生请求与 runner 精确接管绑定后的取消责任。
 
 只有公开源事件能证明归属的自动辅助请求才可发送。当前验证首消息标题；手动刷新已结束任务的标题、没有可信来源映射的压缩或其他辅助调用会在传输前阻止，`blockedRequests` 和设置页显示 `AUXILIARY_TASK_UNAVAILABLE`。未修改原生功能设置，也未验证成功压缩。旧0.3.1/0.3.2的无精确所有权 v1 标记可能被辅助失败清除；模糊重启记录升级后保留未知，不把旧 `blocked` 当作未消耗证明。新调用使用 `durable-intent-v2`。
 
