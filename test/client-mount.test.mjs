@@ -8,9 +8,12 @@ test('the native Cordis and rc.2 renderer mount the Router settings and RPC task
   try {
     assert.equal(mounted.ctx.slots.entries('settings.section')[0].options.label(), 'DSH Router');
     assert.equal(mounted.page.root.findAllByProps({ 'data-slot-error': 'settings.section' }).length, 0, mounted.errors.map(item => item.error.message).join('\n'));
+    const open = async label => act(async () => { mounted.page.root.findAllByType('button').find(item => item.children.includes(label)).props.onClick(); });
+    await open('任务记录');
     assert.match(JSON.stringify(mounted.page.toJSON()), /ROUTER_OK/);
     assert.match(JSON.stringify(mounted.page.toJSON()), /无法确认/);
     assert.equal(mounted.calls[0].endpoint, 'router/snapshot');
+    await open('路由与预算');
     const button = mounted.page.root.findAllByType('button').find(item => item.children.includes('暂停自动路由'));
     await act(async () => { await button.props.onClick(); });
     assert.match(JSON.stringify(mounted.page.toJSON()), /已暂停/);
@@ -20,6 +23,7 @@ test('the native Cordis and rc.2 renderer mount the Router settings and RPC task
     assert.equal(mounted.ctx.slots.entries('settings.section').length, 0);
     assert.equal(mounted.ctx.get('remote.router'), undefined);
     await mounted.reload();
+    await open('任务记录');
     assert.match(JSON.stringify(mounted.page.toJSON()), /ROUTER_OK/);
     assert.equal(mounted.ctx.slots.entries('settings.section').length, 1);
   } finally {

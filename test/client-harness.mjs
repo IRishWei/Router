@@ -28,7 +28,7 @@ export function taskState() {
 
 // Only the transport and browser DOM mount are external. Slot assembly,
 // Cordis dependency tracing, namespace mounting, and RPC codecs use rc.2 code.
-export async function mountSettings(initialState = taskState()) {
+export async function mountSettings(initialState = taskState(), carrier) {
   const diagnostics = [], errors = [], calls = [];
   const imports = { 'react': React, 'react/jsx-runtime': jsx, '@deepseek-ai/cordis': cordis, '@deepseek-ai/dsh-client-ui-slots': slots, 'react-dom': {}, 'react-dom/client': {} };
   const native = name => loadClient(`node_modules/@deepseek-ai/${name}/lib/client.js`, imports, diagnostics);
@@ -42,6 +42,7 @@ export async function mountSettings(initialState = taskState()) {
       open: () => { throw new Error('This settings test must not open a stream'); },
       async call(path, endpoint, payload) {
         calls.push({ path, endpoint, payload: structuredClone(payload) });
+        if (carrier) return carrier(path, endpoint, payload);
         if (endpoint === 'router/setAutomatic') state = { ...state, config: { automatic: payload.args.automatic, version: state.config.version + 1 } };
         else if (endpoint !== 'router/snapshot') throw new Error(`Unexpected RPC endpoint: ${endpoint}`);
         return { ok: true, value: structuredClone(state) };

@@ -1,0 +1,71 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { act } from 'react-test-renderer';
+import { mountSettings } from './client-harness.mjs';
+import { startNative, submit } from './t02-harness.mjs';
+
+test('the native settings mount manages pool and fixed routing, executes a task and refreshes the same record', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t02-client-'));
+  const ctx = await startNative(home);
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let mounted, run;
+  try {
+    mounted = await mountSettings(await ctx.router.snapshot(), async (_path, endpoint, payload) => {
+      const method = endpoint.split('/')[1];
+      const args = payload.args;
+      const value = method === 'snapshot' ? await ctx.router.snapshot() : method === 'setAutomatic' ? await ctx.router.setAutomatic(args.automatic) : method === 'setModelEnabled' ? await ctx.router.setModelEnabled(args.model, args.enabled) : method === 'removeModel' ? await ctx.router.removeModel(args.model) : await ctx.router.setFixedModel(args.model);
+      return { ok: true, value: JSON.parse(JSON.stringify(value)) };
+    });
+    const page = mounted.page;
+    const click = async label => act(async () => { await page.root.findAllByType('button').find(item => item.children.includes(label)).props.onClick(); });
+    assert.match(JSON.stringify(page.toJSON()), /兼容性/);
+    assert.match(JSON.stringify(page.toJSON()), /声明/);
+    assert.match(JSON.stringify(page.toJSON()), /未知/);
+    const first = page.root.findByProps({ 'aria-label': '启用 Controlled fixture' });
+    await act(async () => { await first.props.onChange({ target: { checked: false } }); });
+    await click('路由与预算');
+    const fixed = page.root.findByProps({ 'aria-label': '固定执行模型' });
+    await act(async () => { await fixed.props.onChange({ target: { value: 'controlled-tools' } }); });
+    assert.equal((await ctx.router.snapshot()).config.fixedModel, 'controlled-tools');
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const record = await submit(ctx, sessionId, 'Reply CLIENT_POOL_OK');
+    await click('任务记录');
+    await click('刷新任务记录');
+    assert.match(JSON.stringify(page.toJSON()), /CLIENT_POOL_OK/);
+    assert.match(JSON.stringify(page.toJSON()), new RegExp(record.id));
+    await click('连接与模型');
+    await act(async () => { await page.root.findByProps({ 'aria-label': '启用 Controlled fixture' }).props.onChange({ target: { checked: true } }); });
+    let hold = true;
+    ctx.on('llm/stream', async function* (_request, next) { if (hold) { hold = false; entered.resolve(); await release.promise; } yield* next(); });
+    run = submit(ctx, sessionId, 'Reply PENDING_CLIENT');
+    await entered.promise;
+    await click('路由与预算');
+    await act(async () => { await page.root.findByProps({ 'aria-label': '固定执行模型' }).props.onChange({ target: { value: 'controlled' } }); });
+    assert.match(JSON.stringify(page.toJSON()), /待生效/);
+    assert.match(JSON.stringify(page.toJSON()), /当前任务有效配置 4 · 期望配置 5/);
+    assert.equal((await ctx.router.snapshot()).tasks.at(-1).calls[0].selection.model, 'controlled-tools');
+    release.resolve();
+    assert.equal((await run).result, 'PENDING_CLIENT');
+    await click('刷新任务记录');
+    assert.match(JSON.stringify(page.toJSON()), /已生效/);
+    const next = await submit(ctx, sessionId, 'Reply APPLIED_CLIENT');
+    assert.equal(next.calls[0].selection.model, 'controlled');
+    assert.equal(next.calls[0].configVersion, 5);
+    await click('路由与预算');
+    await click('暂停自动路由');
+    await click('连接与模型');
+    assert.ok(page.root.findByProps({ 'aria-label': '启用 Controlled tools fixture' }));
+    await click('移除 Controlled tools fixture');
+    assert.equal((await ctx.router.snapshot()).models[1].inPool, false);
+    assert.equal(mounted.errors.length, 0);
+  } finally {
+    release.resolve();
+    if (run) await run.catch(() => {});
+    if (mounted) await mounted.dispose();
+    await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
