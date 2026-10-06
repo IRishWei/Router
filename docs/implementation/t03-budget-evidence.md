@@ -1,6 +1,6 @@
 # T03 任务账本与预算自动化证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.6；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4，0.3.4 修复合并a3f3fed，0.3.5 修复合并923a9b7。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
+目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.7；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4，0.3.4 修复合并a3f3fed，0.3.5 修复合并923a9b7，0.3.6 修复合并89cdd14。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
 
 ## 行为与共享入口
 
@@ -157,3 +157,9 @@ Spec P2 使用公开 native 流中间件启动独立 Host worker：await reserve
 Standards 的两处chunk→owner.usage/finish重复判断统一为recordOwnedChunk；dispatch交付前与runner消费后的两个观察点仍保留。新增12项公开完整任务回归，旧标题故障/未知用量、迁移、原生精确绑定和多预算回归继续保留。最终 npm test 106/106、npm run check、npm run bundle 和 git diff --check 通过，提交前合并集成89cdd14。
 
 交付包 artifacts/irishwei-dsh-router-0.3.6.tgz，92975字节，SHA256 `2FDF76B2B1F517DF2A079B8D2BCA81D87D228E1B2B5440B274E4E86BFADAB130`；Host lib/index.js SHA256 `4C48D05D286B2F0DB485002632121E9E2CFA8FC2678FB5BF8D0010D6619FE4F9`，客户端 SHA256 `38BF362EA7BD2EFF6373F5EE2CE5689F5675700DD8A2EF45FFDE6320E2763C50`。没有Computer Use、真实Desktop、用户凭据或付费操作，未push/关闭issue。固定版本的独立双轴复审与目标安装RPC由root执行，本节不声明这些后续验收已完成。
+
+## 0.3.7 命名收尾
+
+Standards 建议将保存解除取消监听函数的字段由 unboundAborts 改为 unboundAbortDisposers。本轮仅改该名称、版本与安装包 metadata，取消、所有权、账本和两个 chunk 观察点的语义保持不变；没有新增镜像命名测试。现有 npm test 106/106、npm run check、npm run bundle 和 git diff --check 通过；提交前核对集成89cdd14已包含。
+
+交付包 artifacts/irishwei-dsh-router-0.3.7.tgz，92981字节，SHA256 `3DFDF2EAD4084A9A919A7D2333F4CC962E16CADD33C80E81B2D88185F1C57966`；Host SHA256 `020712111AAEE853ED2EC2D870916EDFBF5101C66B9697CCDD8180C99F9CCAC5`，客户端 SHA256 `38BF362EA7BD2EFF6373F5EE2CE5689F5675700DD8A2EF45FFDE6320E2763C50`。本轮未操作Computer Use、真实Desktop、凭据或付费请求，未push/关闭issue；最终增量双轴复审和实际安装由root执行。
