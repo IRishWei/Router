@@ -55,12 +55,14 @@ test('an owned DeepSeek connection stores its secret only in its credential reco
       connectionId: `connection-${crypto.randomUUID()}`,
       accountId,
       configRevision: 1,
-      authEpoch: `epoch-${crypto.randomUUID()}`,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
       credential,
     });
 
     assert.deepEqual(credential, { configured: true, kind: 'api-key', writable: true });
     assert.equal(metadata.credentialKey, String(key));
+    assert.match(metadata.credentialGeneration, /^generation-/);
+    assert.equal('authEpoch' in metadata, false);
     assert.equal(metadata.source, 'deepseek-official-api');
     assert.equal(metadata.supportScope, 'owned-provider-metadata');
     assert.equal(metadata.providerAuthorization.status, 'configured');
@@ -134,7 +136,7 @@ test('an owned provider uses the rc.2 Messages adapter with one POST and no ambi
       connectionId: `connection-${crypto.randomUUID()}`,
       accountId,
       configRevision: 1,
-      authEpoch: `epoch-${crypto.randomUUID()}`,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
       endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
     });
     const prepared = await ctx.llm.prepareCall({ provider: provider.metadata.provider, model: 'deepseek-flash', reasoningEffort: 'off', maxTokens: 8 });
@@ -207,7 +209,7 @@ test('a tool round trip sends exactly one Messages POST per call', async () => {
       connectionId: `connection-${crypto.randomUUID()}`,
       accountId,
       configRevision: 1,
-      authEpoch: `epoch-${crypto.randomUUID()}`,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
       endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
     });
     const route = provider.metadata.provider;
@@ -267,7 +269,7 @@ for (const scenario of ['wrong-credential', 'truncated-stream']) test(`a ${scena
       connectionId: `connection-${crypto.randomUUID()}`,
       accountId,
       configRevision: 1,
-      authEpoch: `epoch-${crypto.randomUUID()}`,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
       endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
     });
     const chunks = [];
@@ -311,7 +313,7 @@ test('unknown model ids and stale prepared calls fail before any HTTP request', 
       connectionId: `connection-${crypto.randomUUID()}`,
       accountId,
       configRevision: 1,
-      authEpoch: `epoch-${crypto.randomUUID()}`,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
       endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
     });
     const user = createUserMessage({ content: [{ type: 'text', text: 'Do not send' }] });
@@ -355,7 +357,7 @@ test('credential replacement revokes the mounted generation instead of rebinding
       connectionId: `connection-${crypto.randomUUID()}`,
       accountId,
       configRevision: 1,
-      authEpoch: `epoch-${crypto.randomUUID()}`,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
       endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
     });
     const prepared = await ctx.llm.prepareCall({ provider: provider.metadata.provider, model: 'deepseek-flash', reasoningEffort: 'off', maxTokens: 8 });
@@ -411,7 +413,7 @@ test('the owned credential survives a Host restart and disconnect removes it', a
       connectionId: `connection-${crypto.randomUUID()}`,
       accountId,
       configRevision: 2,
-      authEpoch: `epoch-${crypto.randomUUID()}`,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
       endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
     });
     const chunks = [];

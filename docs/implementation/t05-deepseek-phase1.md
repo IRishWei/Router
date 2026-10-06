@@ -20,6 +20,9 @@ Controller、Renderer 或完整 Router Task。
   推理验证互不提升。未知模型只报告，不进入可调用 allowlist。
 - credential record 变更、断开或 fiber 卸载先撤销旧 generation；已准备
   调用不能重绑新 key，网络请求数保持 0。
+- 本模块的字符串 `credentialGeneration` 只标识凭据装载代次。阶段 2 由单一
+  adapter 投影为 T08 registry schema，并独立生成其正整数 `authEpoch`；本模块
+  metadata 不复制 candidate snapshot schema。
 
 ## 自动验证
 

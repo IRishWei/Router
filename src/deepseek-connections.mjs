@@ -87,10 +87,10 @@ export function deepSeekProviderRoute(accountId) {
   return `router-deepseek-${accountId}`;
 }
 
-export function createDeepSeekConnectionMetadata({ connectionId, accountId, configRevision, authEpoch, credential }) {
+export function createDeepSeekConnectionMetadata({ connectionId, accountId, configRevision, credentialGeneration, credential }) {
   const provider = deepSeekProviderRoute(accountId);
   requiredString(connectionId, 'connectionId');
-  requiredString(authEpoch, 'authEpoch');
+  requiredString(credentialGeneration, 'credentialGeneration');
   positiveInteger(configRevision, 'configRevision');
   if (!credential || typeof credential.configured !== 'boolean' || typeof credential.writable !== 'boolean') {
     throw new TypeError('credential must be redacted credential metadata');
@@ -106,7 +106,7 @@ export function createDeepSeekConnectionMetadata({ connectionId, accountId, conf
     provider,
     credentialKey: String(deepSeekCredentialKey(accountId)),
     configRevision,
-    authEpoch,
+    credentialGeneration,
     credential: {
       configured: credential.configured,
       ...(credential.kind === undefined ? {} : { kind: credential.kind }),
@@ -150,7 +150,7 @@ function providerPlugin(spec, state) {
       retryPolicy: { mode: 'normal', maxRetries: 0 },
     }),
     accountId: spec.accountId,
-    authEpoch: spec.authEpoch,
+    credentialGeneration: spec.credentialGeneration,
     credentialKey: String(key),
   });
 
