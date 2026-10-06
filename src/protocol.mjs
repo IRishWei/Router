@@ -1,7 +1,12 @@
 import { z } from 'zod';
 
 // Strict JSON at the public RPC seam; task records may gain fields in later tickets.
-const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), fixedModel: z.string().nullable().optional(), pool: z.array(z.json()).optional() }), application: z.json().optional(), tasks: z.array(z.json()), storageError: z.string().nullable(), models: z.array(z.json()) }) };
+const rate = () => z.number().nonnegative().finite().max(Number.MAX_SAFE_INTEGER);
+export const quoteSchema = () => z.object({ source: z.string().min(1).max(500), date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => { const parsed = new Date(value); return !Number.isNaN(parsed.valueOf()) && parsed.toISOString().startsWith(value); }, 'A real calendar date is required'), currency: z.string().regex(/^[A-Z]{3}$/), kind: z.enum(['api-calculated', 'subscription-reference', 'fixture-reference']), confidence: z.enum(['known', 'declared']), perMillion: z.object({ input: rate(), output: rate(), cacheRead: rate().optional(), cacheWrite: rate().optional(), reasoning: rate().optional() }).strict(), reasoning: z.enum(['included-in-output', 'separate', 'unknown']) }).strict();
+const moneyLimit = () => z.object({ currency: z.string().regex(/^[A-Z]{3}$/), kind: z.enum(['api-calculated', 'subscription-reference', 'fixture-reference']), amount: rate() }).strict();
+export const budgetSchema = () => z.object({ tokens: z.number().int().nonnegative().safe().nullable(), durationMs: z.number().int().nonnegative().safe().nullable(), money: z.array(moneyLimit()).max(20) }).strict();
+export const extensionSchema = () => z.object({ tokens: z.number().int().positive().safe().optional(), durationMs: z.number().int().positive().safe().optional(), money: z.array(moneyLimit()).max(20).optional() }).strict().refine(value => value.tokens || value.durationMs || value.money?.some(item => item.amount > 0), 'A positive extension is required');
+const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), fixedModel: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), tasks: z.array(z.json()), storageError: z.string().nullable(), models: z.array(z.json()) }) };
 const parameter = (name, create) => ({ name, wire: name, source: 'json', codec: { mode: 'strict', typeSymbol: `@irishwei/dsh-router#${name}`, create } });
 const parameters = {
   snapshot: [],
@@ -9,6 +14,10 @@ const parameters = {
   setModelEnabled: [parameter('model', () => z.string()), parameter('enabled', () => z.boolean())],
   removeModel: [parameter('model', () => z.string())],
   setFixedModel: [parameter('model', () => z.string().nullable())],
+  setPriceQuote: [parameter('provider', () => z.string().min(1).max(100)), parameter('model', () => z.string().min(1).max(100)), parameter('quote', () => quoteSchema().nullable())],
+  setBudgetDefaults: [parameter('budget', () => budgetSchema())],
+  extendTaskBudget: [parameter('taskId', () => z.string()), parameter('extension', () => extensionSchema())],
+  stopTask: [parameter('taskId', () => z.string())],
 };
 export const descriptors = Object.keys(parameters).map(method => ({
   id: `@irishwei/dsh-router#router/${method}`, service: 'router', namespace: 'router', method,

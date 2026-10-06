@@ -3,7 +3,8 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
-import { descriptors } from './protocol.mjs';
+import { descriptors, quoteSchema, budgetSchema, extensionSchema } from './protocol.mjs';
+import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck } from './ledger.mjs';
 
 export const inject = ['llm', 'profileContext'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -15,6 +16,7 @@ const catalog = [
 ];
 const defaultPool = () => catalog.map(model => ({ ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), enabled: true }));
 const sameRoute = (left, right) => left?.provider === right?.provider && left?.model === right?.model;
+const sameIdentity = (left, right) => ['connectionId', 'accountId', 'billingPath', 'provider', 'model'].every(key => left?.[key] === right?.[key]);
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
@@ -43,7 +45,7 @@ class ControlledAdapter extends LlmAdapter {
       yield { type: 'block-start', index: 0, blockType: 'tool-call' };
       yield { type: 'tool-call-delta', index: 0, id: toolId, name: block.name, argumentsDelta: '{}' };
       yield { type: 'block-end', index: 0, block };
-      yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 } };
+      yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } };
       yield { type: 'finish', reason: { kind: 'tool-calls' } };
       return;
     }
@@ -51,7 +53,7 @@ class ControlledAdapter extends LlmAdapter {
     yield { type: 'block-start', index: 0, blockType: 'text' };
     yield { type: 'text-delta', index: 0, text };
     yield { type: 'block-end', index: 0, block: { type: 'text', text } };
-    yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 } };
+    yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } };
     yield { type: 'finish', reason: { kind: 'stop' } };
   }
 }
@@ -66,6 +68,7 @@ export class RouterService extends TypertRemoteService {
   #active = new Map();
   #inflight = new Map();
   #steps = new WeakMap();
+  #waiters = new Map();
   constructor(ctx, state, path, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
@@ -73,7 +76,7 @@ export class RouterService extends TypertRemoteService {
     this.#files = files;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'markCallDispatched']) this[method] = this[method].bind(this);
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
@@ -83,6 +86,13 @@ export class RouterService extends TypertRemoteService {
         if (step?.pending && sameChoice(step.pending, event.data.header.config)) step.pendingConsumed = true;
       }
       this.#observe(session, event);
+    });
+    ctx.on('agent/inbox/claimed', ({ agent, turn, message }) => {
+      const task = this.#active.get(`${agent.session.id}:${turn}`);
+      if (!task || message.source?.kind !== 'user') return;
+      task.inputs.push({ messageId: message.id, requestId: message.source.rpcId ?? null, turn, claimedAt: new Date().toISOString() });
+      task.timeline.push({ kind: 'input-claimed', messageId: message.id, requestId: message.source.rpcId ?? null, turn });
+      this.#persist();
     });
     ctx.on('system-prompt/assemble', async (_assembly, { agent }, next) => {
       if (!agent) return next();
@@ -140,7 +150,7 @@ export class RouterService extends TypertRemoteService {
         this.#persist();
       }
     });
-    ctx.on('agent/request', async ({ agent, turn, step }, next) => {
+    ctx.on('agent/request', async ({ agent, turn, step, signal }, next) => {
       const resolved = await next();
       const stepSnapshot = this.#steps.get(agent);
       const config = stepSnapshot?.route ? { ...resolved, provider: stepSnapshot.route.provider, model: stepSnapshot.route.model } : resolved;
@@ -154,10 +164,14 @@ export class RouterService extends TypertRemoteService {
       if (task) {
         task.activeSelection = selection(config);
         task.configVersion = stepSnapshot?.config.version ?? this.#state.config.version;
-        task.calls.push({ id: randomUUID(), taskId: task.id, purpose: 'execution', attempt: task.calls.length + 1, step, selection: { ...task.activeSelection }, configVersion: task.configVersion, routerSnapshot: structuredClone(stepSnapshot?.config ?? this.#state.config), status: 'prepared', dispatchState: 'proposed', usage: null });
+        const forecast = config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
         const reason = stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? stepSnapshot.config.fixedModel ? 'fixed-model' : 'enabled-pool' : 'native-routing';
         task.timeline.push({ kind: 'selection', reason, provider: config.provider, model: config.model, configVersion: task.configVersion });
-        this.#persist();
+        await this.reserveCall(task.id, { purpose: task.calls.some(call => call.step === step) ? 'retry' : 'execution', step, selection: task.activeSelection, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
+        if (manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) {
+          task.routingPauseReason = 'NATIVE_SELECTION_CHANGED';
+          throw new LlmError('Native selection changed while waiting for budget', 'MODEL_NOT_FOUND');
+        }
       }
       // Return the entire downstream config, including native effort and token settings.
       return config;
@@ -166,21 +180,151 @@ export class RouterService extends TypertRemoteService {
     ctx.on('llm/stream', async function* (request, next) {
       // Check when consumed: outer request/budget middleware may have waited.
       // Revocation blocks dispatch; fixed/automatic changes await full assembly.
-      const blocked = service.#restriction(request);
+      const agent = ctx.get('agents')?.get(request.sessionId);
+      const step = agent && service.#steps.get(agent);
+      const blocked = step && manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : service.#restriction(request);
       if (blocked) {
         const task = [...service.#active.values()].find(task => task.sessionId === request.sessionId);
         if (task) task.routingPauseReason = blocked;
         throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND');
       }
+      const call = service.#inflight.get(request.sessionId);
+      if (call) service.markCallDispatched(call.taskId, call.id);
       yield* next();
     });
-    ctx.effect(() => () => this.flush(), 'router: persist on dispose');
+    ctx.effect(() => () => {
+      for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router disabled during budget wait', 'MODEL_NOT_FOUND'));
+      return this.flush();
+    }, 'router: persist on dispose');
   }
   async snapshot() {
     await this.flush();
     const active = [...this.#active.values()].map(task => ({ taskId: task.id, sessionId: task.sessionId, appliedVersion: task.configVersion, desiredVersion: this.#state.config.version }));
     const application = { status: active.some(task => task.appliedVersion !== task.desiredVersion) ? 'pending' : 'applied', desiredVersion: this.#state.config.version, active };
-    return structuredClone({ ...this.#state, application, storageError: this.#storageError ?? null, models: catalog.map(model => ({ ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), ...model, id: model.model, enabled: this.#state.config.pool.some(entry => entry.model === model.model && entry.enabled), inPool: this.#state.config.pool.some(entry => entry.model === model.model), compatibility: { confidence: 'known', scope: 'local-controlled-protocol' } })) });
+    return structuredClone({ ...this.#state, tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, storageError: this.#storageError ?? null, models: catalog.map(model => ({ ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), ...model, id: model.model, enabled: this.#state.config.pool.some(entry => entry.model === model.model && entry.enabled), inPool: this.#state.config.pool.some(entry => entry.model === model.model), compatibility: { confidence: 'known', scope: 'local-controlled-protocol' } })) });
+  }
+  async setPriceQuote(provider, model, quote) {
+    if (typeof provider !== 'string' || !provider || provider.length > 100 || typeof model !== 'string' || !model || model.length > 100) throw new TypeError('Invalid price route');
+    const parsed = quote === null ? null : quoteSchema().parse(quote);
+    if (provider === CONTROLLED_PROVIDER && parsed && parsed.kind !== 'fixture-reference') throw new TypeError('Controlled prices are fixture reference values only');
+    const identity = selection({ provider, model });
+    const prices = this.#state.config.prices.filter(item => !sameIdentity(item, identity));
+    if (parsed) prices.push({ ...identity, quote: parsed });
+    return this.#change({ prices });
+  }
+  async setBudgetDefaults(budget) {
+    const parsed = budgetSchema().parse(budget);
+    if (new Set(parsed.money.map(item => `${item.currency}:${item.kind}`)).size !== parsed.money.length) throw new TypeError('Duplicate money limits');
+    return this.#change({ budget: parsed });
+  }
+  /** Host-only accounting seam. Future collaborators use this same gate; it grants no model authorization. */
+  async reserveCall(taskId, details, signal) {
+    const task = [...this.#active.values()].find(task => task.id === taskId);
+    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo'].includes(details.purpose) || !signal) throw new TypeError('Invalid task call reservation');
+    const identity = Object.fromEntries(['connectionId', 'accountId', 'billingPath', 'provider', 'model'].map(key => [key, details.selection?.[key]]));
+    if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
+    const snapshot = structuredClone(details.routerSnapshot ?? this.#state.config);
+    const priceQuote = (snapshot.prices ?? []).find(item => sameIdentity(item, identity))?.quote ?? null;
+    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
+    task.calls.push(call);
+    this.#persist();
+    await this.#waitBudget(task, call, signal);
+    return call.id;
+  }
+  markCallDispatched(taskId, callId) {
+    if (this.#storageError) throw new LlmError('Router storage is unavailable before dispatch', 'MODEL_NOT_FOUND');
+    const task = [...this.#active.values()].find(task => task.id === taskId);
+    const call = task?.calls.find(call => call.id === callId);
+    if (!call || call.reservation.state !== 'reserved' || call.dispatchStarted) throw new TypeError('The call is not reserved for dispatch');
+    const blocked = this.#restriction(call.selection);
+    if (blocked) { task.routingPauseReason = blocked; throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND'); }
+    call.dispatchStarted = true;
+    call.dispatchedAt = new Date().toISOString();
+    this.#persist();
+  }
+  settleCall(taskId, callId, settlement) {
+    const task = [...this.#active.values()].find(task => task.id === taskId);
+    const call = task?.calls.find(call => call.id === callId);
+    if (!call || call.reservation.state === 'settled') throw new TypeError('The call cannot be settled twice');
+    call.status = settlement.status;
+    call.usage = settlement.usage ? Object.fromEntries(Object.entries(settlement.usage).filter(([key, value]) => ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'totalTokens'].includes(key) && Number.isSafeInteger(value) && value >= 0)) : null;
+    if (settlement.seq !== undefined) call.settlementSeq = settlement.seq;
+    call.finishReason = settlement.finishReason;
+    if (settlement.failureCode) call.failureCode = settlement.failureCode;
+    call.settledAt = new Date().toISOString();
+    call.elapsedMs = call.dispatchedAt ? Math.max(0, Date.parse(call.settledAt) - Date.parse(call.dispatchedAt)) : null;
+    call.cost = !call.dispatchStarted && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote);
+    call.reservation.state = !call.dispatchStarted && !call.usage ? 'released' : 'settled';
+    call.overEstimate = [];
+    const actualTokens = tokensOf(call.usage).total;
+    if (actualTokens !== null && call.reservation.tokens.total !== null && actualTokens > call.reservation.tokens.total) call.overEstimate.push('tokens');
+    if (call.cost.amount !== null && call.reservation.money.amount !== null && call.cost.amount > call.reservation.money.amount) call.overEstimate.push('money');
+    if (call.overEstimate.length) task.timeline.push({ kind: 'estimate-exceeded', callId: call.id, resources: call.overEstimate, message: 'Actual usage exceeded the forecast; a reservation is not an absolute billing cap.' });
+    task.timeline.push({ kind: 'call-settlement', callId: call.id, hostAttemptId: call.hostAttemptId, status: call.status, reason: call.finishReason });
+    this.#persist();
+    for (const candidate of task.calls) this.#waiters.get(candidate.id)?.resolve();
+  }
+  async extendTaskBudget(taskId, extension) {
+    if (this.#storageError) throw new Error('Router storage is unavailable');
+    const task = [...this.#active.values()].find(task => task.id === taskId);
+    if (!task || task.budget.stopRequested) throw new TypeError('Only an active task can be extended');
+    const parsed = extensionSchema().parse(extension);
+    if (new Set((parsed.money ?? []).map(item => `${item.currency}:${item.kind}`)).size !== (parsed.money ?? []).length) throw new TypeError('Duplicate money extensions');
+    const limits = structuredClone(task.budget.limits);
+    for (const key of ['tokens', 'durationMs']) if (parsed[key] !== undefined) {
+      if (limits[key] === null || !Number.isSafeInteger(limits[key] + parsed[key])) throw new TypeError('Cannot extend an unlimited or invalid limit');
+      limits[key] += parsed[key];
+    }
+    for (const extra of parsed.money ?? []) {
+      const item = limits.money.find(item => item.currency === extra.currency && item.kind === extra.kind);
+      if (!item || !Number.isFinite(item.amount + extra.amount) || item.amount + extra.amount > Number.MAX_SAFE_INTEGER) throw new TypeError('The money limit does not exist or is too large');
+      item.amount += extra.amount;
+    }
+    task.budget.extensions.push({ at: new Date().toISOString(), previous: task.budget.limits, extension: parsed, limits: structuredClone(limits) });
+    task.budget.limits = limits;
+    task.timeline.push({ kind: 'budget-extension', extension: parsed });
+    this.#persist(); await this.flush();
+    if (this.#storageError) throw new Error('Router storage is unavailable; budget extension was not persisted');
+    for (const call of task.calls) this.#waiters.get(call.id)?.resolve();
+    return this.snapshot();
+  }
+  async stopTask(taskId) {
+    const task = [...this.#active.values()].find(task => task.id === taskId);
+    if (!task) throw new TypeError('The task is not active');
+    task.budget.stopRequested = true;
+    task.timeline.push({ kind: 'budget-stop', at: new Date().toISOString() });
+    this.ctx.get('agents')?.get(task.sessionId)?.cancel({ kind: 'user' }, { keepInbox: true });
+    this.#persist();
+    return this.snapshot();
+  }
+  async #waitBudget(task, call, signal) {
+    // Persist the reservation before sending anything to the selected adapter.
+    await this.flush();
+    while (true) {
+      signal.throwIfAborted();
+      if (this.#storageError) throw new LlmError('Router storage is unavailable', 'MODEL_NOT_FOUND');
+      const decision = budgetCheck(task, call);
+      task.budget.unenforceableLimits = decision.unenforceable;
+      if (!decision.blocked.length) {
+        call.status = 'prepared'; call.reservation.state = 'reserved';
+        task.lifecycle = 'running'; delete task.budget.waiting;
+        this.#persist(); await this.flush();
+        signal.throwIfAborted();
+        if (this.#storageError) throw new LlmError('Router reservation could not be persisted', 'MODEL_NOT_FOUND');
+        return;
+      }
+      call.status = 'waiting'; call.reservation.state = 'waiting';
+      task.lifecycle = 'waiting-budget';
+      task.budget.waiting = { callId: call.id, blockedBy: decision.blocked, proposedTokens: call.reservation.tokens.total, proposedMoney: call.reservation.money, since: task.budget.waiting?.since ?? new Date().toISOString() };
+      task.timeline.push({ kind: 'budget-wait', callId: call.id, blockedBy: decision.blocked });
+      this.#persist();
+      const waiting = Promise.withResolvers();
+      this.#waiters.set(call.id, waiting);
+      const abort = () => waiting.reject(signal.reason);
+      signal.addEventListener('abort', abort, { once: true });
+      try { signal.throwIfAborted(); await waiting.promise; }
+      finally { signal.removeEventListener('abort', abort); this.#waiters.delete(call.id); }
+    }
   }
   async setModelEnabled(model, enabled) {
     if (!catalog.some(entry => entry.model === model) || typeof enabled !== 'boolean') throw new TypeError('Unknown model or invalid enabled state');
@@ -227,6 +371,7 @@ export class RouterService extends TypertRemoteService {
       this.#storageError = 'STATE_WRITE_FAILED';
       this.#state.config.automatic = false;
       for (const task of this.#active.values()) { task.lifecycle = 'paused'; task.pauseReason = 'STATE_WRITE_FAILED'; }
+      for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router budget state could not be persisted', 'MODEL_NOT_FOUND'));
     });
   }
   #observe(session, event) {
@@ -236,7 +381,7 @@ export class RouterService extends TypertRemoteService {
       return;
     }
     if (event.type === 'turn/start') {
-      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, activeSelection: null, configVersion: this.#state.config.version, result: '', calls: [], timeline: [], startedAt: new Date().toISOString() };
+      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, activeSelection: null, configVersion: this.#state.config.version, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(this.#state.config.budget), extensions: [], unenforceableLimits: [] } };
       this.#active.set(`${session.id}:${event.data.turn}`, task);
       this.#state.tasks.push(task);
       this.#persist();
@@ -251,21 +396,16 @@ export class RouterService extends TypertRemoteService {
       this.#confirm(task, session.requestHeader().config, call);
       if (event.type === 'assistant/message') task.result += event.data.message.content.filter(item => item.type === 'text').map(item => item.text).join('');
       const finish = lastAssistantStreamChunk(event.data.stream ?? [], 'finish')?.reason;
-      call.status = event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed';
-      call.usage = event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null;
-      call.settlementSeq = event.seq;
-      call.finishReason = finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop');
-      if (finish?.failure?.code) call.failureCode = finish.failure.code;
-      task.timeline.push({ kind: 'call-settlement', callId: call.id, hostAttemptId: call.hostAttemptId, status: call.status, reason: call.finishReason });
+      this.settleCall(task.id, call.id, { status: event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed', usage: event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null, seq: event.seq, finishReason: finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop'), failureCode: finish?.failure?.code });
     }
     if (event.type === 'turn/end') {
       const reason = event.data.reason;
       task.lifecycle = reason?.kind === 'completed' && !this.#storageError ? 'completed' : 'paused';
       if (task.lifecycle === 'paused') {
-        task.pauseReason = this.#storageError ?? task.routingPauseReason ?? reason?.error?.code ?? reason?.kind ?? 'UNKNOWN_TERMINAL';
+        task.pauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : null) ?? task.routingPauseReason ?? reason?.error?.code ?? reason?.kind ?? 'UNKNOWN_TERMINAL';
         task.fault = { kind: ['CONNECTION', 'AUTH', 'RATE_LIMIT', 'NO_ADAPTER'].includes(task.pauseReason) ? 'connection' : 'execution', code: task.pauseReason, retryable: task.pauseReason === 'CONNECTION' || task.pauseReason === 'RATE_LIMIT' };
         const call = task.calls.at(-1);
-        if (call && call.status === 'prepared') call.status = 'failed';
+        if (call && ['prepared', 'waiting'].includes(call.status)) { call.status = call.dispatchStarted ? 'failed' : 'not-dispatched'; call.reservation.state = 'released'; }
       }
       task.endedAt = new Date().toISOString();
       task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: 'unconfirmed' });
@@ -296,10 +436,15 @@ export async function apply(ctx) {
   if (state.schemaVersion !== 1 || typeof state.config?.automatic !== 'boolean' || !Number.isSafeInteger(state.config?.version) || state.config.version < 1 || !Array.isArray(state.tasks)) throw new Error('Unsupported DSH Router state schema');
   state.config.pool ??= defaultPool();
   state.config.fixedModel ??= null;
+  state.config.prices ??= [];
+  state.config.budget ??= emptyBudget();
+  if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
+  if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
+  if (!Array.isArray(state.config.prices) || !state.config.prices.every(item => typeof item.provider === 'string' && item.provider && typeof item.model === 'string' && item.model && sameIdentity(item, selection(item)) && quoteSchema().safeParse(item.quote).success && (item.provider !== CONTROLLED_PROVIDER || item.quote.kind === 'fixture-reference'))) throw new Error('Unsupported DSH Router prices');
   const pool = state.config.pool;
   const validEntry = entry => entry && catalog.some(model => model.model === entry.model) && typeof entry.enabled === 'boolean' && Object.entries(selection({ provider: CONTROLLED_PROVIDER, model: entry.model })).every(([key, value]) => entry[key] === value);
   if (!Array.isArray(pool) || !pool.every(validEntry) || new Set(pool.map(entry => entry.model)).size !== pool.length || (state.config.fixedModel !== null && !catalog.some(model => model.model === state.config.fixedModel))) throw new Error('Unsupported DSH Router pool configuration');
-  for (const task of state.tasks) if (task.lifecycle === 'running') { task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; }
+  for (const task of state.tasks) if (['running', 'waiting-budget'].includes(task.lifecycle)) { task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; task.endedAt = new Date().toISOString(); for (const call of task.calls) if (['prepared', 'waiting'].includes(call.status)) { call.status = call.dispatchStarted ? 'interrupted' : 'not-dispatched'; if (call.reservation) call.reservation.state = 'released'; } }
   new RouterService(ctx, state, path, ctx.get('routerFileSystem'));
   ctx.llm.registerAdapter([CONTROLLED_PROVIDER], new ControlledAdapter());
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.

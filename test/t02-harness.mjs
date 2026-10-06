@@ -18,9 +18,10 @@ import Commands from '@deepseek-ai/dsh-commands';
 import FileUploads from '@deepseek-ai/dsh-client-file-upload';
 import * as router from '../src/index.mjs';
 
-export async function startNative(home, { images = false } = {}) {
+export async function startNative(home, { images = false, files } = {}) {
   const ctx = new Context();
   ctx.provide('profileContext', { home, dir: join(home, 'profiles', 'test'), name: 'test' });
+  if (files) ctx.provide('routerFileSystem', files);
   ctx.provide('connection', { fetch: { register: () => () => {} } });
   for (const plugin of [SessionStore, SessionProjections, AgentRegistry, LlmRuntime, ToolRuntime, SystemPrompt, AgentLoop, TypertRegistry, Commands]) await ctx.plugin(plugin);
   await ctx.plugin(images ? LocalAttachmentStore : AttachmentStore, images ? { dshHome: home } : {});
