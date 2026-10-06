@@ -55,7 +55,7 @@ class ReviewFixture extends LlmAdapter {
   }
 }
 
-async function enableReviewCandidate(ctx, provider) {
+async function enableReviewCandidate(ctx, provider, { maxContextTokens = 8192 } = {}) {
   const dispose = ctx.router.registerOwned({
     provider,
     connectionId: `t13-review:${provider}`,
@@ -70,7 +70,7 @@ async function enableReviewCandidate(ctx, provider) {
     models: [{
       model: 'rubric',
       name: 'Controlled rubric reviewer',
-      maxContextTokens: 8192,
+      ...(maxContextTokens === null ? {} : { maxContextTokens }),
       capability: {
         text: { supported: true, confidence: 'declared' },
         image: { supported: false, confidence: 'declared' },
@@ -157,7 +157,7 @@ test('a rubric review is anonymous, belongs to the original task and is included
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-controlled'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-controlled');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
@@ -174,6 +174,7 @@ test('a rubric review is anonymous, belongs to the original task and is included
     assert.equal(adapter.reviews.length, 1);
     assert.equal(adapter.requests.length, 1);
     assert.equal(adapter.requests[0].maxTokens, 256);
+    assert.deepEqual(task.calls[1].reservation.tokens, { input: 3840, output: 256, cacheRead: 0, cacheWrite: 0, reasoning: 0, total: 4096 });
     const input = adapter.reviews[0];
     for (const field of ['provider', 'model', 'accountId', 'connectionId', 'billingPath', 'strategy', 'cost', 'configVersion']) assert.equal(Object.hasOwn(input, field), false);
     assert.equal(Object.hasOwn(input.artifact, 'sessionId'), false);
@@ -181,6 +182,36 @@ test('a rubric review is anonymous, belongs to the original task and is included
     assert.equal(ctx.sessions.get(sessionId).requestHeader().config.provider, 'router-controlled');
     assert.equal(task.result, 'ARTICLE');
   } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+async function assertReviewRejectedBeforeCall({ maxContextTokens, artifact, reason }) {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-review-bound-'));
+  const ctx = await startNative(home);
+  const adapter = new ReviewFixture();
+  const provider = `review-bound-${randomUUID()}`;
+  ctx.llm.registerAdapter([provider], adapter);
+  const registered = await enableReviewCandidate(ctx, provider, { maxContextTokens });
+  try {
+    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: true, candidateId: registered.candidateId, allowCrossModel: true, maxTokens: 256, forecastTokens: 4096 } });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, `Reply ${artifact}\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。`);
+    assert.equal(task.acceptance.verdict, 'unconfirmed');
+    assert.equal(task.acceptance.reviews[0].reason, reason);
+    assert.equal(task.calls.filter(call => call.purpose === 'review').length, 0);
+    assert.equal(adapter.requests.length, 0);
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+}
+
+test('a review payload larger than its finite input forecast reserves and dispatches no Call', async () => {
+  await assertReviewRejectedBeforeCall({ maxContextTokens: 8192, artifact: 'A'.repeat(5000), reason: 'REVIEW_INPUT_FORECAST_EXCEEDED' });
+});
+
+test('unknown reviewer context capacity reserves and dispatches no Call', async () => {
+  await assertReviewRejectedBeforeCall({ maxContextTokens: null, artifact: 'ARTICLE', reason: 'REVIEW_CONTEXT_CAPACITY_UNKNOWN' });
+});
+
+test('a reviewer forecast larger than its declared context capacity reserves and dispatches no Call', async () => {
+  await assertReviewRejectedBeforeCall({ maxContextTokens: 1024, artifact: 'ARTICLE', reason: 'REVIEW_CONTEXT_CAPACITY_EXCEEDED' });
 });
 
 test('writing length counts Unicode characters with an explicit unit and records the measured value', async () => {
@@ -234,8 +265,36 @@ test('an explicit writing structure checks ordered literal sections in the final
     assert.equal(result.requirements[0].kind, 'ordered-literals');
     assert.deepEqual(result.requirements[0].literals, ['INTRO', 'CONCLUSION']);
     assert.equal(result.evidence[0].verdict, 'failed');
-    assert.deepEqual(result.evidence[0].observed.positions, [11, 0]);
+    assert.deepEqual(result.evidence[0].observed.positions, [11, -1]);
     assert.equal(result.evidence[0].source.rule, 'ordered-literals');
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('literal punctuation inside corner quotes remains one explicit requirement', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-literal-punctuation-'));
+  const ctx = await startNative(home);
+  const acceptance = new AcceptanceCoordinator(ctx);
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply 你好。世界\n仅检查以下明确要求：\n正文必须包含「你好。世界」。');
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'passed');
+    assert.equal(result.requirements.length, 1);
+    assert.equal(result.requirements[0].kind, 'includes-literal');
+    assert.equal(result.requirements[0].literal, '你好。世界');
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('ordered literals search from the end of the previous match', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-repeated-order-'));
+  const ctx = await startNative(home);
+  const acceptance = new AcceptanceCoordinator(ctx);
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply B A B\n仅检查以下明确要求：\n正文结构依次包含「A」「B」。');
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'passed');
+    assert.deepEqual(result.evidence[0].observed.positions, [2, 4]);
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
@@ -365,7 +424,7 @@ test('a high-risk rubric gets at most one re-review and conflicting findings sta
   const adapter = new ReviewFixture(['passed', 'failed']);
   ctx.llm.registerAdapter(['review-conflict'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-conflict');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n高风险评审标准：「正文没有危险遗漏」。');
@@ -386,7 +445,7 @@ test('invalid review JSON may consume one bounded re-review but cannot establish
   const adapter = new ReviewFixture(['invalid-json', 'passed']);
   ctx.llm.registerAdapter(['review-invalid'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-invalid');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
@@ -404,7 +463,7 @@ for (const invalidShape of ['null-json', 'null-finding', 'extra-top-level', 'ext
   const adapter = new ReviewFixture([invalidShape, 'passed']);
   ctx.llm.registerAdapter([`review-${invalidShape}`], adapter);
   const registered = await enableReviewCandidate(ctx, `review-${invalidShape}`);
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
@@ -424,7 +483,7 @@ test('persisted Task review Calls keep the two-attempt limit after coordinator a
     const adapter = new ReviewFixture(['passed', 'passed']);
     ctx.llm.registerAdapter(['review-restart-cap'], adapter);
     registered = await enableReviewCandidate(ctx, 'review-restart-cap');
-    new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+    new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const firstTask = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n高风险评审标准：「正文没有危险遗漏」。');
     assert.equal(firstTask.calls.filter(call => call.purpose === 'review').length, 2);
@@ -437,7 +496,7 @@ test('persisted Task review Calls keep the two-attempt limit after coordinator a
     const acceptanceCtx = { router: ctx.router, tools: ctx.tools, on: (name, listener) => { listeners.set(name, listener); } };
     const acceptance = new AcceptanceCoordinator(acceptanceCtx, {
       captureCandidate: async () => { throw new Error('The persisted review limit must prevent candidate capture'); },
-      review: { enabled: true, candidateId: 'removed-review-candidate', allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } },
+      review: { enabled: true, candidateId: 'removed-review-candidate', allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } },
     });
     const agent = { session: { id: sessionId }, inbox: { nextStep: [] } };
     const message = { id: 'restart-review-user', source: { kind: 'user', rpcId: 'restart-review-rpc' }, content: [{ type: 'text', text: '仅检查以下明确要求：\n评审标准：「正文没有危险遗漏」。' }] };
@@ -470,7 +529,7 @@ test('a different review candidate needs an explicit collaboration grant', async
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-permission'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-permission');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
@@ -508,7 +567,7 @@ test('a review transport failure pauses the Task and preserves its main artifact
   const adapter = new ReviewFixture(['transport-error']);
   ctx.llm.registerAdapter(['review-transport'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-transport');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
@@ -529,7 +588,7 @@ test('a review candidate disabled during budget waiting cannot dispatch after ex
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-revoke'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-revoke');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   let run;
   try {
     await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
@@ -537,7 +596,7 @@ test('a review candidate disabled during budget waiting cannot dispatch after ex
     run = submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
     const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
     await ctx.router.setModelEnabled(registered.candidateId, false);
-    await ctx.router.extendTaskBudget(waiting.id, { tokens: 256 });
+    await ctx.router.extendTaskBudget(waiting.id, { tokens: 8192 });
     const task = await run;
     const result = acceptance.getResult(task.id);
     assert.equal(result.verdict, 'unconfirmed');
@@ -557,7 +616,7 @@ for (const action of ['extend', 'stop']) test(`a review budget wait preserves th
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-budget'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-budget');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   let run;
   try {
     await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
@@ -568,7 +627,7 @@ for (const action of ['extend', 'stop']) test(`a review budget wait preserves th
     assert.equal(pendingResult.phase, 'awaiting-review');
     assert.equal(pendingResult.artifact.text, 'ARTICLE');
     assert.equal(pendingResult.verdict, 'unconfirmed');
-    if (action === 'extend') await ctx.router.extendTaskBudget(waiting.id, { tokens: 256 });
+    if (action === 'extend') await ctx.router.extendTaskBudget(waiting.id, { tokens: 8192 });
     else await ctx.router.stopTask(waiting.id);
     const task = await run;
     const result = acceptance.getResult(task.id);
@@ -597,12 +656,12 @@ test('a real steer during review waiting supersedes the old artifact and reasses
   let run;
   try {
     await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
-    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: true, candidateId: registered.candidateId, allowCrossModel: true, maxTokens: 256, forecastTokens: 256 } });
+    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: true, candidateId: registered.candidateId, allowCrossModel: true, maxTokens: 256, forecastTokens: 4096 } });
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     run = submit(ctx, sessionId, 'Reply ORIGINAL\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
     const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
     await ctx.sessionController.prompt({ sessionId, requestId: 'acceptance-steer', mode: 'steer', content: [{ type: 'text', text: 'Reply CORRECTED\n仅检查以下明确要求：\n正文必须包含「CORRECTED」。' }] }, new AbortController().signal);
-    await ctx.router.extendTaskBudget(waiting.id, { tokens: 512 });
+    await ctx.router.extendTaskBudget(waiting.id, { tokens: 8192 });
     const task = await run;
     const result = task.acceptance;
     assert.equal(task.id, waiting.id);
@@ -627,7 +686,7 @@ test('a trustworthy deterministic failure is not sent to a model for a competing
   const adapter = new ReviewFixture();
   ctx.llm.registerAdapter(['review-unused'], adapter);
   const registered = await enableReviewCandidate(ctx, 'review-unused');
-  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 4096 } } });
   try {
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const task = await submit(ctx, sessionId, 'Reply BAD ARTICLE\n仅检查以下明确要求：\n正文不得包含「BAD」。\n评审标准：「正文说明测试约束」。');

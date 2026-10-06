@@ -35,6 +35,7 @@ test('shared Host wiring keeps acceptance opt-in and persists deterministic resu
   let ctx;
   try {
     ctx = await startNative(home);
+    assert.deepEqual((await ctx.router.snapshot()).config.acceptance, { enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
     let session = await ctx.sessionController.create({ cwd: home });
     const untouched = await submit(ctx, session.sessionId, 'Reply HELLO\n仅检查以下明确要求：\n正文必须包含「HELLO」。');
     assert.deepEqual(untouched.acceptance, { verdict: 'unconfirmed', evidence: [] });
@@ -44,10 +45,12 @@ test('shared Host wiring keeps acceptance opt-in and persists deterministic resu
     assert.equal(accepted.acceptance.verdict, 'passed');
     assert.equal(accepted.acceptance.evidence[0].source.kind, 'deterministic-rule');
     const acceptedRecord = structuredClone(accepted.acceptance);
+    const legacyFinitePolicy = { enabled: true, review: { enabled: true, candidateId: 'controlled', allowCrossModel: false, maxTokens: 256, forecastTokens: 256 } };
+    await ctx.router.setAcceptancePolicy(legacyFinitePolicy);
     await ctx.fiber.dispose();
     ctx = await startNative(home);
     const snapshot = await ctx.router.snapshot();
-    assert.deepEqual(snapshot.config.acceptance, deterministicPolicy);
+    assert.deepEqual(snapshot.config.acceptance, legacyFinitePolicy);
     assert.deepEqual(snapshot.tasks.find(task => task.id === accepted.id).acceptance, acceptedRecord);
     session = await ctx.sessionController.create({ cwd: home });
     const afterRestart = await submit(ctx, session.sessionId, 'Reply AGAIN\n仅检查以下明确要求：\n正文必须包含「AGAIN」。');
@@ -95,7 +98,7 @@ test('shared review policy uses a canonical enabled candidate and requires expli
     });
     const candidate = (await ctx.router.snapshot()).candidateSnapshot.candidates.find(item => item.identity.provider === 'integrated-reviewer');
     await ctx.router.setModelEnabled(candidate.candidateId, true);
-    const policy = { enabled: true, review: { enabled: true, candidateId: candidate.candidateId, allowCrossModel: false, maxTokens: 128, forecastTokens: 128 } };
+    const policy = { enabled: true, review: { enabled: true, candidateId: candidate.candidateId, allowCrossModel: false, maxTokens: 128, forecastTokens: 4096 } };
     await ctx.router.setAcceptancePolicy(policy);
     let session = await ctx.sessionController.create({ cwd: home });
     const denied = await submit(ctx, session.sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明约束」。');
@@ -109,7 +112,9 @@ test('shared review policy uses a canonical enabled candidate and requires expli
     assert.equal(reviewed.calls.at(-1).candidateId, candidate.candidateId);
     assert.deepEqual(reviewed.calls.at(-1).selection, candidate.identity);
     assert.equal(reviewed.calls.at(-1).selectionSnapshot.candidateId, candidate.candidateId);
-    assert.equal(reviewed.calls.at(-1).reservation.tokens.total, 128);
+    assert.equal(reviewed.calls.at(-1).reservation.tokens.total, 4096);
+    assert.equal(reviewed.calls.at(-1).reservation.tokens.input, 3968);
+    assert.equal(reviewed.calls.at(-1).reservation.tokens.output, 128);
     assert.equal(adapter.requests.length, 1);
     assert.equal(adapter.requests[0].maxTokens, 128);
   } finally {

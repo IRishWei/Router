@@ -94,7 +94,7 @@ window.__ModuleLoader__.load({
         routing.comparison?.unknowns?.length ? h('p', null, `不可比较：${routing.comparison.unknowns.join('、')}`) : null);
     }
     function AcceptancePolicyEditor({ state, disabled, save }) {
-      const defaults = { enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 256 } };
+      const defaults = { enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } };
       const [draft, setDraft] = React.useState(state.config.acceptance ?? defaults);
       React.useEffect(() => { setDraft(state.config.acceptance ?? defaults); }, [JSON.stringify(state.config.acceptance)]);
       const review = change => setDraft(current => ({ ...current, review: { ...current.review, ...change } }));
@@ -108,7 +108,7 @@ window.__ModuleLoader__.load({
         h('label', null, h('input', { type: 'checkbox', 'aria-label': '允许跨模型评审', checked: draft.review.allowCrossModel, onChange: event => review({ allowCrossModel: event.target.checked }) }), '允许评审候选与执行候选不同'),
         h('p', null, '跨模型默认关闭；开启表示明确许可所选候选参与匿名评审，仍受模型池、当前资格和任务预算约束。'),
         field('评审输出 token 上限', draft.review.maxTokens, value => review({ maxTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 4096, step: 1 }),
-        field('评审预留 token', draft.review.forecastTokens, value => review({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 4096, step: 1 }),
+        field('评审输入与输出总预留 token', draft.review.forecastTokens, value => review({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 65536, step: 1 }),
         h('button', { type: 'button', onClick: () => save(draft) }, '保存验收设置'));
     }
     function AcceptanceResult({ task }) {

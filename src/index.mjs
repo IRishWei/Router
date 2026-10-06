@@ -21,7 +21,7 @@ const catalog = [
 const defaultPool = () => catalog.map(model => ({ candidateId: model.model, ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), enabled: true }));
 const ROUTING_OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'quality']);
 const MAX_ASSESSMENT_CONTEXT_BYTES = 16_384;
-const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 256 } });
+const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {

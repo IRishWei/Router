@@ -25,7 +25,7 @@ test('the real Renderer configures bounded acceptance and shows persisted eviden
     await click('路由与预算');
     await act(async () => { page.root.findByProps({ 'aria-label': '启用明确要求验收' }).props.onChange({ target: { checked: true } }); });
     await act(async () => { page.root.findByProps({ 'aria-label': '评审输出 token 上限' }).props.onChange({ target: { value: '192' } }); });
-    await act(async () => { page.root.findByProps({ 'aria-label': '评审预留 token' }).props.onChange({ target: { value: '256' } }); });
+    await act(async () => { page.root.findByProps({ 'aria-label': '评审输入与输出总预留 token' }).props.onChange({ target: { value: '256' } }); });
     await click('保存验收设置');
     const policy = (await ctx.router.snapshot()).config.acceptance;
     assert.deepEqual(policy, { enabled: true, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 192, forecastTokens: 256 } });

@@ -13,7 +13,7 @@ export const acceptancePolicySchema = () => z.object({
     candidateId: z.string().min(1).max(200).nullable(),
     allowCrossModel: z.boolean(),
     maxTokens: z.number().int().positive().safe().max(4096),
-    forecastTokens: z.number().int().positive().safe().max(4096),
+    forecastTokens: z.number().int().positive().safe().max(65536),
   }).strict(),
 }).strict().refine(value => value.review.forecastTokens >= value.review.maxTokens, { message: 'Review forecast must cover its output cap', path: ['review', 'forecastTokens'] });
 const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), routingObjective: z.enum(['balanced', 'cost', 'tokens', 'speed', 'quality']).default('balanced'), semanticAssessment: z.boolean().default(false), acceptance: acceptancePolicySchema().optional(), fixedModel: z.string().nullable().optional(), fixedCandidateId: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), semanticAssessmentRequest: z.object({ status: z.literal('armed'), requestedAt: z.string() }).strict().nullable().optional(), calibrationPreview: z.json().optional(), candidateSnapshot: z.json().optional(), unsupportedProviders: z.array(z.json()).optional(), tasks: z.array(z.json()), blockedRequests: z.array(z.json()).optional(), storageError: z.string().nullable(), models: z.array(z.json()) }) };

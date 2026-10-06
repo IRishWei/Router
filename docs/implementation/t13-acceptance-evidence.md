@@ -6,12 +6,12 @@
 
 `AcceptanceCoordinator` 只接受 Host 已认领的任务输入、受信检查计划和可选匿名 reviewer 配置。模型与 RPC 客户端没有提交 verdict 的入口。
 
-- 只解析 `仅检查以下明确要求：` 后的有限字面语法：必含/禁止字面量、Unicode code point 长度、字面结构顺序、显式 Host 编程行为/测试/构建计划及其 `工作区产物「相对路径」`、普通或高风险 rubric。其他自然语言保持 unresolved/unconfirmed；不声称完整需求抽取。
+- 只解析 `仅检查以下明确要求：` 后的有限字面语法：必含/禁止字面量、Unicode code point 长度、字面结构顺序、显式 Host 编程行为/测试/构建计划及其 `工作区产物「相对路径」`、普通或高风险 rubric。分句保留 `「」` 内的句号，顺序检查从上一字面量的末尾继续搜索。其他自然语言保持 unresolved/unconfirmed；不声称完整需求抽取。
 - 写作检查绑定最终实际 assistant/message 的 messageId、seq、step、hash 和 artifact revision，不检查累加草稿。
 - 编程检查只执行 Host 预先授权的固定计划，并通过公开 `ToolRuntime.execute` 经过原生 policy/guard 管线。模型文本不能提供工具名、参数或命令。行为、测试、构建分别覆盖；build passed 不能覆盖 behavior failed 或 tests 未配置。
 - 确定性失败优先，不发起模型“投票”覆盖真实失败。部分覆盖、未授权检查、产物不完整、review JSON/引用无效、review 冲突或预算停止均保持 unconfirmed。
 - reviewer 输入只包含匿名产物、requirementHash 和 rubric；provider/model、连接/账号、策略、费用、配置版本及原要求来源不进入正文。
-- review 通过 T03 `reserveCall(taskId, ..., signal)` → `streamReservedCall(taskId, callId, request)`，调用方不重复 persist/settle。普通 rubric 一次；高风险、首次无效或 unconfirmed 时最多追加一次。整个 Task 的 review attempt 上限为 2，重入不重置。
+- review 通过 T03 `reserveCall(taskId, ..., signal)` → `streamReservedCall(taskId, callId, request)`，调用方不重复 persist/settle。普通 rubric 一次；高风险、首次无效或 unconfirmed 时最多追加一次。整个 Task 的 review attempt 上限为 2，重入不重置。完整 system+匿名 JSON payload 的 UTF-8 字节数作为输入 token 保守上界；输入、固定输出上限与 total forecast 结构一致，并受 canonical candidate context window 限制。配置预留不足、容量未知或不足时零 Call 并保持 unconfirmed。
 - review 候选由注入的 Host-only `captureCandidate(candidateId, { signal })` 获取真实 registry capture，Call 原样保存 candidateId、五元 identity、selectionSnapshot 和 quoteVersion。默认不允许跨模型评审；只有明确 `allowCrossModelReview` 才可使用另一候选。每次评审同时要求正整数 `maxTokens` 和不小于它的 token forecast，真实请求携带该 `maxTokens`，且禁用透明模块级 retry。
 - 结果使用 versioned Requirement、Artifact、Evidence、Review、Blocking IDs；blocking 记录 requirement/evidence 引用、artifactRevision、repairable 和 selfRepairAttempted，供 T14/T16/T22 读取。
 - 结果通过 Host-only `exactTask(sessionId, turn)` 精确绑定原 Task，并由 `publishAcceptance(taskId, acceptance)` 写入 state owner；这两个入口不进入 RPC、Typert 或模型工具。
@@ -29,7 +29,7 @@
 
 ## 共享 Host 接线
 
-0.6.0 在 Router Host 中安装 coordinator 和 Node checker。验收默认关闭；公开 `setAcceptancePolicy` 只接受严格的有限策略：总开关、评审开关、Host candidateId、显式跨模型许可、1—4096 的输出上限及覆盖该上限的 token 预留。每个 Task 在 `turn/start` 冻结策略，设置变更只影响新任务。review 使用唯一 Host-only `captureCandidate` 和统一 `reserveCall`/`streamReservedCall`；`exactTask`、`publishAcceptance`、candidate capture 和 runner 均未进入 RPC/Typert。
+0.6.1 在 Router Host 中安装 coordinator 和 Node checker。验收默认关闭；公开 `setAcceptancePolicy` 只接受严格的有限策略：总开关、评审开关、Host candidateId、显式跨模型许可、1—4096 的输出上限及最大 65536 的输入与输出总预留。新配置默认总预留 4096；已持久化的旧值不静默提高。每个 Task 在 `turn/start` 冻结策略，设置变更只影响新任务。review 使用唯一 Host-only `captureCandidate` 和统一 `reserveCall`/`streamReservedCall`；`exactTask`、`publishAcceptance`、candidate capture 和 runner 均未进入 RPC/Typert。
 
 真实 Controller 回归覆盖默认零验收、开启后的确定性验收、真实临时 Node 项目的 ToolRuntime 检查、跨模型零调用拒绝及显式授权后的 canonical Call。重启回归保留策略、旧 Task 证据，并证明重启后的新完整 Task 继续使用持久策略。实际 Renderer 通过 rc.2 Slots/Typert/API Gateway 保存有限设置并展示证据、覆盖和整体质量限制。目标 Desktop 安装、真实工作区检查及最终重启验收仍由集成验收方执行；完成前不能关闭 #14。
 
