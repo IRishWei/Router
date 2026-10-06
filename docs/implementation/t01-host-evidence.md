@@ -30,10 +30,16 @@ T01 使用实际 native 可控 provider/model pair，既不使用 virtual→real
 | 基础连接故障 | fault classification 缺失 | CONNECTION 作为连接故障暂停本任务；用量未知；随后新任务恢复 |
 | 实际原生选择链 | call 无 header-confirmed 状态 | 实际 SessionController.create/selectModel/prompt；pending 被消费，lastUsed/header 相同，两次任务无重复切换notice |
 | 原生配置客户端 | 未解包 RemoteResult 导致配置页渲染失败 | 实际 React 组件显示完整任务记录与无法确认状态；暂停设置收到正确状态 |
+| 不完整终态 | 原生 max-tokens 任务错误记为 completed | partial输出及7token保留；task暂停、call interrupted，blocked/取消也保持暂停原因 |
+| 原生重试逐次结算 | 首次 assistant/attempt 永久 prepared、已报告7token丢失 | 公开 assistant-stream start 绑定 hostAttemptId；durable settlement 独立归属call，失败7token和重试12token均保留 |
+| 设置排队写失败 | 磁盘异常仍成功返回设置；后续旧enable快照可落盘 | 新写入在执行前重查storageError；设置明确失败，重启仍读到此前持久化false/version2 |
+| 执行中存储异常 | 正常模型响应覆盖存储异常暂停 | 保留输出；路由/task仍暂停，验收无法确认 |
 
-命令：`npm test` **5/5 通过**；`npm run build` 和 `npm run check` 通过；`npm run bundle` 生成可安装 tgz。包内容为 Host/Client/codec、patch、元数据、README 和许可证，不包含 node_modules 或另一个 Cordis Framework。
+命令：`npm test` **11/11 通过**；`npm run build` 和 `npm run check` 通过；`npm run bundle` 生成 **0.1.1** 可安装 tgz。包内容为 Host/Client/codec、patch、元数据、README 和许可证，不包含 node_modules 或另一个 Cordis Framework。
 
 实际 native controller 测试只替换外部 HTTP carrier 的 route registration；SessionController、modelSelection projection、SessionQuery、附件文字准入、FileUploads、AgentLoop、LLM 及 Session 均为实际目标版本实现。无图片、真实授权或付费网络请求。客户端 React 测试在公开 RemoteResult 系统边界使用可控成功返回；真实浏览器 wire、桌面安装、重启和停用仍需桌面验证。
+
+存储故障测试在文件系统边界注入一次EIO，其余写入及重启读取使用真实临时目录；仅检验当前进程的故障状态和旧排队写入保护，不承诺磁盘不可写时能持久化失败标记。Host可注入的 `routerFileSystem` 只提供 writeFile/rename，常规运行直接使用Node原生文件API。
 
 ## 共享契约与限制
 
