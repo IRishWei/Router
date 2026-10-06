@@ -58,6 +58,9 @@ test('the real settings facade saves budgets, extends one waiting task, displays
     await click('任务记录'); await click('刷新任务记录');
     assert.match(JSON.stringify(page.toJSON()), /缺少价格，费用未知/);
     assert.match(JSON.stringify(page.toJSON()), /无法完整执行金额上限/);
+    await assert.rejects(async () => { for await (const _chunk of ctx.llm.stream({ provider: 'router-controlled', model: 'controlled', sessionId, purpose: 'session-title', messages: [], signal: new AbortController().signal })) {} }, /AUXILIARY_TASK_UNAVAILABLE/);
+    await click('刷新任务记录');
+    assert.match(JSON.stringify(page.toJSON()), /无法安全关联活动任务，尚未发送/);
     assert.equal(mounted.errors.length, 0);
   } finally {
     if (run) { ctx.agents.get((await ctx.router.snapshot()).tasks.at(-1)?.sessionId)?.cancel({ kind: 'user' }); await run.catch(() => {}); }

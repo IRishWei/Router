@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.2.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.3.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。
@@ -38,6 +38,10 @@ Host 的公开 `router/setPriceQuote` 设置命令接受 provider、model 和报
 
 原生 `steer` 补充按已认领消息归当前任务；`queue` 输入属于后续 turn 和新任务。预算等待不取消 signal，取消后不存在公开的原 turn 恢复入口。0.3.1 在允许下游请求前持久化可能派发的意图，写入失败不进入 adapter；写盘等待结束后再次检查原 signal、模型资格和原生待执行选择。重启中的未完成任务标记 `HOST_RESTARTED`，不自动重复请求。只有可能派发意图、或 0.3.0 中无法证明未发送的已确认 header 时，保留未知消耗，页面明确说明实际发送无法确认。0.3.2 同时纠正旧 Host 已重启并保存为 `HOST_RESTARTED/not-dispatched/header-confirmed` 的模糊记录，保留原身份、报价和预算；有明确未发送证据的记录仍为零。跨取消/重启恢复属于 T18。
 
+0.3.3 为原生标题生成分配独立 `auxiliary` Call，并保存 `nativePurpose=session-title` 和公开源事件/消息序列。标题与主请求各产生12个 fixture token 时，Task 共计24；标题也受同一预算约束。主 turn 完成后，所属辅助调用仍在途或等待预算时 Task 保持活动，扩展或停止仍生效，主结果保留。标题原 signal 在预算等待中保持不变；派发时将它与 Router 的 Task 停止信号合成，取消其中任一个均中止所属调用。旧标题延迟消费、同会话下一 turn 已运行时仍归原 Task，不按最新会话任务猜测。
+
+只有公开源事件能证明归属的自动辅助请求才可发送。当前验证首消息标题；手动刷新已结束任务的标题、没有可信来源映射的压缩或其他辅助调用会在传输前阻止，`blockedRequests` 和设置页显示 `AUXILIARY_TASK_UNAVAILABLE`。未修改原生功能设置，也未验证成功压缩。旧0.3.1/0.3.2的无精确所有权 v1 标记可能被辅助失败清除；模糊重启记录升级后保留未知，不把旧 `blocked` 当作未消耗证明。新调用使用 `durable-intent-v2`。
+
 ## 开发验证
 
 ```powershell
@@ -52,4 +56,4 @@ npm run bundle
 
 客户端回归通过实际 rc.2 Slot renderer、Typert registry 和 API gateway 挂载设置页，检查任务显示、暂停 RPC、卸载和重新启用；仅 Connection 传输与 DOM 挂载使用测试边界。`node scripts/reproduce-client-mount.mjs` 可输出挂载错误、RPC endpoint 和渲染树。0.1.2 修复设置项访问 `remote.router` 时遗漏 Cordis 依赖声明导致的空白页，已在实际目标桌面确认恢复。
 
-跨票公共记录保留 task/session/call 身份、完整连接与计费来源 selection、请求配置、Router 配置快照、配置版本、执行状态与独立验收状态。Host-only `await reserveCall(taskId, details, signal)` → `await persistDispatchIntent(taskId, callId)` → `settleCall(taskId, callId, settlement)` 是后续判断、执行、评审、咨询、retry 和 redo 的统一记账入口，不能绕过任务预算，也不授予模型授权。`persistDispatchIntent` 必须 await 成功后才允许进入传输；它复查 reserveCall 保存的原 signal 并持久化可能派发意图，不证明实际发送。原生流在返回后立即同步复查 pending、资格和 signal，再消费下游；后续 Host 调用方同样要保留自己负责的最终资格与原生选择检查。限制记录使用 `{resource, currency?, kind?, reason}` 字段，客户端按字段展示。当前实际生成执行与原生 retry；其他策略调用由后续票实现。T03 自动化证据见 `docs/implementation/t03-budget-evidence.md`，目标安装宿主由集成分支另行验收。
+跨票公共记录保留 task/session/call 身份、完整连接与计费来源 selection、请求配置、Router 配置快照、配置版本、执行状态与独立验收状态。后续判断、执行、评审、咨询、retry、redo 使用 Host-only `await reserveCall(taskId, details, signal)`，再消费 `streamReservedCall(taskId, callId, request)`：该入口精确绑定一次请求、验证 provider/model 和原 signal、await 持久化意图、派发并按实际报告用量自动结算；调用方不另行 persist 或 settle，不需要给 request 添加 sessionId，也不得把 Router purpose 写成 DSH purpose。它不暴露为 RPC，不授予模型授权。原生执行自动走同一底层预算、持久化意图与结算规则。低层 `persistDispatchIntent` 必须 await，只有可能派发意义，不能代替请求所有权绑定。原生流派发前同步复查 pending、资格和 signal；显式协作者也须保留自己负责的最终原生选择检查。限制记录使用 `{resource, currency?, kind?, reason}`，客户端按字段展示。当前实际覆盖执行、原生 retry 和有源事件证明的标题辅助调用；其他策略由后续票实现。T03 自动化证据见 `docs/implementation/t03-budget-evidence.md`，目标安装宿主由集成分支另行验收。
