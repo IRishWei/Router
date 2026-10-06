@@ -30,7 +30,7 @@ Controller、Renderer 或完整 Router Task。
 服务，不读取真实 key、不访问真实网络、不产生费用。覆盖：
 
 - 文本请求和工具往返，逐 Call 恰好一个 Messages POST；
-- usage、401、断流、未知模型、prepared Call 撤销；
+- usage、401、断流、原始信号中止持续 SSE、未知模型、prepared Call 撤销；
 - credential 重启持久化、替换失效及 disconnect 删除；
 - 目录 GET 不携带认证头，目录事实不冒充 capability/inference 验证。
 

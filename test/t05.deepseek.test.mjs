@@ -38,6 +38,18 @@ async function listen(handler) {
   };
 }
 
+async function bounded(promise, message, timeoutMs = 2_000) {
+  let timeout;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error(message)), timeoutMs); }),
+    ]);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 test('an owned DeepSeek connection stores its secret only in its credential record', async () => {
   const home = join(tmpdir(), `router-t05-credentials-${crypto.randomUUID()}`);
   const credentialsPath = join(home, '.credentials.yaml');
@@ -287,6 +299,71 @@ for (const scenario of ['wrong-credential', 'truncated-stream']) test(`a ${scena
     assert.equal(chunks.at(-1).reason.failure.code, scenario === 'wrong-credential' ? 'AUTH' : 'STREAM_CLOSED');
     if (scenario === 'truncated-stream') assert.equal(chunks.some(chunk => chunk.type === 'usage'), false);
   } finally {
+    if (provider) await provider.disconnect();
+    await ctx.fiber.dispose();
+    await endpoint.close();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('an original abort closes a live Messages SSE request without retrying', async () => {
+  let posts = 0;
+  let closeConnection;
+  const connectionClosed = new Promise(resolve => { closeConnection = resolve; });
+  const endpoint = await listen(async (request, response) => {
+    posts += 1;
+    for await (const _chunk of request) { /* consume */ }
+    response.writeHead(200, { 'content-type': 'text/event-stream' });
+    response.write(sse(
+      { type: 'message_start', message: { usage: { input_tokens: 5 } } },
+      { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+      { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'PARTIAL' } },
+    ));
+    const keepAlive = setInterval(() => response.write(': keep-alive\n\n'), 20);
+    response.once('close', () => {
+      clearInterval(keepAlive);
+      closeConnection();
+    });
+  });
+  const home = join(tmpdir(), `router-t05-abort-${crypto.randomUUID()}`);
+  const ctx = new Context();
+  const controller = new AbortController();
+  let provider;
+  try {
+    await ctx.plugin(LocalCredentialProvider, { path: join(home, '.credentials.yaml'), watch: false });
+    await ctx.plugin(LlmRuntime);
+    const accountId = `account-${crypto.randomUUID()}`;
+    await storeDeepSeekApiKey(ctx.credentials, accountId, 'controlled-abort-key');
+    provider = await mountDeepSeekOwnedProvider(ctx, {
+      connectionId: `connection-${crypto.randomUUID()}`,
+      accountId,
+      configRevision: 1,
+      credentialGeneration: `generation-${crypto.randomUUID()}`,
+      endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
+    });
+    const chunks = [];
+    const consume = async () => {
+      for await (const chunk of ctx.llm.stream({
+        provider: provider.metadata.provider,
+        model: 'deepseek-flash',
+        reasoningEffort: 'off',
+        messages: [createUserMessage({ content: [{ type: 'text', text: 'Abort this stream' }] })],
+        maxTokens: 8,
+        signal: controller.signal,
+      })) {
+        chunks.push(chunk);
+        if (chunk.type === 'text-delta') controller.abort(new Error('controlled original abort'));
+      }
+    };
+
+    await bounded(consume(), 'aborted DeepSeek stream did not settle');
+    await bounded(connectionClosed, 'aborted DeepSeek transport did not close');
+    assert.equal(posts, 1);
+    assert.equal(chunks.at(-1).type, 'finish');
+    assert.equal(chunks.at(-1).reason.kind, 'aborted');
+    assert.equal(chunks.at(-1).reason.failure.code, 'ABORTED');
+  } finally {
+    controller.abort(new Error('test cleanup'));
     if (provider) await provider.disconnect();
     await ctx.fiber.dispose();
     await endpoint.close();
