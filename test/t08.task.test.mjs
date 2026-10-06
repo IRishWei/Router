@@ -76,14 +76,17 @@ test('native candidates with the same model stay isolated and only an explicitly
   }
 });
 
-test('owned registration deduplicates an already visible route and never projects unrecognized secret fields', async () => {
+test('owned registration replaces a visible native identity without inheriting its candidate permission or quote', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t08-owned-'));
   const calls = [];
   let ctx;
   try {
     ctx = await startNative(home, { beforeRouter(host) { host.llm.registerAdapter(['owned-later'], new CompanionAdapter('OWNED', calls)); } });
     const before = await ctx.router.refreshConnections();
-    assert.equal(before.models.filter(model => model.provider === 'owned-later').length, 1);
+    const native = before.models.find(model => model.provider === 'owned-later' && model.available);
+    await ctx.router.setModelEnabled(native.candidateId, true);
+    await ctx.router.setFixedModel(native.candidateId);
+    await ctx.router.setPriceQuote(native.candidateId, { source: 'Old native identity only', date: '2026-10-07', currency: 'USD', kind: 'api-calculated', confidence: 'declared', perMillion: { input: 1, output: 1 }, reasoning: 'included-in-output' });
     const dispose = ctx.router.registerOwned({
       provider: 'owned-later', connectionId: 'router-owned-account-7', accountId: 'account-7', billingPath: 'api-funded',
       ownership: 'router-owned', source: 'provider-plugin-registration', sourceKey: 'owned-later:account-7:v1', configRevision: 4,
@@ -94,13 +97,94 @@ test('owned registration deduplicates an already visible route and never project
     });
     const snapshot = await ctx.router.snapshot();
     const matches = snapshot.models.filter(model => model.provider === 'owned-later');
-    assert.equal(matches.length, 1);
-    assert.equal(matches[0].ownership, 'router-owned');
-    assert.equal(matches[0].connectionId, 'router-owned-account-7');
-    assert.equal(matches[0].accountId, 'account-7');
+    const replaced = matches.find(model => model.candidateId === native.candidateId);
+    const owned = matches.find(model => model.available);
+    assert.equal(matches.filter(model => model.available).length, 1);
+    assert.equal(replaced.available, false);
+    assert.equal(replaced.tombstone.reason, 'CONNECTION_IDENTITY_REPLACED');
+    assert.notEqual(owned.candidateId, native.candidateId);
+    assert.equal(owned.ownership, 'router-owned');
+    assert.equal(owned.connectionId, 'router-owned-account-7');
+    assert.equal(owned.accountId, 'account-7');
+    assert.equal(owned.enabled, false);
+    assert.equal(owned.quote, null);
+    assert.equal(snapshot.config.fixedCandidateId, native.candidateId);
     assert.equal(JSON.stringify(snapshot).includes('MUST_NOT_APPEAR'), false);
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const blocked = await submit(ctx, sessionId, 'Reply NEW_ACCOUNT_MUST_NOT_INHERIT');
+    assert.equal(blocked.lifecycle, 'paused');
+    assert.equal(blocked.calls.length, 0);
+    assert.deepEqual(calls, []);
     dispose();
   } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('a middleware route rewrite is rejected before the mismatched adapter can receive the reserved call', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t08-route-mismatch-'));
+  const callsA = [], callsB = [];
+  let ctx;
+  try {
+    ctx = await startNative(home, { beforeRouter(host) {
+      host.llm.registerAdapter(['owned-a'], new CompanionAdapter('A', callsA));
+      host.llm.registerAdapter(['owned-b'], new CompanionAdapter('B', callsB));
+    } });
+    const a = (await ctx.router.refreshConnections()).models.find(model => model.provider === 'owned-a');
+    await ctx.router.setModelEnabled(a.candidateId, true);
+    await ctx.router.setFixedModel(a.candidateId);
+    ctx.on('agent/request', async (_event, next) => ({ ...(await next()), provider: 'owned-b', model: 'shared-model' }), { prepend: true });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply MUST_NOT_REACH_B');
+    assert.deepEqual(callsA, []);
+    assert.deepEqual(callsB, []);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'REQUEST_SELECTION_MISMATCH');
+    assert.equal(task.calls.length, 1);
+    assert.equal(task.calls[0].selection.provider, 'owned-a');
+    assert.equal(task.calls[0].dispatchStarted, false);
+    assert.equal(task.calls[0].usage, null);
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('legacy model strings never authorize two sequential owned identities with the same route', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t08-owned-legacy-'));
+  const calls = [];
+  let ctx, disposeA, disposeB;
+  const owned = (account, sourceKey) => ({
+    provider: 'owned-same', connectionId: `connection-${account}`, accountId: account, billingPath: 'api-funded',
+    ownership: 'router-owned', source: 'provider-plugin-registration', sourceKey, configRevision: 1, configured: true,
+    models: [{ model: 'shared-model', name: `Owned ${account}`, maxContextTokens: null, capability: {
+      text: { supported: true, confidence: 'declared' }, image: { supported: null, confidence: 'unknown' }, tools: { supported: null, confidence: 'unknown' },
+    } }],
+  });
+  try {
+    ctx = await startNative(home, { beforeRouter(host) { host.llm.registerAdapter(['owned-same'], new CompanionAdapter('SAME', calls)); } });
+    disposeA = ctx.router.registerOwned(owned('account-a', 'owned-same:a'));
+    let snapshot = await ctx.router.snapshot();
+    const a = snapshot.models.find(model => model.provider === 'owned-same' && model.accountId === 'account-a');
+    disposeA(); disposeA = null;
+    disposeB = ctx.router.registerOwned(owned('account-b', 'owned-same:b'));
+    snapshot = await ctx.router.snapshot();
+    const b = snapshot.models.find(model => model.provider === 'owned-same' && model.accountId === 'account-b');
+    assert.notEqual(a.candidateId, b.candidateId);
+    await assert.rejects(ctx.router.setModelEnabled('shared-model', true), /Unknown candidate/);
+    await ctx.router.setModelEnabled(b.candidateId, true);
+    await ctx.router.setFixedModel(b.candidateId);
+    snapshot = await ctx.router.snapshot();
+    assert.equal(snapshot.models.find(model => model.candidateId === a.candidateId).enabled, false);
+    assert.equal(snapshot.models.find(model => model.candidateId === b.candidateId).enabled, true);
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply OWNED_B_ONLY');
+    assert.equal(task.calls[0].candidateId, b.candidateId);
+    assert.equal(task.calls[0].selection.accountId, 'account-b');
+    assert.equal(calls.length, 1);
+  } finally {
+    disposeA?.(); disposeB?.();
     if (ctx) await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
@@ -183,6 +267,69 @@ test('a public settings revision change invalidates the captured native identity
     assert.equal(calls.length, 0);
   } finally {
     release?.resolve();
+    if (run) await run.catch(() => {});
+    if (ctx) await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('a new task refreshes a changed model catalog even when the Host emitted no adapter event', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t08-catalog-refresh-'));
+  const calls = [];
+  let ctx, listed = true;
+  class MutableCatalog extends CompanionAdapter {
+    async listModels(provider) { return listed ? super.listModels(provider) : []; }
+  }
+  try {
+    ctx = await startNative(home, { beforeRouter(host) { host.llm.registerAdapter(['mutable-catalog'], new MutableCatalog('MUTABLE', calls)); } });
+    const candidate = (await ctx.router.snapshot()).models.find(model => model.provider === 'mutable-catalog');
+    await ctx.router.setModelEnabled(candidate.candidateId, true);
+    await ctx.router.setFixedModel(candidate.candidateId);
+    listed = false;
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply REMOVED_WITHOUT_EVENT');
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'CONNECTION_REMOVED');
+    assert.equal(task.calls.length, 0);
+    assert.deepEqual(calls, []);
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('budget release refreshes a settings revision that changed without an event', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t08-budget-refresh-'));
+  const calls = [];
+  let ctx, run, revision = 0;
+  try {
+    ctx = await startNative(home, { beforeRouter(host) {
+      host.provide('settings', { describe: () => [{ ns: 'silent-revision', revision, value: {}, secrets: [] }] });
+      host.llm.registerAdapter(['silent-revision-native'], new CompanionAdapter('SILENT', calls));
+      host.llm.registerConfigurableProviders([{ provider: 'silent-revision-native', displayName: 'Silent revision', settingsNs: 'silent-revision', settingsPath: [] }]);
+    } });
+    const candidate = (await ctx.router.snapshot()).models.find(model => model.provider === 'silent-revision-native');
+    await ctx.router.setModelEnabled(candidate.candidateId, true);
+    await ctx.router.setFixedModel(candidate.candidateId);
+    await ctx.router.setBudgetDefaults({ tokens: null, durationMs: 0, money: [] });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, 'Reply SILENT_CHANGE_MUST_NOT_RUN');
+    let waiting;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      waiting = (await ctx.router.snapshot()).tasks.find(task => task.sessionId === sessionId && task.lifecycle === 'waiting-budget');
+      if (waiting) break;
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    assert(waiting, 'Task never reached its duration budget wait');
+    revision = 1;
+    await ctx.router.extendTaskBudget(waiting.id, { durationMs: 10000 });
+    const task = await run;
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'CONNECTION_CHANGED');
+    assert.equal(task.calls.length, 1);
+    assert.equal(task.calls[0].dispatchStarted, false);
+    assert.deepEqual(calls, []);
+  } finally {
     if (run) await run.catch(() => {});
     if (ctx) await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });

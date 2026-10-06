@@ -5,7 +5,7 @@ import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAg
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { descriptors, quoteSchema, budgetSchema, extensionSchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
-import { ConnectionRegistry, sameIdentity, sameRoute } from './connections.mjs';
+import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
 
 export const inject = ['llm', 'profileContext'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -136,6 +136,7 @@ export class RouterService extends TypertRemoteService {
     });
     ctx.on('system-prompt/assemble', async (_assembly, { agent }, next) => {
       if (!agent) return next();
+      await this.#refreshEligibility();
       const config = structuredClone(this.#state.config);
       const pending = ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection');
       const step = { config, pending: pending?.pending ? { ...pending.pending } : null, route: null };
@@ -386,8 +387,11 @@ export class RouterService extends TypertRemoteService {
       try {
         originalSignal.throwIfAborted(); controller.signal.throwIfAborted();
         if (!owner.call) {
+          await service.#refreshEligibility(originalSignal);
+          const candidate = service.#connections.candidateForRoute(request);
+          const captured = candidate ? service.#connections.capture(candidate.candidateId, owner.config) : null;
           const before = task.calls.length;
-          const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: selection(request), configVersion: owner.config.version, routerSnapshot: owner.config, forecast: request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null }, originalSignal);
+          const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: captured?.identity ?? selection(request), ...(captured ? { candidateId: captured.candidateId, selectionSnapshot: captured } : {}), configVersion: owner.config.version, routerSnapshot: owner.config, forecast: request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null }, originalSignal);
           owner.call = task.calls[before];
           owner.call.sourceEventSeq = source.sourceEventSeq;
           owner.call.sourceMessageSeqs = source.messageSeqs;
@@ -471,6 +475,20 @@ export class RouterService extends TypertRemoteService {
     this.#persist(); await this.flush();
     return this.snapshot();
   }
+  async #refreshEligibility(signal) {
+    signal?.throwIfAborted();
+    const epoch = this.#connections.epoch;
+    await this.#connections.refresh({ signal });
+    signal?.throwIfAborted();
+    if (this.#connections.epoch !== epoch) { this.#persist(); await this.flush(); }
+    if (this.#storageError) throw new LlmError('Router could not persist current Host connection eligibility', 'MODEL_NOT_FOUND');
+  }
+  #assertCallEligibility(task, call) {
+    const blocked = this.#restriction(call.candidateId ? { ...call.selection, candidateId: call.candidateId, selectionSnapshot: call.selectionSnapshot } : call.selection);
+    if (!blocked) return;
+    task.routingPauseReason = blocked;
+    throw new LlmError(`Router cannot use the captured candidate: ${blocked}`, 'MODEL_NOT_FOUND');
+  }
   registerOwned(source) {
     const dispose = this.#connections.registerOwned(source);
     this.#persist();
@@ -499,7 +517,7 @@ export class RouterService extends TypertRemoteService {
     const parsed = quote === null ? null : quoteSchema().parse(quote);
     if (candidate.provider === CONTROLLED_PROVIDER && parsed && parsed.kind !== 'fixture-reference') throw new TypeError('Controlled prices are fixture reference values only');
     const prices = this.#state.config.prices.filter(item => item.candidateId !== candidate.candidateId && !sameIdentity(item, candidate));
-    if (parsed) prices.push({ candidateId: candidate.candidateId, ...Object.fromEntries(['connectionId', 'accountId', 'billingPath', 'provider', 'model'].map(key => [key, candidate[key]])), quoteVersion: randomUUID(), quote: parsed });
+    if (parsed) prices.push({ candidateId: candidate.candidateId, ...identityOf(candidate), quoteVersion: randomUUID(), quote: parsed });
     return this.#change({ prices });
   }
   async setBudgetDefaults(budget) {
@@ -510,13 +528,13 @@ export class RouterService extends TypertRemoteService {
   /** Host-only accounting seam. Future collaborators use this same gate; it grants no model authorization. */
   async reserveCall(taskId, details, signal) {
     const task = [...this.#active.values()].find(task => task.id === taskId);
-    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary'].includes(details.purpose) || !signal) throw new TypeError('Invalid task call reservation');
-    const identity = Object.fromEntries(['connectionId', 'accountId', 'billingPath', 'provider', 'model'].map(key => [key, details.selection?.[key]]));
+    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary'].includes(details?.purpose) || !signal) throw new TypeError('Invalid task call reservation');
+    const identity = identityOf(details.selection);
     if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
     if (details.candidateId !== undefined) {
       const candidate = this.#connections.resolve(details.candidateId, { allowLegacyControlled: false });
       const captured = details.selectionSnapshot;
-      if (!captured || captured.candidateId !== candidate.candidateId || !sameIdentity(identity, candidate) || !sameIdentity(identity, captured.identity) || !Number.isSafeInteger(captured.authEpoch) || !Number.isSafeInteger(captured.connectionConfigRevision)) throw new TypeError('Candidate reservation identity does not match its captured selection');
+      if (!captured || captured.candidateId !== candidate.candidateId || !sameIdentity(identity, candidate) || !sameIdentity(identity, captured.identity) || captured.authEpoch !== candidate.authEpoch || captured.connectionConfigRevision !== candidate.connectionConfigRevision) throw new TypeError('Candidate reservation identity does not match its captured selection');
     }
     const snapshot = structuredClone(details.routerSnapshot ?? this.#state.config);
     const priced = (snapshot.prices ?? []).find(item => details.candidateId ? item.candidateId === details.candidateId : sameIdentity(item, identity));
@@ -530,7 +548,11 @@ export class RouterService extends TypertRemoteService {
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) abort();
     this.#persist();
-    try { await this.#waitBudget(task, call, signal); }
+    try {
+      await this.#refreshEligibility(signal);
+      this.#assertCallEligibility(task, call);
+      await this.#waitBudget(task, call, signal);
+    }
     catch (error) {
       if (!possiblyDispatched(call) && call.reservation.state !== 'released') this.settleCall(taskId, call.id, { status: 'not-dispatched', usage: null, finishReason: signal.aborted ? 'aborted' : 'unknown', failureCode: typeof error?.code === 'string' ? error.code : 'CALL_RESERVATION_FAILED' });
       throw error;
@@ -543,6 +565,7 @@ export class RouterService extends TypertRemoteService {
     const call = task?.calls.find(call => call.id === callId);
     const signal = this.#callSignals.get(callId);
     if (!call || !signal || call.reservation.state !== 'reserved' || call.dispatchStarted || call.dispatchIntent === 'possible') throw new TypeError('The call is not reserved for dispatch');
+    await this.#refreshEligibility(signal);
     const blocked = this.#restriction(call.candidateId ? { ...call.selection, candidateId: call.candidateId, selectionSnapshot: call.selectionSnapshot } : call.selection);
     if (blocked) { task.routingPauseReason = blocked; throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND'); }
     signal.throwIfAborted();
@@ -623,8 +646,13 @@ export class RouterService extends TypertRemoteService {
   async #waitBudget(task, call, signal) {
     // Persist the reservation before sending anything to the selected adapter.
     await this.flush();
+    let waited = false;
     while (true) {
       this.#assertReservation(task, call, signal);
+      if (waited) {
+        await this.#refreshEligibility(signal);
+        this.#assertCallEligibility(task, call);
+      }
       const decision = budgetCheck(task, call);
       task.budget.unenforceableLimits = decision.unenforceable;
       if (!decision.blocked.length) {
@@ -645,6 +673,7 @@ export class RouterService extends TypertRemoteService {
       signal.addEventListener('abort', abort, { once: true });
       try { signal.throwIfAborted(); await waiting.promise; }
       finally { signal.removeEventListener('abort', abort); this.#waiters.delete(call.id); }
+      waited = true;
     }
   }
   #assertReservation(task, call, signal) {
@@ -657,7 +686,7 @@ export class RouterService extends TypertRemoteService {
     if (typeof enabled !== 'boolean') throw new TypeError('Invalid enabled state');
     const candidate = this.#connections.markManaged(candidateId);
     const pool = this.#state.config.pool.filter(entry => (entry.candidateId ?? entry.model) !== candidate.candidateId && !sameIdentity(entry, candidate));
-    pool.push({ candidateId: candidate.candidateId, ...Object.fromEntries(['connectionId', 'accountId', 'billingPath', 'provider', 'model'].map(key => [key, candidate[key]])), enabled });
+    pool.push({ candidateId: candidate.candidateId, ...identityOf(candidate), enabled });
     return this.#change({ pool });
   }
   async setFixedModel(candidateId) {
@@ -671,7 +700,9 @@ export class RouterService extends TypertRemoteService {
   }
   #restriction(route) {
     const candidate = route?.candidateId ? this.#connections.resolve(route.candidateId) : this.#connections.candidateForRoute(route);
-    if (!candidate || (!candidate.managed && candidate.ownership !== 'router-owned')) return null;
+    if (!candidate) return null;
+    if (route?.candidateId && !sameRoute(candidate, route)) return 'REQUEST_SELECTION_MISMATCH';
+    if (!candidate.managed && candidate.ownership !== 'router-owned') return null;
     if (!candidate.available || !this.ctx.llm.listProviders().some(item => item.id === candidate.provider)) return 'CONNECTION_REMOVED';
     if (route?.selectionSnapshot && (route.selectionSnapshot.authEpoch !== candidate.authEpoch || route.selectionSnapshot.connectionConfigRevision !== candidate.connectionConfigRevision)) return 'CONNECTION_CHANGED';
     const entry = this.#state.config.pool.find(entry => (entry.candidateId ?? entry.model) === candidate.candidateId);
