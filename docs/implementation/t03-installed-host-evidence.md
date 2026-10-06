@@ -1,6 +1,6 @@
 # T03 安装宿主与重启验证
 
-最新已安装验证版本为 0.3.5，固定实现 `24673cf`、集成 `5a24499`。六个新完整任务及重启验证通过，详见末节；独立复审另发现并发未绑定预留失去预算扩展/停止入口的遗漏，当前仍不满足最终验收。旧版本的缺陷与验证保留作为修复依据。独立代码复审结果记录在 [审查记录](t03-review.md)。
+最终安装验证版本为0.3.7，固定源码 `f7dac268`、同步分支tip `e4a63d11`、集成 `598a93e`。六个新完整任务、配置与38条历史重启深比较通过，双轴复审无遗留发现，详见末节。旧版本的缺陷与验证保留作为修复依据。独立代码复审结果记录在 [审查记录](t03-review.md)。
 
 2026-10-07，实现 `b43888c`、集成 `8145666`，安装 `@irishwei/dsh-router@0.3.2`。目标 Windows DSH Desktop 0.2.0-rc.2，build `04f392c9ddd144fa426da2045178797da6db6c11`、Cordis 4.0.4、Host protocol 4。该轮安装验证发现辅助请求串用执行 Call，未作为最终验收。
 
@@ -90,3 +90,26 @@ T05—T11的授权、真实API、账单与透明HTTP attempts，T18的跨取消�
 重启前配置恢复不限预算、version46，原20条历史加6条新任务。公开RPC对配置、全部26条Task/Call/结果/扩展及原生默认深比较相等，新完成Call均possible/started=true，storageError=null。安全证据为同一临时目录 `t03-v035-rpc-evidence.json`、`t03-v035-restart-evidence.json`，脚本 `t03-installed-host-v035.mjs`。
 
 根94/94回归与check通过，原外层隐藏usage关闭及review取消窗口已独立复验；新增并发reserve在主turn结束前尚未绑定runner的Task保活遗漏仍待0.3.6修复。因此本轮安装正常路径证据成立，尚不关闭#4。全程无CU、真实API支出、正常profile或Codex认证改动。
+
+## 最终0.3.7安装与重启
+
+0.3.6先以106/106回归、独立25项针对性复验和实际六场景/config57/32条历史重启通过全部功能修复。0.3.7只调整私有取消监听清理函数的名称，没有行为变化；双轴增量复审均0发现。最终仍通过官方CLI更新同一独立home，目标Desktop/build/Cordis/protocol与上文一致。
+
+包 `artifacts/irishwei-dsh-router-0.3.7.tgz`，92,981字节，SHA256 `3DFDF2EAD4084A9A919A7D2333F4CC962E16CADD33C80E81B2D88185F1C57966`。安装Host与根build产物同为 `020712111AAEE853ED2EC2D870916EDFBF5101C66B9697CCDD8180C99F9CCAC5`；客户端同为 `38BF362EA7BD2EFF6373F5EE2CE5689F5675700DD8A2EF45FFDE6320E2763C50`。作者106/106、check、bundle通过；根只对命名收尾重新build/check与核对摘要，无镜像命名测试或机械重复全量。
+
+确认旧独立PID26692身份后停止，新安装进程PID8872运行六个公开RPC任务；所有完成主/标题Call均v2/possible/started=true，各12、累计24 token。报价来源 `fixture:installed-host-t03-v037`、日期2026-10-07、USD fixture-reference、declared，算式同上；正常双Call参考值0.00008，真实账单仍未确认。
+
+| 场景 | 最终Task ID与观察 |
+| --- | --- |
+| token分别等待与扩展 | `dfffe4cc-5222-48cc-a4aa-725e1d734a9b`：10→12→24，同Task/turn及各原Call，两次扩展，主产物RPC_V037_BUDGET_RESUMED，累计24。 |
+| 零预算停止 | `bb455fca-c977-4695-899f-e6f25d398740`：paused/BUDGET_STOPPED、空产物、0派发、释放预留。 |
+| 主完成后停止标题 | `650bbc53-b957-4006-9b9a-73a41c1c78a2`：paused/BUDGET_STOPPED，主产物RPC_V037_MAIN_RETAINED与12 token保留，标题零派发。 |
+| 标题等待时撤销 | `653058af-e9ea-4205-8032-bad6efe4c90c`：paused/MODEL_REMOVED、nativeLifecycle=completed，主产物RPC_V037_RETAINED_REMOVAL与12 token保留，标题预留释放。 |
+| 金额分别等待与扩展 | `ce37e7ce-b011-4c33-885f-5533fc86898d`：原Call及报价保留，两次扩展后双Call/USD参考值0.00008。 |
+| 缺价未知 | `7517aae6-5290-4894-8225-3075d5af16cd`：双Call、24 token、unknownPriceCalls=2、金额空，限制不可完整执行；旧已捕获价格不变。 |
+
+完成后恢复不限预算、配置version68。核对PID8872路径/启动时间/home后停止，隐藏重启为PID42864。公开RPC深比较全部config、38条Task及Call/结果/扩展历史和原生默认，完全一致；新完成Call标记正确，storageError=null。未改变正常DSH profile或Codex配置/认证，不声称GUI点击或普通GUI退出操作。
+
+安全证据：同一临时目录 `t03-v037-rpc-evidence.json`、`t03-v037-restart-evidence.json`；脚本 `t03-installed-host-v037.mjs`。0.3.6对应文件为 `t03-v036-*`。私有进程日志中的短期launch URL不属于公开证据。
+
+最终闭票覆盖统一预算/账本入口、token子项/货币口径/价格快照、完整任务补充与retry、预算扩展/停止、未知用量/部分金额下界、并发预留、辅助消费及各取消/关闭/持久化窗口。真实API与账单、提供商内部HTTP attempts、跨取消恢复、自动验收策略、真实效果与发布许可仍由后续票验证；不能据本票宣称整个项目完成或实际路由收益。

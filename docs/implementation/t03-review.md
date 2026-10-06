@@ -79,3 +79,15 @@ Standards：0项硬性违反，1项低优先级判断性Duplicated Code。内部
 Spec新增P2：主Call已预留时，通过公开llm/stream中间件启动并保留同Task的并发consultation reserve，token上限12使其等待。主12完成后，finishTask只检查已绑定流owner，过早删除Task；尚未返回callId的consultation仍waiting/reservation waiting，原signal未取消，extend/stop均拒绝inactive。其后取消也因Task已删无法结算。统一入口已经支持并发预留，不能把新限制推给T13/T16要求其阻止native turn结束；未绑定的等待/已预留Call也必须保留同Task、扩展与停止入口。
 
 独立公开完整任务复现为 `C:\Users\a1500\AppData\Local\Temp\router-review-t03\parallel-reserve-035.mjs`。原作者在0.3.6统一修复该窗口及重复记录规则。0.3.5六项安装操作、26条历史与config46重启深比较通过，但不覆盖此并发未绑定阶段，#4继续保持打开。
+
+## 最终0.3.6/0.3.7复审结论
+
+0.3.6固定 `e5cd5c7`、集成 `9ea4b60`。新增12条预留生命周期完整任务回归，全量106/106、check、bundle及差异检查通过。未结算预留从proposed开始保活Task，直到精确native/request或runner绑定才移交取消责任；等待/已返回ID未绑定均保留扩展与停止入口。停止、原signal取消、原生取消和停用释放准确Call，await后复查不能复活已释放的预留。旧Task停止不取消同session下一turn；原取消原因保留。
+
+Spec独立复审：0新增可操作发现。重放原并发脚本，主完成后waiting-budget，增加12后原Task/Call绑定runner完成，累计24且一次结算。新12项预留边界和旧13项标题/隐藏usage防回归共25项针对性检查通过；源码取消监听移交、await后资格/释放复查与一次结算成立。实际0.3.6六阶段及config57/32条历史重启安全证据也核对通过，Spec侧允许关闭#4。
+
+Standards在0.3.6只余一个低优先级Mysterious Name：保存解除abort监听函数的 `#unboundAborts` 易误读为执行abort。原作者0.3.7仅将声明和三处引用改为 `#unboundAbortDisposers`，版本与安装说明同步，无行为变更或新增测试。固定源码 `f7dac268`，合并最新集成后的分支tip `e4a63d11` 与其完整tree同为 `021718296363ce55ee9a277793a70554ab31379a`；最终集成 `598a93e`。
+
+0.3.7双轴增量独立复审：Standards 0硬性违反、0判断性气味；Spec 0发现、0.3.6通过结论沿用。作者106/106全量通过；根build/check与安装摘要一致，六个公开RPC场景及配置version68/全部38条历史重启深比较通过，见 [最终安装证据](t03-installed-host-evidence.md)。
+
+所有本票发现均由同一原实现者修复，经merger合入；未使用CU、真实API支出、用户凭据或Codex配置/认证。完成范围为T03统一账本与预算基础能力，后续判断/评审/咨询策略尚由各票实现。真实API/账单、提供商内部HTTP attempts、T18跨取消恢复及实验许可继续未认证；无可信归属的compaction、已结束Task手动标题与不可观察裸辅助入口继续明确阻止，不把这些限制宣称为支持。
