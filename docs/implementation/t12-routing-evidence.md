@@ -10,7 +10,7 @@
 
 普通任务从已准入用户消息、历史模态、受控工具要求和上下文大小推导要求，不扫描项目。语义判断默认关闭；用户开启许可后，可通过公开 UI/RPC 为下一个 Task 一次性 armed。判断输入包含已推导要求、最近 12 条会话上下文和当前 Task 已认领用户输入，图像只传媒体类型而不复制二进制；序列化内容超过 16 KiB 时不产生 Call，明确记录 `ASSESSMENT_CONTEXT_TOO_LARGE`。受控语义标记只用于确定性要求补充测试。
 
-判断在同一个 Task 内调用一次 `runInitialAssessment`。Host 先通过唯一 `captureCandidate` 取得 assessor 的完整 canonical snapshot，身份或 revision 变化即暂停，不临时换候选。调用沿用原 signal，经共享 `reserveCall` → `streamReservedCall` 执行，输出上限 512 token；模块不 persist、settle 或重放。长 await 后会复核任务输入/要求 revision。合法结果只能增加要求，无效 JSON、非正常结束、上下文变化或证据不足不能改变资格。预算等待、扩展、停止和派发前资格复查均由共享 runner 处理。
+判断在同一个 Task 内调用一次 `runInitialAssessment`。Host 先通过唯一 `captureCandidate` 取得 assessor 的完整 canonical snapshot，身份或 revision 变化即暂停，不临时换候选。调用沿用原 signal，经共享 `reserveCall` → `streamReservedCall` 执行，Host 当前请求输出上限 128 token，模块硬上限 512 token；模块不 persist、settle 或重放。长 await 后会复核任务输入/要求 revision。合法结果只能增加要求，无效 JSON、非正常结束、上下文变化或证据不足不能改变资格。预算等待、扩展、停止和派发前资格复查均由共享 runner 处理。
 
 ## Host 与 RPC
 
@@ -49,4 +49,4 @@ Renderer 可设置五种目标、启用有界判断、为下一个任务明确�
 
 ## 已知边界
 
-受控判断标记和工具标记只用于确定性宿主验收，不声称完整自然语言分类。一次性公开触发使真实合格候选在有界 Task 上下文内判断，但模型建议仍不能覆盖用户要求或 Host 资格。容量估算采用保守的 UTF-8 输入大小，仅在超过 8192 时要求候选提供明确容量，避免把缺少公开容量元数据的普通短任务全部拒绝。校准仅交付预算预览；实际消耗资源的校准需要后续显式授权流程，不能由本票预览触发。真实模型效果、费用优势和 Desktop 安装兼容性只有对应独立证据完成后才能声明。
+受控判断标记和工具标记只用于确定性宿主验收，不声称完整自然语言分类。一次性公开触发使真实合格候选在有界 Task 上下文内判断，但模型建议仍不能覆盖用户要求或 Host 资格。容量估算采用保守的 UTF-8 输入大小，仅在超过 8192 时要求候选提供明确容量，避免把缺少公开容量元数据的普通短任务全部拒绝。校准仅交付预算预览；实际消耗资源的校准需要后续显式授权流程，不能由本票预览触发。0.5.1 已完成本目标 Desktop 安装及受控任务验收，见 [安装证据](t12-installed-host-evidence.md)；真实模型效果、费用优势仍需独立证明。
