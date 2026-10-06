@@ -92,22 +92,26 @@ window.__ModuleLoader__.load({
         finally { setBusy(false); }
       };
       const disabled = busy || Boolean(state?.storageError);
-      const pool = () => h('div', null, h('h3', null, '连接与模型'), h('p', null, '本地可控连接：两个测试模型，不连接服务、不产生真实费用。能力声明与已知兼容性分别显示。'), ...state.models.map(model => h('article', { key: model.id, style: { padding: '12px 0' } },
+      const pool = () => h('div', null, h('h3', null, '连接与模型'), h('p', null, '通过宿主公开目录显示可复用连接；目录、配置和能力验证分别记录。原生引用不会复制认证材料，也不会自动启用。'),
+        h('button', { type: 'button', disabled, onClick: () => change(() => api.refreshConnections()) }, '刷新宿主连接'),
+        ...(state.unsupportedProviders ?? []).map(item => h('p', { key: `${item.provider}:${item.reason}`, role: 'status' }, `${item.displayName ?? item.provider}：暂不支持（${item.reason}）；未承诺社区 provider 通用兼容。`)),
+        ...state.models.map(model => h('article', { key: model.candidateId ?? model.id, style: { padding: '12px 0' } },
         h('strong', null, model.name),
-        h('p', null, `${model.connectionId} · ${model.inPool ? '在模型池中' : '已移除'} · ${model.enabled ? '已启用' : '未启用'}`),
-        h('label', null, h('input', { type: 'checkbox', 'aria-label': `启用 ${model.name}`, checked: model.enabled, disabled: disabled || !model.inPool, onChange: event => change(() => api.setModelEnabled(model.id, event.target.checked)) }), '启用'),
-        h('button', { type: 'button', disabled, onClick: () => change(() => model.inPool ? api.removeModel(model.id) : api.setModelEnabled(model.id, true)) }, `${model.inPool ? '移除' : '加入模型池'} ${model.name}`),
+        h('p', null, `${model.connectionId} · ${model.ownership === 'native-reference' ? '宿主原生引用' : 'Router 自有'} · ${model.available ? '当前可用' : '已断开'} · ${model.inPool ? '在模型池中' : '未加入模型池'} · ${model.enabled ? '已启用' : '未启用'}`),
+        h('p', null, `账号 ${model.accountId === 'unknown' ? '未知' : model.accountId} · 计费来源 ${model.billingPath === 'unknown' ? '未知' : model.billingPath} · Router 使用许可 ${model.routerAuthorization?.status === 'enabled' ? '已启用' : '未启用'} · provider 授权 ${model.providerAuthorization?.status === 'unknown' ? '未知，目录可见不代表推理已验证' : model.providerAuthorization?.status ?? '未知'}`),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': `启用 ${model.name}`, checked: model.enabled, disabled: disabled || !model.inPool || !model.available, onChange: event => change(() => api.setModelEnabled(model.candidateId ?? model.id, event.target.checked)) }), '启用'),
+        h('button', { type: 'button', disabled: disabled || !model.available, onClick: () => change(() => model.inPool ? api.removeModel(model.candidateId ?? model.id) : api.setModelEnabled(model.candidateId ?? model.id, true)) }, `${model.inPool ? '移除' : '加入模型池'} ${model.name}`),
         h('p', null, Object.entries(model.capability).map(([name, fact]) => `${({ text: '文本', image: '图像', tools: '工具' })[name]}：${fact.supported === null ? '尚未确认' : fact.supported ? '支持' : '不支持'}（${confidence(fact.confidence)}）`).join(' · ')),
-        h('p', null, `兼容性：${confidence(model.compatibility.confidence)}，范围为本地可控协议；不代表真实服务权限或效果。`))));
+        h('p', null, `兼容性：${confidence(model.compatibility.confidence)}，范围为 ${model.compatibility.scope}；不代表未验证的真实服务权限或效果。`))));
       const routing = () => h('div', null,
         h('h3', null, '路由与预算'),
         h('p', null, `自动路由：${state.config.automatic ? '已启用' : '已暂停；原生模型选择仍可用'}`),
         h('button', { type: 'button', disabled, onClick: () => change(() => api.setAutomatic(!state.config.automatic)) }, state.config.automatic ? '暂停自动路由' : '启用自动路由'),
-        h('label', null, '固定执行模型 ', h('select', { 'aria-label': '固定执行模型', value: state.config.fixedModel ?? '', disabled, onChange: event => change(() => api.setFixedModel(event.target.value || null)) },
-          h('option', { value: '' }, '自动选择已启用模型'), ...state.models.map(model => h('option', { key: model.id, value: model.id, disabled: !model.enabled }, `${model.name}${model.enabled ? '' : '（不可用）'}`)))),
-        h('button', { type: 'button', disabled: disabled || !state.config.fixedModel, onClick: () => change(() => api.setFixedModel(null)) }, '解除固定'),
+        h('label', null, '固定执行模型 ', h('select', { 'aria-label': '固定执行模型', value: state.config.fixedCandidateId ?? state.config.fixedModel ?? '', disabled, onChange: event => change(() => api.setFixedModel(event.target.value || null)) },
+          h('option', { value: '' }, '自动选择已启用模型'), ...state.models.map(model => h('option', { key: model.candidateId ?? model.id, value: model.candidateId ?? model.id, disabled: !model.enabled || !model.available }, `${model.name}${model.enabled && model.available ? '' : '（不可用）'}`)))),
+        h('button', { type: 'button', disabled: disabled || !(state.config.fixedCandidateId ?? state.config.fixedModel), onClick: () => change(() => api.setFixedModel(null)) }, '解除固定'),
         h('p', null, '固定时不自动更换执行模型。与原生待执行选择冲突时暂停并保留手动意图。暂停自动路由后保留设置，使用有效的原生选择。'),
-        h('p', null, '当前连接仅生成本地测试响应，不产生真实费用。参考报价由公开设置命令保存，不代表官方价格或实际账单。'),
+        h('p', null, 'Router 受控连接仅生成本地测试响应；主动启用的 DSH 原生连接会使用其宿主 provider。参考报价由公开设置命令保存，不代表官方价格或实际账单。'),
         h(BudgetEditor, { budget: state.config.budget, disabled, save: budget => change(() => api.setBudgetDefaults(budget)) }),
         ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
       const history = () => h('div', null, h('h3', null, '任务记录'), state.tasks.length === 0 ? h('p', null, '尚无任务。') : h('ol', null, ...state.tasks.slice(-20).reverse().map(task => h('li', { key: task.id, style: { padding: '12px 0', whiteSpace: 'pre-wrap' } },

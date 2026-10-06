@@ -1,0 +1,3 @@
+- insert:
+    - id: router-native-companion
+      name: '@irishwei/dsh-router-native-companion'
