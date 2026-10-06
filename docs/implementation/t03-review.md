@@ -67,3 +67,5 @@ Standards：0项硬性违反，0项判断性气味；旧协议歧义谓词已提
 Spec新增P2：外层公开prepend流中间件调用 `next()` 并消费下游至标题usage12后抛错，内层Router生成器仍悬挂。外层收尾的owner.close在started=true时直接返回，既不关闭所属内部iterator，也不结算已观察用量。真实三个title模块已fallback、native主任务completed，但Router整体永久running；账本只保留主12，辅助usage变未知，stopTask也无法终结。需在外层终止时结束所属内部iterator并结算已观察usage；未报告消费保持未知，不能借用或清除另一Call。违反父规格任务内消耗可追溯和内部异常暂停要求。
 
 独立公开完整任务复现为 `C:\Users\a1500\AppData\Local\Temp\router-review-t03\title-034-next-outer-reject.mjs`。原作者统一修复0.3.5。实际0.3.4安装六项操作及20条历史重启深比较已通过，审查者核对安全证据成立，但不覆盖本新增窗口，#4仍保持打开。
+
+跨ticket接口核对另发现预留清理遗漏：真实 `agent/turn-stopping` 验收gate等待 `reserveCall(review, 原turn signal)`，预算不足时尚未返回callId、runner尚未构造。公开stopTask或原生Controller.cancel后整体paused且原signal已取消、主产物和12 token保留、辅助零派发，但review Call的status/reservation仍waiting。预留入口必须在失败/取消时释放自身未发Call；不能要求T13重复settle，也不能依赖只清理nativeReservation的turn/end。公开完整任务复现及安全JSON为 `C:\Users\a1500\AppData\Local\Temp\router-implementation\t13-review-reserve-cancel-034.{mjs,json}`，固定安装Host构建摘要一致。此项也由原作者在0.3.5统一修复，并交最终Spec复审。
