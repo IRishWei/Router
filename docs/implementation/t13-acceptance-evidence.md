@@ -15,12 +15,13 @@
 - review 候选由注入的 Host-only `captureCandidate(candidateId, { signal })` 获取真实 registry capture，Call 原样保存 candidateId、五元 identity、selectionSnapshot 和 quoteVersion。默认不允许跨模型评审；只有明确 `allowCrossModelReview` 才可使用另一候选。每次评审同时要求正整数 `maxTokens` 和不小于它的 token forecast，真实请求携带该 `maxTokens`，且禁用透明模块级 retry。
 - 结果使用 versioned Requirement、Artifact、Evidence、Review、Blocking IDs；blocking 记录 requirement/evidence 引用、artifactRevision、repairable 和 selfRepairAttempted，供 T14/T16/T22 读取。
 - 结果通过 Host-only `exactTask(sessionId, turn)` 精确绑定原 Task，并由 `publishAcceptance(taskId, acceptance)` 写入 state owner；这两个入口不进入 RPC、Typert 或模型工具。
+- 缓存和异步失效按 artifact 的 messageId、seq、step、revision、hash 等版本身份判断；相同正文的新 assistant/message 仍会重新验收。新 revision 将旧结论、要求、证据、覆盖、blocking 和结构化 review 以白名单 history 标记为 superseded，不复制模型原始 review 输出。
 
 ## 阶段 2 定向证据
 
 真实 rc.2 Controller/AgentLoop/ToolRuntime 完整任务测试建立临时工作区，写入错误的 `src/add.mjs` 和对其断言真实行为的 `test/add.test.mjs`。Host 固定计划经公开 `ToolRuntime.execute` 分别运行 `node --test` 与 `node --check`：行为测试真实失败、构建真实成功、缺失测试计划保持 unconfirmed。计划与结果都绑定 workspace 内绝对路径、SHA-256、正整数 revision、scope、planVersion、commandId、exitCode 和 outputHash；越界计划不会执行，伪造 revision 的结果不会成为证据。ArtifactRef 与 execution 只投影这些白名单字段，工具返回的额外私有 metadata 不进入 Task 记录。
 
-评审测试通过 T08 `registerOwned` 注册并由用户配置启用受控候选，再经注入的 capture callback、统一 reserve/stream runner 完成同一 Task 的 Call 和 ledger。覆盖单次成功、高风险冲突、无效 JSON 一次复核、跨模型未授权零调用、token cap/forecast 不匹配零调用、传输失败暂停、预算等待后候选撤销零派发、扩展后继续及停止释放。两次评审 Call 持久化后实际重启 Router Host 并重建 coordinator，重放验收 event seam 不会重新 capture 或发起第三次调用，证据明确标记 `REVIEW_ATTEMPT_LIMIT`。评审输入不含 provider/model、账号、连接、计费、费用、策略、配置版本或要求来源；主产物在预算停止、资格撤销和传输失败后仍保留。
+评审测试通过 T08 `registerOwned` 注册并由用户配置启用受控候选，再经注入的 capture callback、统一 reserve/stream runner 完成同一 Task 的 Call 和 ledger。覆盖单次成功、高风险冲突、无效 JSON、JSON `null`、`null` finding 一次复核、跨模型未授权零调用、token cap/forecast 不匹配零调用、传输失败暂停、预算等待后候选撤销零派发、扩展后继续及停止释放。两次评审 Call 持久化后实际重启 Router Host 并重建 coordinator，重放验收 event seam 不会重新 capture 或发起第三次调用，证据明确标记 `REVIEW_ATTEMPT_LIMIT`。评审输入不含 provider/model、账号、连接、计费、费用、策略、配置版本或要求来源；主产物在预算停止、资格撤销和传输失败后仍保留。
 
 其余完整任务测试覆盖明确写作成功、Unicode code point 长度、结构失败、禁止项失败、部分覆盖、确定性失败不触发 review，以及真实工具 step 后只检查最终产物。所有 provider 均为本地受控 fixture，无网络、凭据或付费调用。
 

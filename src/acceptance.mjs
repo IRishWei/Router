@@ -9,6 +9,30 @@ const taskKey = (sessionId, turn) => `${sessionId}:${turn}`;
 const sameIdentity = (left, right) => ['connectionId', 'accountId', 'billingPath', 'provider', 'model'].every(key => left?.[key] === right?.[key]);
 const isDigest = value => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
 const positiveInteger = value => Number.isSafeInteger(value) && value > 0;
+const pick = (value, keys) => Object.fromEntries(keys.filter(key => value?.[key] !== undefined).map(key => [key, structuredClone(value[key])]));
+const artifactIdentity = artifact => artifact ? pick(artifact, ['id', 'version', 'revision', 'kind', 'sessionId', 'turn', 'step', 'messageId', 'seq', 'hash', 'complete']) : null;
+const sameArtifact = (left, right) => isDeepStrictEqual(artifactIdentity(left), artifactIdentity(right));
+const historyEntry = (result, reason) => ({
+  id: `acceptance-history:v1:${result.taskId}:${result.revision}`,
+  version: 1,
+  schemaVersion: result.schemaVersion,
+  acceptanceRevision: result.revision,
+  taskId: result.taskId,
+  requirementRevision: result.requirementRevision,
+  requirementHash: result.requirementHash,
+  artifact: result.artifact ? pick(result.artifact, ['id', 'version', 'revision', 'kind', 'sessionId', 'turn', 'step', 'messageId', 'seq', 'hash', 'text', 'complete']) : null,
+  requirements: result.requirements.map(item => pick(item, ['id', 'version', 'kind', 'literal', 'min', 'max', 'unit', 'literals', 'rubric', 'risk', 'checkKind', 'planId', 'behavior', 'description', 'required', 'origin'])),
+  evidence: result.evidence.map(item => pick(item, ['id', 'version', 'requirementId', 'artifactHash', 'artifactRef', 'verdict', 'source', 'evidenceRef', 'measurement', 'observed', 'reason', 'artifactQuote', 'explanation'])),
+  coverage: pick(result.coverage, ['required', 'requiredIds', 'covered', 'coveredIds', 'failedIds', 'uncovered', 'uncoveredIds']),
+  verdict: result.verdict,
+  scope: result.scope,
+  limitations: structuredClone(result.limitations),
+  reviews: result.reviews.map(item => pick(item, ['id', 'ordinal', 'callId', 'valid', 'findings', 'artifactHash', 'requirementHash', 'reason'])),
+  blocking: result.blocking.map(item => pick(item, ['id', 'version', 'key', 'requirementIds', 'evidenceIds', 'repairable', 'category', 'artifactRevision', 'selfRepairAttempted', 'newEvidenceVersion'])),
+  previousPhase: result.phase,
+  phase: 'superseded',
+  supersededReason: result.supersededReason ?? reason,
+});
 const pathInside = (workspace, path) => {
   const child = relative(resolve(workspace), resolve(path));
   return child === '' || (!child.startsWith('..') && !isAbsolute(child));
@@ -99,8 +123,12 @@ export class AcceptanceCoordinator {
     });
     const artifact = structuredClone(state.artifact);
     const requirementHash = hash(JSON.stringify(requirements));
-    const previous = this.#results.get(task.id);
-    if (previous?.phase === 'checked' && previous.requirementRevision === state.revision && previous.requirementHash === requirementHash && previous.artifact?.hash === artifact?.hash) return;
+    const stored = task.acceptance?.schemaVersion === 1 && task.acceptance.taskId === task.id ? task.acceptance : null;
+    const previous = this.#results.get(task.id) ?? stored;
+    if (previous?.phase === 'checked' && previous.requirementRevision === state.revision && previous.requirementHash === requirementHash && sameArtifact(previous.artifact, artifact)) {
+      this.#results.set(task.id, structuredClone(previous));
+      return;
+    }
     const evidence = [];
     for (const requirement of requirements) {
       if (requirement.kind === 'host-check') {
@@ -114,11 +142,14 @@ export class AcceptanceCoordinator {
         : positions
           ? positions.every((position, index) => position >= 0 && (index === 0 || position > positions[index - 1]))
           : artifact?.text.includes(requirement.literal) === (requirement.kind === 'includes-literal');
-      evidence.push({ id: `evidence:v1:${requirement.id}:${artifact?.hash ?? 'missing'}`, version: 1, requirementId: requirement.id, artifactHash: artifact?.hash ?? null, verdict: !artifact?.complete || signal.aborted || ['unresolved', 'rubric'].includes(requirement.kind) ? 'unconfirmed' : satisfied ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: requirement.kind, checkerVersion: 1 }, ...(measurement ? { measurement } : {}), ...(positions ? { observed: { positions } } : {}) });
+      evidence.push({ id: `evidence:v1:${requirement.id}:${artifact?.id ?? 'missing'}`, version: 1, requirementId: requirement.id, artifactHash: artifact?.hash ?? null, verdict: !artifact?.complete || signal.aborted || ['unresolved', 'rubric'].includes(requirement.kind) ? 'unconfirmed' : satisfied ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: requirement.kind, checkerVersion: 1 }, ...(measurement ? { measurement } : {}), ...(positions ? { observed: { positions } } : {}) });
     }
     const coverage = { required: requirements.length, requiredIds: requirements.map(item => item.id), covered: evidence.filter(item => item.verdict !== 'unconfirmed').length, coveredIds: evidence.filter(item => item.verdict !== 'unconfirmed').map(item => item.requirementId), failedIds: evidence.filter(item => item.verdict === 'failed').map(item => item.requirementId), uncovered: evidence.filter(item => item.verdict === 'unconfirmed').map(item => item.requirementId), uncoveredIds: evidence.filter(item => item.verdict === 'unconfirmed').map(item => item.requirementId) };
     const verdict = evidence.some(item => item.verdict === 'failed') ? 'failed' : requirements.length && coverage.covered === coverage.required ? 'passed' : 'unconfirmed';
-    const result = { version: 1, schemaVersion: 1, taskId: task.id, requirementRevision: state.revision, requirementHash, artifact, requirements, evidence, coverage, verdict, scope: 'explicit-requirements', limitations: ['finite-explicit-requirement-dsl', 'no-overall-quality-guarantee'], reviews: [], blocking: [], phase: 'checked' };
+    const transitionReason = previous?.requirementRevision !== state.revision || previous?.requirementHash !== requirementHash ? 'requirements-changed' : !sameArtifact(previous?.artifact, artifact) ? 'artifact-changed' : 'reassessed';
+    const history = structuredClone(previous?.history ?? []);
+    if (previous) history.push(historyEntry(previous, transitionReason));
+    const result = { version: 1, schemaVersion: 1, revision: (previous?.revision ?? 0) + 1, taskId: task.id, requirementRevision: state.revision, requirementHash, artifact, requirements, evidence, coverage, verdict, scope: 'explicit-requirements', limitations: ['finite-explicit-requirement-dsl', 'no-overall-quality-guarantee'], reviews: [], blocking: [], history, phase: 'checked' };
     const rubrics = requirements.filter(requirement => requirement.kind === 'rubric');
     const existingReviewCalls = task.calls.filter(call => call.purpose === 'review');
     let reviewAttempts = existingReviewCalls.length;
@@ -177,10 +208,10 @@ export class AcceptanceCoordinator {
       result.coverage.uncoveredIds = [...result.coverage.uncovered];
       result.verdict = result.evidence.some(item => item.verdict === 'failed') ? 'failed' : requirements.length && result.coverage.covered === requirements.length ? 'passed' : 'unconfirmed';
     }
-    if (signal.aborted || state.revision !== result.requirementRevision || state.artifact?.hash !== artifact?.hash || agent.inbox.nextStep.length) {
+    if (signal.aborted || state.revision !== result.requirementRevision || !sameArtifact(state.artifact, artifact) || agent.inbox.nextStep.length) {
       result.verdict = 'unconfirmed';
       result.phase = 'superseded';
-      result.supersededReason = signal.aborted ? 'canceled' : 'requirements-changed';
+      result.supersededReason = signal.aborted ? 'canceled' : state.revision !== result.requirementRevision ? 'requirements-changed' : !sameArtifact(state.artifact, artifact) ? 'artifact-changed' : 'next-step-pending';
     }
     result.blocking = this.#blocking(result);
     this.#results.set(task.id, structuredClone(result));
@@ -188,7 +219,7 @@ export class AcceptanceCoordinator {
   }
 
   async #runCheck(requirement, artifact, agent, signal) {
-    const base = { id: `evidence:v1:${requirement.id}:${artifact?.hash ?? 'missing'}`, version: 1, requirementId: requirement.id, artifactHash: artifact?.hash ?? null };
+    const base = { id: `evidence:v1:${requirement.id}:${artifact?.id ?? 'missing'}`, version: 1, requirementId: requirement.id, artifactHash: artifact?.hash ?? null };
     const plan = this.#checks.plans?.[requirement.planId];
     const artifactRef = artifactRefOf(plan?.artifactRef);
     const source = { kind: 'host-check', planId: requirement.planId, checkKind: requirement.checkKind, toolName: plan?.toolName ?? null, authorizationRef: plan?.authorizationRef ?? null };
@@ -272,10 +303,10 @@ export class AcceptanceCoordinator {
       let parsed;
       try { parsed = JSON.parse(record.rawOutput); }
       catch { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
-      if (parsed.artifactHash !== record.artifactHash || parsed.requirementHash !== record.requirementHash || !Array.isArray(parsed.findings) || parsed.findings.length !== rubrics.length) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || parsed.artifactHash !== record.artifactHash || parsed.requirementHash !== record.requirementHash || !Array.isArray(parsed.findings) || parsed.findings.length !== rubrics.length) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
       const found = new Set();
       for (const finding of parsed.findings) {
-        if (!rubrics.some(rule => rule.id === finding.requirementId) || found.has(finding.requirementId) || !['passed', 'failed', 'unconfirmed'].includes(finding.verdict) || typeof finding.artifactQuote !== 'string' || !finding.artifactQuote || !result.artifact.text.includes(finding.artifactQuote) || typeof finding.explanation !== 'string' || !finding.explanation.trim()) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
+        if (!finding || typeof finding !== 'object' || Array.isArray(finding) || !rubrics.some(rule => rule.id === finding.requirementId) || found.has(finding.requirementId) || !['passed', 'failed', 'unconfirmed'].includes(finding.verdict) || typeof finding.artifactQuote !== 'string' || !finding.artifactQuote || !result.artifact.text.includes(finding.artifactQuote) || typeof finding.explanation !== 'string' || !finding.explanation.trim()) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
         found.add(finding.requirementId);
         record.findings.push({ requirementId: finding.requirementId, verdict: finding.verdict, artifactQuote: finding.artifactQuote, explanation: finding.explanation });
       }

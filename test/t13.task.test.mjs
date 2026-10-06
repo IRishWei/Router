@@ -44,7 +44,9 @@ class ReviewFixture extends LlmAdapter {
       this.reviews.push(input);
       const verdict = this.#verdicts[Math.min(this.reviews.length - 1, this.#verdicts.length - 1)];
       if (verdict === 'transport-error') throw new LlmError('Controlled review transport failed', 'TRANSPORT');
-      text = verdict === 'invalid-json' ? '{not-json' : JSON.stringify({ artifactHash: input.artifact.hash, requirementHash: input.requirementHash, findings: input.requirements.map(rule => ({ requirementId: rule.id, verdict, artifactQuote: 'ARTICLE', explanation: 'Controlled rubric evidence; no empirical quality claim.' })) });
+      text = verdict === 'invalid-json' ? '{not-json'
+        : verdict === 'null-json' ? 'null'
+          : JSON.stringify({ artifactHash: input.artifact.hash, requirementHash: input.requirementHash, findings: input.requirements.map(rule => verdict === 'null-finding' ? null : ({ requirementId: rule.id, verdict, artifactQuote: 'ARTICLE', explanation: 'Controlled rubric evidence; no empirical quality claim.' })) });
     }
     yield { type: 'text-delta', index: 0, text };
     yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 } };
@@ -135,6 +137,37 @@ test('a complete writing task checks its final artifact against explicitly selec
     assert.equal(task.calls.length, 1);
     assert.equal(task.lifecycle, 'completed');
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('same-text assistant replacements are rechecked by artifact identity and preserve superseded evidence', async () => {
+  const listeners = new Map();
+  const publications = [];
+  const task = { id: 'same-text-task', calls: [], activeSelection: {}, configVersion: 1 };
+  const ctx = {
+    on: (name, listener) => { listeners.set(name, listener); },
+    router: {
+      exactTask: () => structuredClone(task),
+      publishAcceptance: (_taskId, result) => { publications.push(structuredClone(result)); },
+    },
+  };
+  const acceptance = new AcceptanceCoordinator(ctx);
+  const agent = { session: { id: 'same-text-session' }, inbox: { nextStep: [] } };
+  listeners.get('agent/inbox/claimed')({ agent, turn: 1, message: { id: 'same-text-input', source: { kind: 'user' }, content: [{ type: 'text', text: '仅检查以下明确要求：正文必须包含「HELLO」。' }] } });
+  for (const revision of [1, 2]) {
+    listeners.get('session/event')(agent.session, { type: 'assistant/message', seq: 10 + revision, data: { turn: 1, step: revision, interrupted: false, message: { id: `same-text-artifact-${revision}`, content: [{ type: 'text', text: 'HELLO' }] }, stream: [{ type: 'chunk', chunk: { type: 'finish', reason: { kind: 'stop' } } }] } });
+    await listeners.get('agent/turn-stopping')({ agent, turn: 1, signal: new AbortController().signal });
+  }
+  const result = acceptance.getResult(task.id);
+  assert.equal(publications.length, 2);
+  assert.equal(result.revision, 2);
+  assert.equal(result.artifact.revision, 2);
+  assert.equal(result.artifact.messageId, 'same-text-artifact-2');
+  assert.equal(result.history.length, 1);
+  assert.equal(result.history[0].phase, 'superseded');
+  assert.equal(result.history[0].supersededReason, 'artifact-changed');
+  assert.equal(result.history[0].artifact.revision, 1);
+  assert.equal(result.history[0].verdict, 'passed');
+  assert.notEqual(result.history[0].evidence[0].id, result.evidence[0].id);
 });
 
 test('a rubric review is anonymous, belongs to the original task and is included in its resource ledger', async () => {
@@ -368,6 +401,24 @@ test('invalid review JSON may consume one bounded re-review but cannot establish
   } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
+for (const invalidShape of ['null-json', 'null-finding']) test(`${invalidShape} review content stays an invalid unconfirmed review`, async () => {
+  const home = await mkdtemp(join(tmpdir(), `router-t13-review-${invalidShape}-`));
+  const ctx = await startNative(home);
+  const adapter = new ReviewFixture([invalidShape, 'passed']);
+  ctx.llm.registerAdapter([`review-${invalidShape}`], adapter);
+  const registered = await enableReviewCandidate(ctx, `review-${invalidShape}`);
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, 'Reply ARTICLE\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
+    const result = acceptance.getResult(task.id);
+    assert.equal(result.verdict, 'unconfirmed');
+    assert.equal(result.reviews.length, 2);
+    assert.equal(result.reviews[0].reason, 'REVIEW_INVALID_OR_INCOMPLETE');
+    assert.equal(result.evidence[0].reason, 'REVIEW_INVALID_OR_INCOMPLETE');
+  } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
 test('persisted Task review Calls keep the two-attempt limit after coordinator and Host restart', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t13-review-restart-cap-'));
   let ctx = await startNative(home);
@@ -404,6 +455,11 @@ test('persisted Task review Calls keep the two-attempt limit after coordinator a
     assert.equal(result.requirements[0].kind, 'rubric');
     assert.equal(result.artifact.complete, true);
     assert.equal(result.evidence[0].reason, 'REVIEW_ATTEMPT_LIMIT');
+    assert.equal(result.revision, 2);
+    assert.equal(result.history.length, 1);
+    assert.equal(result.history[0].phase, 'superseded');
+    assert.equal(result.history[0].evidence[0].source.kind, 'model-review');
+    assert.equal(Object.hasOwn(result.history[0].reviews[0], 'rawOutput'), false);
   } finally {
     registered?.dispose();
     await ctx.fiber.dispose();
