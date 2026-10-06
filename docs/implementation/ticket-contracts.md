@@ -27,6 +27,8 @@
 
 `agent/request` waterfall 位于 `llm.prepareCall()` 和持久化 `request/header` 之前，是应用 provider/model 选择的公开边界。`llm/stream` 已绑定适配器及完整请求配置；在该事件临时替换模型会造成配置不匹配。T01 必须验证真实请求、持久化日志、session 展示之间的协同，再确定后续路由使用的入口。
 
+不要将虚拟 Router provider 选择与真实 provider 请求混用：原生 pending 选择只会由完全匹配的请求消费，虚拟选择会导致界面仍显示虚拟模型及重复切换提示。后续自动路由的候选方案是使用真实 provider/model；没有 pending 时，原生选择从最新请求头读取，有手动 pending 时先完整尊重并消费该选择。请求头之后的一致性不证明本步提示词已经一致；提示词变量、切换通知和请求必须使用同一稳定边界快照，并通过实际 controller 验证。原生 `selectModel` 会保存部署默认，因此不能作为自动切换的捷径。
+
 ## 不能跳过的门槛
 
 - T01：真实目标桌面安装、配置页、完整任务、暂停/停用与重启验证后，才能解除 T02 的前置。
