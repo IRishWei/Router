@@ -9,6 +9,10 @@ const taskKey = (sessionId, turn) => `${sessionId}:${turn}`;
 const sameIdentity = (left, right) => ['connectionId', 'accountId', 'billingPath', 'provider', 'model'].every(key => left?.[key] === right?.[key]);
 const isDigest = value => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
 const positiveInteger = value => Number.isSafeInteger(value) && value > 0;
+const hasExactKeys = (value, keys) => {
+  const actual = Object.keys(value);
+  return actual.length === keys.length && keys.every(key => Object.hasOwn(value, key));
+};
 const pick = (value, keys) => Object.fromEntries(keys.filter(key => value?.[key] !== undefined).map(key => [key, structuredClone(value[key])]));
 const artifactIdentity = artifact => artifact ? pick(artifact, ['id', 'version', 'revision', 'kind', 'sessionId', 'turn', 'step', 'messageId', 'seq', 'hash', 'complete']) : null;
 const sameArtifact = (left, right) => isDeepStrictEqual(artifactIdentity(left), artifactIdentity(right));
@@ -303,10 +307,10 @@ export class AcceptanceCoordinator {
       let parsed;
       try { parsed = JSON.parse(record.rawOutput); }
       catch { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
-      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || parsed.artifactHash !== record.artifactHash || parsed.requirementHash !== record.requirementHash || !Array.isArray(parsed.findings) || parsed.findings.length !== rubrics.length) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || !hasExactKeys(parsed, ['artifactHash', 'requirementHash', 'findings']) || parsed.artifactHash !== record.artifactHash || parsed.requirementHash !== record.requirementHash || !Array.isArray(parsed.findings) || parsed.findings.length !== rubrics.length) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
       const found = new Set();
       for (const finding of parsed.findings) {
-        if (!finding || typeof finding !== 'object' || Array.isArray(finding) || !rubrics.some(rule => rule.id === finding.requirementId) || found.has(finding.requirementId) || !['passed', 'failed', 'unconfirmed'].includes(finding.verdict) || typeof finding.artifactQuote !== 'string' || !finding.artifactQuote || !result.artifact.text.includes(finding.artifactQuote) || typeof finding.explanation !== 'string' || !finding.explanation.trim()) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
+        if (!finding || typeof finding !== 'object' || Array.isArray(finding) || !hasExactKeys(finding, ['requirementId', 'verdict', 'artifactQuote', 'explanation']) || !rubrics.some(rule => rule.id === finding.requirementId) || found.has(finding.requirementId) || !['passed', 'failed', 'unconfirmed'].includes(finding.verdict) || typeof finding.artifactQuote !== 'string' || !finding.artifactQuote || !result.artifact.text.includes(finding.artifactQuote) || typeof finding.explanation !== 'string' || !finding.explanation.trim()) { record.reason = 'REVIEW_INVALID_OR_INCOMPLETE'; return record; }
         found.add(finding.requirementId);
         record.findings.push({ requirementId: finding.requirementId, verdict: finding.verdict, artifactQuote: finding.artifactQuote, explanation: finding.explanation });
       }

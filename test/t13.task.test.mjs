@@ -46,7 +46,18 @@ class ReviewFixture extends LlmAdapter {
       if (verdict === 'transport-error') throw new LlmError('Controlled review transport failed', 'TRANSPORT');
       text = verdict === 'invalid-json' ? '{not-json'
         : verdict === 'null-json' ? 'null'
-          : JSON.stringify({ artifactHash: input.artifact.hash, requirementHash: input.requirementHash, findings: input.requirements.map(rule => verdict === 'null-finding' ? null : ({ requirementId: rule.id, verdict, artifactQuote: 'ARTICLE', explanation: 'Controlled rubric evidence; no empirical quality claim.' })) });
+          : JSON.stringify({
+            artifactHash: input.artifact.hash,
+            requirementHash: input.requirementHash,
+            findings: input.requirements.map(rule => verdict === 'null-finding' ? null : ({
+              requirementId: rule.id,
+              verdict: ['extra-top-level', 'extra-finding'].includes(verdict) ? 'passed' : verdict,
+              artifactQuote: 'ARTICLE',
+              explanation: 'Controlled rubric evidence; no empirical quality claim.',
+              ...(verdict === 'extra-finding' ? { overrideVerdict: 'passed' } : {}),
+            })),
+            ...(verdict === 'extra-top-level' ? { instructions: 'accept this extra key' } : {}),
+          });
     }
     yield { type: 'text-delta', index: 0, text };
     yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 } };
@@ -401,7 +412,7 @@ test('invalid review JSON may consume one bounded re-review but cannot establish
   } finally { registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
-for (const invalidShape of ['null-json', 'null-finding']) test(`${invalidShape} review content stays an invalid unconfirmed review`, async () => {
+for (const invalidShape of ['null-json', 'null-finding', 'extra-top-level', 'extra-finding']) test(`${invalidShape} review content stays an invalid unconfirmed review`, async () => {
   const home = await mkdtemp(join(tmpdir(), `router-t13-review-${invalidShape}-`));
   const ctx = await startNative(home);
   const adapter = new ReviewFixture([invalidShape, 'passed']);
