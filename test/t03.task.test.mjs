@@ -204,7 +204,8 @@ test('known failed usage and unknown failed usage remain distinct across native 
     ctx.llm.registerAdapter(['native-retry'], new Retry());
     await ctx.router.setAutomatic(false);
     await ctx.router.setBudgetDefaults({ tokens: 100, durationMs: null, money: [{ currency: 'USD', kind: 'api-calculated', amount: 1 }] });
-    await ctx.router.setPriceQuote('native-retry', 'retry', { source: 'Synthetic API rates for accounting test; no network', date: '2026-10-07', currency: 'USD', kind: 'api-calculated', confidence: 'declared', perMillion: { input: 2, output: 6, cacheRead: 1, cacheWrite: 3 }, reasoning: 'included-in-output' });
+    const retryCandidate = (await ctx.router.refreshConnections()).models.find(model => model.provider === 'native-retry' && model.model === 'retry');
+    await ctx.router.setPriceQuote(retryCandidate.candidateId, { source: 'Synthetic API rates for accounting test; no network', date: '2026-10-07', currency: 'USD', kind: 'api-calculated', confidence: 'declared', perMillion: { input: 2, output: 6, cacheRead: 1, cacheWrite: 3 }, reasoning: 'included-in-output' });
     ctx.on('agent/request-error', ({ failure }, next) => failure.code === 'CONNECTION' ? { kind: 'retry' } : next());
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     await ctx.sessionController.selectModel({ sessionId, provider: 'native-retry', model: 'retry' });

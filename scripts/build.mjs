@@ -2,13 +2,17 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { build } from 'esbuild';
 await mkdir('lib', { recursive: true });
 await mkdir('artifacts', { recursive: true });
-const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'");
+await mkdir('companion/native-provider/lib', { recursive: true });
+const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'");
 await writeFile('lib/index.js', host);
 await writeFile('lib/ledger.js', await readFile('src/ledger.mjs', 'utf8'));
+await writeFile('lib/connections.js', (await readFile('src/connections.mjs', 'utf8')).replace("'./native-connections.mjs'", "'./native-connections.js'"));
+await writeFile('lib/native-connections.js', await readFile('src/native-connections.mjs', 'utf8'));
 const protocol = await readFile('src/protocol.mjs', 'utf8');
 await writeFile('lib/protocol.js', protocol);
 await writeFile('lib/typert.host.js', "export { TYPERT, TYPERT as default } from './protocol.js';\n");
 await writeFile('lib/typert.remote-client.js', "export { TYPERT_REMOTE, TYPERT_REMOTE as default } from './protocol.js';\n");
+await writeFile('companion/native-provider/lib/index.js', await readFile('companion/native-provider/src/index.mjs', 'utf8'));
 // Bundle the codec only. The host's ModuleLoader supplies React and the Cordis runtime.
 const inline = protocol.replace("import { z } from 'zod';", '').replaceAll('export const ', 'const ');
 const client = (await readFile('src/client.js', 'utf8')).replace('const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;', `${inline}\nconst remoteDescriptors = descriptors;`).replace('package: \'@irishwei/dsh-router\', descriptors }),', 'package: \'@irishwei/dsh-router\', descriptors: remoteDescriptors }),');
