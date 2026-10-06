@@ -42,3 +42,18 @@ P1：0.3.2 三条实际完成的执行调用出现 `dispatchIntent=blocked`、`d
 原实现者使用真实 rc.2 LLM waterfall 并发调用确定复现。独立 Spec 审查者使用真实 SessionController、SessionTitleService 和公开 title provider 注册完成完整任务复现：标题失败而主任务成功，账本留下上述矛盾。进一步在主 Adapter 已进入、尚无 usage 时让标题请求触发并将清零状态落盘，直接退出并重启后，新协议记录被误判为未发送，调用数/token/未知次数均为零；无需存储故障即可丢失潜在消费。
 
 需要隔离执行与辅助请求的 Call 所有权，拒绝无所有权入口时不得改写另一调用的持久化意图。允许消费的辅助请求也必须有独立预留、结算和 Task 归属，涵盖主 turn 已完成时仍在途或等待预算的生命周期；只过滤辅助请求会漏记额外消费。此问题仍交原 T03 实现者统一修复。#4 保持打开，0.3.2 不作为最终验收版本。
+
+## 0.3.3 辅助调用修复与独立复审
+
+固定实现 `1a9816e`、集成 `0256d4f`。67/67 完整任务回归、check、bundle、diff 检查通过。独立 Spec 复验原两项 P1 消失：真实三个 rc.2 标题模块生成独立辅助 Call，主完成后标题先等待预算；扩展同一 Task/Call 后累计24 token，主意图保持 possible。旧0.3.2录制状态升级、公开保存、再次重启保持未知；迁移、崩溃、咨询归属、停止与原signal的12项针对性检查通过。
+
+原生预留按真实Call ID绑定，解决同step咨询被误认领、新turn header改写旧Call和停止旧标题Task误取消新Task。显式Host协作者采用 `reserveCall` → `streamReservedCall`；runner负责一次精确绑定、持久化意图和结算，不能再由调用方重复persist/settle。没有RPC任意Call授权。无可信来源的compaction及已结束Task手动标题刷新显式阻止并显示原因，属于已披露限制，不能宣称成功压缩。
+
+Standards：0项硬性违反，1项判断性的Duplicated Code。历史迁移在已重启保存及仍在途分支重复判断相同旧协议歧义，应提取共同判断，分别保留各自status条件。当前两处分支一致，未发现因此导致的迁移错误。公开Cordis `internal/dispatch` 的使用有正式导出Events声明支持，只观察请求身份，未修改私有hook。
+
+Spec 新增两项P2：
+
+- 标题预算等待时移除模型再扩展，辅助Call正确零派发并设置MODEL_REMOVED，但Task终结忽略routingPauseReason，错误标completed/response-completed。应保留主产物及nativeLifecycle=completed，整体Task暂停并说明资格撤销。
+- 位于Router前的公开流中间件同步拒绝标题请求，构造时创建的owner没有被消费；真实title wrapper只dispose deadline，不abort原signal，Task永久running。需要捕获消费前拒绝/关闭、释放未发owner并显示故障，不能依赖timer最终abort或把无法确认的派发归零。
+
+两项均由独立审查者以真实三个Title模块和公开Controller完整任务复现；原作者统一修复。0.3.3候选尚未安装，不作为最终验收，#4继续保持打开。
