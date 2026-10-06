@@ -36,8 +36,8 @@ npm run check
 npm run bundle
 ```
 
-`npm test` 使用目标版本的真实 Cordis、AgentLoop、LLM、Session、原生 SessionController 与 ModelSelection 公共接口，通过完整任务观察结果；外部模型仅用可控 adapter。自动路由不创建 Framework 实例，不改写全局默认。T02 同时核对实际提示词变量、切换通知、请求 header 和原生选择投影。桌面安装/加载证据另见 `docs/implementation/t01-host-evidence.md`；T02 自动化证据及未通过项见 `docs/implementation/t02-host-evidence.md`。
+`npm test` 使用目标版本的真实 Cordis、AgentLoop、LLM、Session、原生 SessionController 与 ModelSelection 公共接口，通过完整任务观察结果；外部模型仅用可控 adapter。自动路由不创建 Framework 实例，不改写全局默认。T02 同时核对实际提示词变量、切换通知、请求 header 和原生选择投影。桌面安装/加载证据另见 `docs/implementation/t01-host-evidence.md`；T02 自动化证据见 `docs/implementation/t02-host-evidence.md`，实际安装宿主的页面、公开 RPC 任务及重启证据见 `docs/implementation/t02-desktop-evidence.md`。
 
-客户端回归通过实际 rc.2 Slot renderer、Typert registry 和 API gateway 挂载设置页，检查任务显示、暂停 RPC、卸载和重新启用；仅 Connection 传输与 DOM 挂载使用测试边界。`node scripts/reproduce-client-mount.mjs` 可输出挂载错误、RPC endpoint 和渲染树。0.1.2 修复设置项访问 `remote.router` 时遗漏 Cordis 依赖声明导致的空白页；实际桌面安装与交互仍需原生验收。
+客户端回归通过实际 rc.2 Slot renderer、Typert registry 和 API gateway 挂载设置页，检查任务显示、暂停 RPC、卸载和重新启用；仅 Connection 传输与 DOM 挂载使用测试边界。`node scripts/reproduce-client-mount.mjs` 可输出挂载错误、RPC endpoint 和渲染树。0.1.2 修复设置项访问 `remote.router` 时遗漏 Cordis 依赖声明导致的空白页，已在实际目标桌面确认恢复。
 
 跨票公共记录保留 task/session/call 身份、完整连接与计费来源 selection、请求配置、Router 配置快照、配置版本、执行状态与独立验收状态，供预算和后续策略沿用。T02 未实现真实授权、预算、咨询、接管、模型评分或学习。
