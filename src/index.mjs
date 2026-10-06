@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { descriptors, quoteSchema, budgetSchema, extensionSchema } from './protocol.mjs';
-import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck } from './ledger.mjs';
+import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 
 export const inject = ['llm', 'profileContext'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -69,6 +69,7 @@ export class RouterService extends TypertRemoteService {
   #inflight = new Map();
   #steps = new WeakMap();
   #waiters = new Map();
+  #callSignals = new Map();
   constructor(ctx, state, path, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
@@ -182,14 +183,26 @@ export class RouterService extends TypertRemoteService {
       // Revocation blocks dispatch; fixed/automatic changes await full assembly.
       const agent = ctx.get('agents')?.get(request.sessionId);
       const step = agent && service.#steps.get(agent);
-      const blocked = step && manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : service.#restriction(request);
-      if (blocked) {
-        const task = [...service.#active.values()].find(task => task.sessionId === request.sessionId);
-        if (task) task.routingPauseReason = blocked;
-        throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND');
-      }
       const call = service.#inflight.get(request.sessionId);
-      if (call) service.markCallDispatched(call.taskId, call.id);
+      const verify = () => {
+        request.signal?.throwIfAborted();
+        const blocked = step && manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : service.#restriction(request);
+        if (blocked) {
+          const task = [...service.#active.values()].find(task => task.sessionId === request.sessionId);
+          if (task) task.routingPauseReason = blocked;
+          throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND');
+        }
+      };
+      try {
+        verify();
+        if (call) await service.markCallDispatched(call.taskId, call.id);
+        // No await between this final signal/ownership/eligibility check and next().
+        verify();
+        if (call) { call.dispatchStarted = true; call.dispatchedAt = new Date().toISOString(); service.#persist(); }
+      } catch (error) {
+        if (call) { call.dispatchIntent = 'blocked'; call.dispatchStarted = false; delete call.dispatchedAt; service.#persist(); }
+        throw error;
+      }
       yield* next();
     });
     ctx.effect(() => () => {
@@ -225,36 +238,50 @@ export class RouterService extends TypertRemoteService {
     if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
     const snapshot = structuredClone(details.routerSnapshot ?? this.#state.config);
     const priceQuote = (snapshot.prices ?? []).find(item => sameIdentity(item, identity))?.quote ?? null;
-    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
+    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v1', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
     task.calls.push(call);
+    this.#callSignals.set(call.id, signal);
     this.#persist();
     await this.#waitBudget(task, call, signal);
     return call.id;
   }
-  markCallDispatched(taskId, callId) {
+  async markCallDispatched(taskId, callId) {
     if (this.#storageError) throw new LlmError('Router storage is unavailable before dispatch', 'MODEL_NOT_FOUND');
     const task = [...this.#active.values()].find(task => task.id === taskId);
     const call = task?.calls.find(call => call.id === callId);
-    if (!call || call.reservation.state !== 'reserved' || call.dispatchStarted) throw new TypeError('The call is not reserved for dispatch');
+    const signal = this.#callSignals.get(callId);
+    if (!call || !signal || call.reservation.state !== 'reserved' || call.dispatchStarted || call.dispatchIntent === 'possible') throw new TypeError('The call is not reserved for dispatch');
     const blocked = this.#restriction(call.selection);
     if (blocked) { task.routingPauseReason = blocked; throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND'); }
-    call.dispatchStarted = true;
-    call.dispatchedAt = new Date().toISOString();
+    signal.throwIfAborted();
+    call.dispatchIntent = 'possible';
+    call.dispatchIntentAt = new Date().toISOString();
     this.#persist();
+    await this.flush();
+    try {
+      if (this.#storageError) throw new LlmError('Router dispatch intent could not be persisted', 'MODEL_NOT_FOUND');
+      signal.throwIfAborted();
+      const revoked = this.#restriction(call.selection);
+      if (revoked) { task.routingPauseReason = revoked; throw new LlmError(`Router cannot dispatch: ${revoked}`, 'MODEL_NOT_FOUND'); }
+    } catch (error) {
+      call.dispatchIntent = 'blocked'; this.#persist(); throw error;
+    }
+    // This intent permits the caller to start its transport; it does not prove adapter entry.
   }
   settleCall(taskId, callId, settlement) {
     const task = [...this.#active.values()].find(task => task.id === taskId);
     const call = task?.calls.find(call => call.id === callId);
     if (!call || call.reservation.state === 'settled') throw new TypeError('The call cannot be settled twice');
     call.status = settlement.status;
+    this.#callSignals.delete(call.id);
     call.usage = settlement.usage ? Object.fromEntries(Object.entries(settlement.usage).filter(([key, value]) => ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'totalTokens'].includes(key) && Number.isSafeInteger(value) && value >= 0)) : null;
     if (settlement.seq !== undefined) call.settlementSeq = settlement.seq;
     call.finishReason = settlement.finishReason;
     if (settlement.failureCode) call.failureCode = settlement.failureCode;
     call.settledAt = new Date().toISOString();
     call.elapsedMs = call.dispatchedAt ? Math.max(0, Date.parse(call.settledAt) - Date.parse(call.dispatchedAt)) : null;
-    call.cost = !call.dispatchStarted && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote);
-    call.reservation.state = !call.dispatchStarted && !call.usage ? 'released' : 'settled';
+    call.cost = !possiblyDispatched(call) && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote);
+    call.reservation.state = !possiblyDispatched(call) && !call.usage ? 'released' : 'settled';
     call.overEstimate = [];
     const actualTokens = tokensOf(call.usage).total;
     if (actualTokens !== null && call.reservation.tokens.total !== null && actualTokens > call.reservation.tokens.total) call.overEstimate.push('tokens');
@@ -410,6 +437,7 @@ export class RouterService extends TypertRemoteService {
       task.endedAt = new Date().toISOString();
       task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: 'unconfirmed' });
       this.#active.delete(`${session.id}:${event.data.turn}`);
+      for (const call of task.calls) this.#callSignals.delete(call.id);
     }
     this.#persist();
   }
@@ -444,7 +472,21 @@ export async function apply(ctx) {
   const pool = state.config.pool;
   const validEntry = entry => entry && catalog.some(model => model.model === entry.model) && typeof entry.enabled === 'boolean' && Object.entries(selection({ provider: CONTROLLED_PROVIDER, model: entry.model })).every(([key, value]) => entry[key] === value);
   if (!Array.isArray(pool) || !pool.every(validEntry) || new Set(pool.map(entry => entry.model)).size !== pool.length || (state.config.fixedModel !== null && !catalog.some(model => model.model === state.config.fixedModel))) throw new Error('Unsupported DSH Router pool configuration');
-  for (const task of state.tasks) if (['running', 'waiting-budget'].includes(task.lifecycle)) { task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; task.endedAt = new Date().toISOString(); for (const call of task.calls) if (['prepared', 'waiting'].includes(call.status)) { call.status = call.dispatchStarted ? 'interrupted' : 'not-dispatched'; if (call.reservation) call.reservation.state = 'released'; } }
+  for (const task of state.tasks) {
+    if (task.budget?.unenforceableLimits) task.budget.unenforceableLimits = task.budget.unenforceableLimits.map(value => normalizeBudgetConstraint(value, true));
+    if (task.budget?.waiting?.blockedBy) task.budget.waiting.blockedBy = task.budget.waiting.blockedBy.map(value => normalizeBudgetConstraint(value));
+    for (const event of task.timeline ?? []) if (event.kind === 'budget-wait' && event.blockedBy) event.blockedBy = event.blockedBy.map(value => normalizeBudgetConstraint(value));
+  }
+  for (const task of state.tasks) if (['running', 'waiting-budget'].includes(task.lifecycle)) {
+    task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; task.endedAt = new Date().toISOString();
+    for (const call of task.calls) if (['prepared', 'waiting'].includes(call.status)) {
+      // 0.3.0 header-confirmed calls had no durable dispatch gate; their state is ambiguous.
+      if (!call.dispatchProtocol && call.status === 'prepared' && call.dispatchState === 'header-confirmed') call.dispatchUncertain = true;
+      call.status = possiblyDispatched(call) ? 'interrupted' : 'not-dispatched';
+      if (call.reservation) call.reservation.state = 'released';
+      if (possiblyDispatched(call) && !call.usage) call.cost = costOf(tokensOf(null), call.priceQuote);
+    }
+  }
   new RouterService(ctx, state, path, ctx.get('routerFileSystem'));
   ctx.llm.registerAdapter([CONTROLLED_PROVIDER], new ControlledAdapter());
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.

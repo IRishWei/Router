@@ -1,12 +1,12 @@
 # T03 任务账本与预算自动化证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。版本 0.3.0，工作分支 codex/router-t03 从集成 189418b 创建，提交前已合并集成 0d0295e。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；0.3.0 的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
+目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.1；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，审查修复时合并 9e553fa。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；0.3.0 和 0.3.1 的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
 
 ## 行为与共享入口
 
 任务在真实 turn/start 创建，steer 和 queue 的归属取自公开 agent/inbox/claimed 的 turn 与消息/request 身份。所有调用保留完整 selection（connectionId、accountId、billingPath、provider、model）、taskId、独立 callId、purpose、稳定配置版本、真实 header/attempt、报价与预留。自动路由不写原生全局默认。
 
-Host-only reserveCall → markCallDispatched → settleCall 是统一预算/账本入口。可声明 assessment、execution、review、consultation、retry、redo；这只是公共契约，不产生尚未实现的策略。当前执行和原生 loop retry 实际走相同入口。调用前持久化预留、等待预算，真正消费下游流时记录派发，结束时按报告用量结算。并发预留在结算前仍计入预留总数；结算释放后唤醒同任务等待方再检查。未来调用必须沿用该入口，不得另建预算。
+Host-only await reserveCall(taskId, details, signal) → await markCallDispatched(taskId, callId) → settleCall(taskId, callId, settlement) 是统一预算/账本入口。可声明 assessment、execution、review、consultation、retry、redo；这只是公共契约，不产生尚未实现的策略。当前执行和原生 loop retry 实际走相同入口。调用前持久化预留、等待预算；markCallDispatched 必须 await 持久化可能派发意图成功后才允许进入传输，它沿用 reserveCall 内部保存的原 signal，不新增可遗漏的 signal 参数。该意图不证明实际发送。原生流在 await 后同步复查 pending、当前资格和 signal，再消费下游并记录 dispatchStarted；后续 Host-only 调用方也须保留自己负责的最终资格与选择检查。结束时按报告用量结算。并发预留在结算前仍计入预留总数；结算释放后唤醒同任务等待方再检查。未来调用必须沿用该入口，不得另建预算。
 
 公开预算命令为 setBudgetDefaults(budget)、extendTaskBudget(taskId, extension)、stopTask(taskId)。默认各项不限；修改默认只影响新任务。扩展只能增加仍活动任务的明确上限，保存成功后释放等待，不替换 signal、任务、turn 或 step。停止通过原生 Agent.cancel，属于取消；不能把取消说成可恢复等待。等待期间持久化失败会拒绝等待，使 native turn 终结并显示 STATE_WRITE_FAILED，避免等待泄漏。
 
@@ -40,12 +40,33 @@ Host-only reserveCall → markCallDispatched → settleCall 是统一预算/账�
 - 金额按币种和 api-calculated/subscription-reference/fixture-reference 口径分别累计，没有可信换算不合并。实际已报告用量算式仍是计算值，不是已确认账单。
 - 缺价、native 未知预测、先前未知用量、不同币种等限制在 budget.unenforceableLimits 与客户端显示，只能检查已知部分。预测和服务端输出限制不是绝对账单硬上限；越估算记录真实用量。耗时采用记录时间差，下一调用持续时间不明，检查已耗用时间；不宣称能强制终止已派发请求。
 - 已发出的调用保持原身份/快照；预留释放后仍复查当前池和 pending。自动暂停不绕过本地模型资格。未来 provider 内部 HTTP retry 可能不被 loop retry 观察，T05/T09 必须独立记账或限制，不据本票声称覆盖。
-- 未完成任务重启标记 HOST_RESTARTED，释放未派发预留、不重放请求。跨取消/重启恢复及新 native turn 到原 taskId 的映射留给 T18。
+- 未完成任务重启标记 HOST_RESTARTED，释放预留、不重放请求；可能已派发的意图及旧版本中缺少派发屏障的已确认 header 保留未知消耗，不能根据 dispatchStarted=false 推导零。仅有明确等待、未发送或新协议尚未写入意图的记录才排除实际消耗。跨取消/重启恢复及新 native turn 到原 taskId 的映射留给 T18。
 
 ## 验证与未完成项
 
-新增 11 个完整任务测试和1个实际 Renderer/RPC 测试；连同既有28项，npm test 共40/40，npm run check、npm run bundle 和 git diff --check 通过。既有“运行中存储失败”测试改为外部流已经开始后再触发磁盘故障，继续验证部分输出保留；新的派发前/扩展持久化失败测试覆盖不会发送的场景。package bundle 交给 root，目标桌面安装、公开 RPC 与持久化验收/独立双轴复审完成前不关闭 #4。
+0.3.0 新增 11 个完整任务测试和1个实际 Renderer/RPC 测试；连同既有28项，当时 npm test 共40/40，npm run check、npm run bundle 和 git diff --check 通过。既有“运行中存储失败”测试改为外部流已经开始后再触发磁盘故障，继续验证部分输出保留；派发前/扩展持久化失败测试覆盖不会发送的场景。package bundle 交给 root，目标桌面安装、公开 RPC 与持久化验收/独立双轴复审完成前不关闭 #4。
 
 本票未认证真实提供商授权、官方报价/账单、隐式 provider 内部重试、协作策略效果或整体实验预算。未启动 paid calls，不改变父规格或关闭后续票。
 
-交付包：artifacts/irishwei-dsh-router-0.3.0.tgz；SHA256 `F0509C7D51F49B5083975E7DDACB1369CC3C87B43914623B9E8107D6E91177F0`。包包含 Host、ledger、protocol、客户端 codec、patch、README 和 LICENSE，不附带第二份 Framework 或安装脚本。
+0.3.0 交付包：artifacts/irishwei-dsh-router-0.3.0.tgz；SHA256 `F0509C7D51F49B5083975E7DDACB1369CC3C87B43914623B9E8107D6E91177F0`。包包含 Host、ledger、protocol、客户端 codec、patch、README 和 LICENSE，不附带第二份 Framework 或安装脚本。
+
+## 0.3.1 审查修复与红绿证据
+
+Spec P1 的真实 adapter 子进程先复现：旧实现派发标记写盘失败仍进入 adapter 一次；adapter 进入后退出，磁盘 prepared/reserved/dispatchStarted=false 被重启误计为未派发、零调用。修复增加 durable-intent-v1 屏障，持久化可能派发意图失败时 adapter 进入次数为零。adapter 已进入、实际派发标记写入失败后 crash，公开 Host 重启快照保留 interrupted、callCount=1、total=null、unknownTokenCalls.total=1，不重放请求。
+
+| 新增边界 | 公开 Host 结果 |
+| --- | --- |
+| 意图写盘等待期间撤销模型 | 零下游、MODEL_REMOVED；当前进程确认未进入，账本零消耗。 |
+| 意图写盘等待期间改变 native pending | 零下游、NATIVE_SELECTION_CHANGED，新的 pending 保留。 |
+| 意图写盘等待期间取消原 signal | 零下游、BUDGET_STOPPED；仍使用 reserveCall 保存的原 signal，没有替换。 |
+| 意图已持久化、adapter 尚未进入即 crash | 子进程 adapterEntries=0；重启只知道可能派发，callCount=1、完整 total 未知，uncertainDispatchCalls=1。意图不被显示为实际发送证明。 |
+| 已证明未发送但清除意图写盘失败后 crash | 当前进程零 adapter/零消耗；磁盘仍保留 possible，重启保守计入未知，清除写盘失败没有伪装为成功。 |
+| 0.3.0 模糊 header 迁移 | 无新协议的 prepared/header-confirmed/dispatchStarted=false 重启为 interrupted/未知；明确终态 not-dispatched 保持零；旧字符串限制在存储边界迁移为对象。 |
+
+Spec P2 的两个完整任务测试分别先红于当前调用和另一并发预留的部分金额被当作零。修复按相同 currency/kind 计入 amount 或 knownSubtotal：当前预测完整 amount=null、已知下界 USD 0.00026 在剩余额度零时等待；另一预留的已知下界 USD 0.00026 与当前 USD 0.00002 一起参与判断。扩展后同一任务完成，amount 仍保持 null；引用价为有来源的本地 fixture 算式数据。
+
+Standards 的结构化限制修复使用 {resource, currency?, kind?, reason}。真实 rc.2 Renderer/RPC 测试从公开快照验证对象字段并检查缺价/金额无法完整执行的页面说明；客户端不拆分编码字符串。历史字符串兼容仅在持久化读取边界处理。
+
+这些新增测试仍通过 SessionController 完整任务、真实 adapter 与公开 Router snapshot 验证；子进程仅控制本地磁盘故障和退出，迁移 fixture 仅还原旧记录形状。没有网络请求、真实凭据、付费消费或 Computer Use。markCallDispatched 的 await 契约供 T12/T16 等 Host 调用方衔接；native pending 的最终检查由调用方所在原生流拥有，不扩展 T18 恢复范围。
+
+0.3.1 新增10项派发/迁移/部分金额完整任务测试，真实 Renderer 测试更新结构化限制断言。最终 npm test 50/50；npm run check、npm run bundle、git diff --check 通过。交付包 artifacts/irishwei-dsh-router-0.3.1.tgz，SHA256 `26D6719FEC6710011AA65C8B7AA9FE530B99F48C0AD794558BD441EF7E6690C6`。本页不声明0.3.1已安装、已通过独立复审或已关闭 #4。
