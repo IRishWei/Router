@@ -57,3 +57,13 @@ Spec 新增两项P2：
 - 位于Router前的公开流中间件同步拒绝标题请求，构造时创建的owner没有被消费；真实title wrapper只dispose deadline，不abort原signal，Task永久running。需要捕获消费前拒绝/关闭、释放未发owner并显示故障，不能依赖timer最终abort或把无法确认的派发归零。
 
 两项均由独立审查者以真实三个Title模块和公开Controller完整任务复现；原作者统一修复。0.3.3候选尚未安装，不作为最终验收，#4继续保持打开。
+
+## 0.3.4 修复与复审
+
+固定实现 `1bb61bb`，集成 `e8256d1`。79/79完整任务回归、check、bundle和diff检查通过。公开 `internal/get` 作用域 facade 观察流构造及迭代生命周期，支持同步拒绝、懒拒绝、未消费done/return/throw；裸服务无法观察完整生命周期时显式拒绝。原两项P2经独立复验解决：撤销辅助模型后保留主产物并整体暂停；消费前拒绝不再永久占有任务。独立11项生命周期针对性检查通过。
+
+Standards：0项硬性违反，0项判断性气味；旧协议歧义谓词已提取，两分支分别保留状态条件，公开facade没有新增重复或私有服务方法修改。
+
+Spec新增P2：外层公开prepend流中间件调用 `next()` 并消费下游至标题usage12后抛错，内层Router生成器仍悬挂。外层收尾的owner.close在started=true时直接返回，既不关闭所属内部iterator，也不结算已观察用量。真实三个title模块已fallback、native主任务completed，但Router整体永久running；账本只保留主12，辅助usage变未知，stopTask也无法终结。需在外层终止时结束所属内部iterator并结算已观察usage；未报告消费保持未知，不能借用或清除另一Call。违反父规格任务内消耗可追溯和内部异常暂停要求。
+
+独立公开完整任务复现为 `C:\Users\a1500\AppData\Local\Temp\router-review-t03\title-034-next-outer-reject.mjs`。原作者统一修复0.3.5。实际0.3.4安装六项操作及20条历史重启深比较已通过，审查者核对安全证据成立，但不覆盖本新增窗口，#4仍保持打开。
