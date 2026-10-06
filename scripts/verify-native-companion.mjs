@@ -1,6 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import assert from 'node:assert/strict';
+import { restoreRouterConfig } from './native-companion-config.mjs';
 
 const PROVIDER = 'router-t08-native-companion';
 const [logPath, evidencePath, phase = 'execute', priorEvidencePath] = process.argv.slice(2);
@@ -34,16 +35,7 @@ async function runTask(text) {
   }
   throw new Error('Task did not reach a terminal state');
 }
-async function restoreConfig(before) {
-  for (const model of before.models) {
-    const current = (await rpc('router/snapshot')).models.find(item => item.candidateId === model.candidateId);
-    if (model.inPool) await rpc('router/setModelEnabled', { candidateId: model.candidateId, enabled: model.enabled });
-    else if (current?.inPool) await rpc('router/removeModel', { candidateId: model.candidateId });
-  }
-  const fixed = before.config.fixedCandidateId ?? before.config.fixedModel ?? null;
-  if (fixed === null || before.models.some(model => model.candidateId === fixed && model.enabled && model.available)) await rpc('router/setFixedModel', { candidateId: fixed });
-  await rpc('router/setAutomatic', { automatic: before.config.automatic });
-}
+const restoreConfig = before => restoreRouterConfig(rpc, before);
 
 const before = await rpc('router/snapshot');
 let evidence;
