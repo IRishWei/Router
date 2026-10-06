@@ -5,6 +5,7 @@ import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAg
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { descriptors, quoteSchema, budgetSchema, extensionSchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
+import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
 
 export const inject = ['llm', 'profileContext'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -14,9 +15,7 @@ const catalog = [
   { model: CONTROLLED_MODEL, name: 'Controlled fixture', capability: { text: { supported: true, confidence: 'known' }, image: { supported: false, confidence: 'known' }, tools: { supported: true, confidence: 'known' } } },
   { model: CONTROLLED_TOOLS_MODEL, name: 'Controlled tools fixture', capability: { text: { supported: true, confidence: 'known' }, image: { supported: null, confidence: 'unknown' }, tools: { supported: true, confidence: 'declared' } } },
 ];
-const defaultPool = () => catalog.map(model => ({ ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), enabled: true }));
-const sameRoute = (left, right) => left?.provider === right?.provider && left?.model === right?.model;
-const sameIdentity = (left, right) => ['connectionId', 'accountId', 'billingPath', 'provider', 'model'].every(key => left?.[key] === right?.[key]);
+const defaultPool = () => catalog.map(model => ({ candidateId: model.model, ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), enabled: true }));
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
@@ -87,14 +86,16 @@ export class RouterService extends TypertRemoteService {
   #automaticOwners = new WeakMap();
   #publicStreamEntries = new WeakSet();
   #auxiliarySources = new Map();
-  constructor(ctx, state, path, files = { writeFile, rename }) {
+  #connections;
+  constructor(ctx, state, path, connections, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
     this.#path = path;
     this.#files = files;
+    this.#connections = connections;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'exactTask', 'publishAcceptance']) this[method] = this[method].bind(this);
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
@@ -135,24 +136,29 @@ export class RouterService extends TypertRemoteService {
     });
     ctx.on('system-prompt/assemble', async (_assembly, { agent }, next) => {
       if (!agent) return next();
+      await this.#refreshEligibility();
       const config = structuredClone(this.#state.config);
       const pending = ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection');
       const step = { config, pending: pending?.pending ? { ...pending.pending } : null, route: null };
-      const fixed = config.pool.find(model => model.model === config.fixedModel && model.enabled);
-      if (config.automatic && config.fixedModel) {
+      const fixedId = config.fixedCandidateId ?? config.fixedModel;
+      const fixed = config.pool.find(candidate => (candidate.candidateId ?? candidate.model) === fixedId && candidate.enabled);
+      if (config.automatic && fixedId) {
         if (!fixed) step.blocked = 'FIXED_MODEL_UNAVAILABLE';
         else if (step.pending && !sameRoute(step.pending, fixed)) step.blocked = 'FIXED_MODEL_CONFLICT';
       }
       if (pending !== undefined && config.automatic && !step.pending) {
         const previous = agent.session.requestHeader()?.config;
         const enabled = config.pool.filter(model => model.enabled);
-        step.route = config.fixedModel ? fixed ?? null : enabled.find(model => sameRoute(model, previous)) ?? enabled[0] ?? null;
-        if (!step.route) step.blocked = config.fixedModel ? 'FIXED_MODEL_UNAVAILABLE' : 'NO_ENABLED_CANDIDATE';
+        step.route = fixedId ? fixed ?? null : enabled.find(model => sameRoute(model, previous)) ?? enabled[0] ?? null;
+        if (!step.route) step.blocked = fixedId ? 'FIXED_MODEL_UNAVAILABLE' : 'NO_ENABLED_CANDIDATE';
       }
       this.#steps.set(agent, step);
       const assembled = await next();
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
       step.effectiveRoute = step.route ?? { provider: assembled.variables.provider, model: assembled.variables.model };
+      const candidate = step.route ? this.#connections.resolve(step.route.candidateId ?? step.route.model) : this.#connections.candidateForRoute(step.effectiveRoute);
+      if (candidate) step.selectionSnapshot = this.#connections.capture(candidate.candidateId, config);
+      step.enforceCandidate = Boolean(candidate && (step.route || candidate.managed || candidate.ownership === 'router-owned'));
       return step.route ? { ...assembled, variables: { ...assembled.variables, provider: step.route.provider, model: step.route.model } } : assembled;
     }, { prepend: true });
     ctx.on('agent/pre-step', async ({ agent, signal, turn, step: index, messages }, next) => {
@@ -160,8 +166,8 @@ export class RouterService extends TypertRemoteService {
       const step = this.#steps.get(agent);
       if (!step || decision.kind === 'reject' || signal.aborted) return decision;
       const hasImage = [...agent.session.deriveMessages(), ...messages].some(message => message.content.some(part => part.type === 'image'));
-      const capability = catalog.find(model => model.model === step.effectiveRoute.model)?.capability;
-      const incompatible = step.effectiveRoute.provider === CONTROLLED_PROVIDER && hasImage && capability?.image.supported !== true;
+      const capability = step.selectionSnapshot?.capability;
+      const incompatible = step.enforceCandidate && hasImage && capability?.image.supported !== true;
       const blocked = step.blocked ?? this.#restriction(step.effectiveRoute) ?? (incompatible ? 'NO_COMPATIBLE_IMAGE_CANDIDATE' : null);
       if (blocked) {
         const task = this.#active.get(`${agent.session.id}:${turn}`);
@@ -202,14 +208,15 @@ export class RouterService extends TypertRemoteService {
         throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND');
       }
       if (task) {
-        task.activeSelection = selection(config);
+        const candidate = stepSnapshot?.selectionSnapshot ?? (() => { const found = this.#connections.candidateForRoute(config); return found ? this.#connections.capture(found.candidateId, stepSnapshot?.config ?? this.#state.config) : null; })();
+        task.activeSelection = candidate?.identity ?? selection(config);
         task.configVersion = stepSnapshot?.config.version ?? this.#state.config.version;
         const forecast = config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
-        const reason = stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? stepSnapshot.config.fixedModel ? 'fixed-model' : 'enabled-pool' : 'native-routing';
+        const reason = stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? (stepSnapshot.config.fixedCandidateId ?? stepSnapshot.config.fixedModel) ? 'fixed-model' : 'enabled-pool' : 'native-routing';
         task.timeline.push({ kind: 'selection', reason, provider: config.provider, model: config.model, configVersion: task.configVersion });
         const previous = this.#nativeReservations.get(agent);
         const before = task.calls.length;
-        const reservation = this.reserveCall(task.id, { purpose: previous?.taskId === task.id && previous.turn === turn && previous.step === step ? 'retry' : 'execution', step, selection: task.activeSelection, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
+        const reservation = this.reserveCall(task.id, { purpose: previous?.taskId === task.id && previous.turn === turn && previous.step === step ? 'retry' : 'execution', step, selection: task.activeSelection, candidateId: candidate?.candidateId, selectionSnapshot: candidate, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
         this.#bindCall(task.calls[before]);
         this.#nativeReservations.set(agent, { taskId: task.id, turn, step, callId: task.calls[before].id });
         await reservation;
@@ -238,7 +245,7 @@ export class RouterService extends TypertRemoteService {
       const verify = () => {
         request.signal?.throwIfAborted();
         if (auxiliary?.task.budget.stopRequested) throw new LlmError('Router task has been stopped', 'ABORTED');
-        const blocked = native && step && manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : service.#restriction(request);
+        const blocked = native && step && manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : service.#restriction(call?.candidateId ? { ...request, candidateId: call.candidateId, selectionSnapshot: call.selectionSnapshot } : request);
         if (blocked) {
           const task = [...service.#active.values()].find(task => task.id === call.taskId);
           if (task) task.routingPauseReason = blocked;
@@ -380,8 +387,11 @@ export class RouterService extends TypertRemoteService {
       try {
         originalSignal.throwIfAborted(); controller.signal.throwIfAborted();
         if (!owner.call) {
+          await service.#refreshEligibility(originalSignal);
+          const candidate = service.#connections.candidateForRoute(request);
+          const captured = candidate ? service.#connections.capture(candidate.candidateId, owner.config) : null;
           const before = task.calls.length;
-          const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: selection(request), configVersion: owner.config.version, routerSnapshot: owner.config, forecast: request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null }, originalSignal);
+          const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: captured?.identity ?? selection(request), ...(captured ? { candidateId: captured.candidateId, selectionSnapshot: captured } : {}), configVersion: owner.config.version, routerSnapshot: owner.config, forecast: request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null }, originalSignal);
           owner.call = task.calls[before];
           owner.call.sourceEventSeq = source.sourceEventSeq;
           owner.call.sourceMessageSeqs = source.messageSeqs;
@@ -448,7 +458,7 @@ export class RouterService extends TypertRemoteService {
       task.fault = { kind: ['CONNECTION', 'AUTH', 'RATE_LIMIT', 'NO_ADAPTER'].includes(task.pauseReason) ? 'connection' : 'execution', code: task.pauseReason, retryable: task.pauseReason === 'CONNECTION' || task.pauseReason === 'RATE_LIMIT' };
     }
     task.endedAt = new Date().toISOString();
-    task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: 'unconfirmed' });
+    task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: task.acceptance?.verdict ?? 'unconfirmed' });
     this.#active.delete(`${task.sessionId}:${task.turn}`);
     for (const call of task.calls) this.#callSignals.delete(call.id);
     this.#persist();
@@ -457,15 +467,57 @@ export class RouterService extends TypertRemoteService {
     await this.flush();
     const active = [...this.#active.values()].map(task => ({ taskId: task.id, sessionId: task.sessionId, appliedVersion: task.configVersion, desiredVersion: this.#state.config.version }));
     const application = { status: active.some(task => task.appliedVersion !== task.desiredVersion) ? 'pending' : 'applied', desiredVersion: this.#state.config.version, active };
-    return structuredClone({ ...this.#state, tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, storageError: this.#storageError ?? null, models: catalog.map(model => ({ ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), ...model, id: model.model, enabled: this.#state.config.pool.some(entry => entry.model === model.model && entry.enabled), inPool: this.#state.config.pool.some(entry => entry.model === model.model), compatibility: { confidence: 'known', scope: 'local-controlled-protocol' } })) });
+    const candidateSnapshot = this.#connections.snapshot(this.#state.config);
+    return structuredClone({ ...this.#state, tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, candidateSnapshot, unsupportedProviders: candidateSnapshot.unsupported, storageError: this.#storageError ?? null, models: candidateSnapshot.candidates });
   }
-  async setPriceQuote(provider, model, quote) {
-    if (typeof provider !== 'string' || !provider || provider.length > 100 || typeof model !== 'string' || !model || model.length > 100) throw new TypeError('Invalid price route');
+  async refreshConnections() {
+    await this.#connections.refresh();
+    this.#persist(); await this.flush();
+    return this.snapshot();
+  }
+  async #refreshEligibility(signal) {
+    signal?.throwIfAborted();
+    const epoch = this.#connections.epoch;
+    await this.#connections.refresh({ signal });
+    signal?.throwIfAborted();
+    if (this.#connections.epoch !== epoch) { this.#persist(); await this.flush(); }
+    if (this.#storageError) throw new LlmError('Router could not persist current Host connection eligibility', 'MODEL_NOT_FOUND');
+  }
+  #assertCallEligibility(task, call) {
+    const blocked = this.#restriction(call.candidateId ? { ...call.selection, candidateId: call.candidateId, selectionSnapshot: call.selectionSnapshot } : call.selection);
+    if (!blocked) return;
+    task.routingPauseReason = blocked;
+    throw new LlmError(`Router cannot use the captured candidate: ${blocked}`, 'MODEL_NOT_FOUND');
+  }
+  registerOwned(source) {
+    const dispose = this.#connections.registerOwned(source);
+    this.#persist();
+    return () => { dispose(); this.#persist(); };
+  }
+  exactTask(sessionId, turn) {
+    const matches = this.#state.tasks.filter(task => task.sessionId === sessionId && task.turn === turn);
+    if (matches.length !== 1) return null;
+    const task = matches[0];
+    return structuredClone({ ...task, ledger: task.startedAt ? ledgerOf(task) : undefined });
+  }
+  publishAcceptance(taskId, acceptance) {
+    const task = this.#state.tasks.find(item => item.id === taskId);
+    if (!task || !acceptance || acceptance.schemaVersion !== 1 || !['passed', 'failed', 'unconfirmed'].includes(acceptance.verdict) || !Array.isArray(acceptance.evidence)) throw new TypeError('Invalid task acceptance publication');
+    const detached = structuredClone(acceptance);
+    JSON.stringify(detached);
+    task.acceptance = detached;
+    task.timeline.push({ kind: 'acceptance-published', verdict: detached.verdict, evidenceCount: detached.evidence.length });
+    this.#persist();
+    return structuredClone(detached);
+  }
+  async setPriceQuote(candidateId, quote, legacyQuote) {
+    // Direct Host callers from 0.3.x may use the controlled provider/model pair.
+    if (legacyQuote !== undefined && candidateId === CONTROLLED_PROVIDER) { candidateId = quote; quote = legacyQuote; }
+    const candidate = this.#connections.resolve(candidateId);
     const parsed = quote === null ? null : quoteSchema().parse(quote);
-    if (provider === CONTROLLED_PROVIDER && parsed && parsed.kind !== 'fixture-reference') throw new TypeError('Controlled prices are fixture reference values only');
-    const identity = selection({ provider, model });
-    const prices = this.#state.config.prices.filter(item => !sameIdentity(item, identity));
-    if (parsed) prices.push({ ...identity, quote: parsed });
+    if (candidate.provider === CONTROLLED_PROVIDER && parsed && parsed.kind !== 'fixture-reference') throw new TypeError('Controlled prices are fixture reference values only');
+    const prices = this.#state.config.prices.filter(item => item.candidateId !== candidate.candidateId && !sameIdentity(item, candidate));
+    if (parsed) prices.push({ candidateId: candidate.candidateId, ...identityOf(candidate), quoteVersion: randomUUID(), quote: parsed });
     return this.#change({ prices });
   }
   async setBudgetDefaults(budget) {
@@ -476,12 +528,18 @@ export class RouterService extends TypertRemoteService {
   /** Host-only accounting seam. Future collaborators use this same gate; it grants no model authorization. */
   async reserveCall(taskId, details, signal) {
     const task = [...this.#active.values()].find(task => task.id === taskId);
-    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary'].includes(details.purpose) || !signal) throw new TypeError('Invalid task call reservation');
-    const identity = Object.fromEntries(['connectionId', 'accountId', 'billingPath', 'provider', 'model'].map(key => [key, details.selection?.[key]]));
+    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary'].includes(details?.purpose) || !signal) throw new TypeError('Invalid task call reservation');
+    const identity = identityOf(details.selection);
     if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
+    if (details.candidateId !== undefined) {
+      const candidate = this.#connections.resolve(details.candidateId, { allowLegacyControlled: false });
+      const captured = details.selectionSnapshot;
+      if (!captured || captured.candidateId !== candidate.candidateId || !sameIdentity(identity, candidate) || !sameIdentity(identity, captured.identity) || captured.authEpoch !== candidate.authEpoch || captured.connectionConfigRevision !== candidate.connectionConfigRevision) throw new TypeError('Candidate reservation identity does not match its captured selection');
+    }
     const snapshot = structuredClone(details.routerSnapshot ?? this.#state.config);
-    const priceQuote = (snapshot.prices ?? []).find(item => sameIdentity(item, identity))?.quote ?? null;
-    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v2', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
+    const priced = (snapshot.prices ?? []).find(item => details.candidateId ? item.candidateId === details.candidateId : sameIdentity(item, identity));
+    const priceQuote = details.selectionSnapshot?.quote ?? priced?.quote ?? null;
+    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v2', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, ...(details.candidateId ? { candidateId: details.candidateId, selectionSnapshot: structuredClone(details.selectionSnapshot) } : {}), quoteVersion: details.selectionSnapshot?.quoteVersion ?? priced?.quoteVersion ?? null, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
     task.calls.push(call);
     if (details.nativePurpose !== undefined) call.nativePurpose = details.nativePurpose;
     this.#callSignals.set(call.id, signal);
@@ -490,7 +548,11 @@ export class RouterService extends TypertRemoteService {
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) abort();
     this.#persist();
-    try { await this.#waitBudget(task, call, signal); }
+    try {
+      await this.#refreshEligibility(signal);
+      this.#assertCallEligibility(task, call);
+      await this.#waitBudget(task, call, signal);
+    }
     catch (error) {
       if (!possiblyDispatched(call) && call.reservation.state !== 'released') this.settleCall(taskId, call.id, { status: 'not-dispatched', usage: null, finishReason: signal.aborted ? 'aborted' : 'unknown', failureCode: typeof error?.code === 'string' ? error.code : 'CALL_RESERVATION_FAILED' });
       throw error;
@@ -503,7 +565,8 @@ export class RouterService extends TypertRemoteService {
     const call = task?.calls.find(call => call.id === callId);
     const signal = this.#callSignals.get(callId);
     if (!call || !signal || call.reservation.state !== 'reserved' || call.dispatchStarted || call.dispatchIntent === 'possible') throw new TypeError('The call is not reserved for dispatch');
-    const blocked = this.#restriction(call.selection);
+    await this.#refreshEligibility(signal);
+    const blocked = this.#restriction(call.candidateId ? { ...call.selection, candidateId: call.candidateId, selectionSnapshot: call.selectionSnapshot } : call.selection);
     if (blocked) { task.routingPauseReason = blocked; throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND'); }
     signal.throwIfAborted();
     call.dispatchIntent = 'possible';
@@ -513,7 +576,7 @@ export class RouterService extends TypertRemoteService {
     try {
       if (this.#storageError) throw new LlmError('Router dispatch intent could not be persisted', 'MODEL_NOT_FOUND');
       signal.throwIfAborted();
-      const revoked = this.#restriction(call.selection);
+      const revoked = this.#restriction(call.candidateId ? { ...call.selection, candidateId: call.candidateId, selectionSnapshot: call.selectionSnapshot } : call.selection);
       if (revoked) { task.routingPauseReason = revoked; throw new LlmError(`Router cannot dispatch: ${revoked}`, 'MODEL_NOT_FOUND'); }
     } catch (error) {
       call.dispatchIntent = 'blocked'; this.#persist(); throw error;
@@ -535,6 +598,7 @@ export class RouterService extends TypertRemoteService {
     call.elapsedMs = call.dispatchedAt ? Math.max(0, Date.parse(call.settledAt) - Date.parse(call.dispatchedAt)) : null;
     call.cost = !possiblyDispatched(call) && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote);
     call.reservation.state = !possiblyDispatched(call) && !call.usage ? 'released' : 'settled';
+    if (call.candidateId && settlement.status === 'completed') this.#connections.markInference(call.candidateId, 'verified');
     call.overEstimate = [];
     const actualTokens = tokensOf(call.usage).total;
     if (actualTokens !== null && call.reservation.tokens.total !== null && actualTokens > call.reservation.tokens.total) call.overEstimate.push('tokens');
@@ -582,8 +646,13 @@ export class RouterService extends TypertRemoteService {
   async #waitBudget(task, call, signal) {
     // Persist the reservation before sending anything to the selected adapter.
     await this.flush();
+    let waited = false;
     while (true) {
       this.#assertReservation(task, call, signal);
+      if (waited) {
+        await this.#refreshEligibility(signal);
+        this.#assertCallEligibility(task, call);
+      }
       const decision = budgetCheck(task, call);
       task.budget.unenforceableLimits = decision.unenforceable;
       if (!decision.blocked.length) {
@@ -604,6 +673,7 @@ export class RouterService extends TypertRemoteService {
       signal.addEventListener('abort', abort, { once: true });
       try { signal.throwIfAborted(); await waiting.promise; }
       finally { signal.removeEventListener('abort', abort); this.#waiters.delete(call.id); }
+      waited = true;
     }
   }
   #assertReservation(task, call, signal) {
@@ -612,23 +682,30 @@ export class RouterService extends TypertRemoteService {
     if (!['waiting', 'reserved'].includes(call.reservation.state) || task.budget.stopRequested || task.nativeLifecycle === 'paused') throw new LlmError('Router task no longer permits this reservation', 'ABORTED');
     if (this.#storageError) throw new LlmError('Router storage is unavailable', 'MODEL_NOT_FOUND');
   }
-  async setModelEnabled(model, enabled) {
-    if (!catalog.some(entry => entry.model === model) || typeof enabled !== 'boolean') throw new TypeError('Unknown model or invalid enabled state');
-    const pool = this.#state.config.pool.filter(entry => entry.model !== model);
-    pool.push({ ...selection({ provider: CONTROLLED_PROVIDER, model }), enabled });
+  async setModelEnabled(candidateId, enabled) {
+    if (typeof enabled !== 'boolean') throw new TypeError('Invalid enabled state');
+    const candidate = this.#connections.markManaged(candidateId);
+    const pool = this.#state.config.pool.filter(entry => (entry.candidateId ?? entry.model) !== candidate.candidateId && !sameIdentity(entry, candidate));
+    pool.push({ candidateId: candidate.candidateId, ...identityOf(candidate), enabled });
     return this.#change({ pool });
   }
-  async setFixedModel(model) {
-    if (model !== null && !this.#state.config.pool.some(entry => entry.model === model && entry.enabled)) throw new TypeError('The fixed model must be enabled in the pool');
-    return this.#change({ fixedModel: model });
+  async setFixedModel(candidateId) {
+    const candidate = candidateId === null ? null : this.#connections.resolve(candidateId);
+    if (candidate && !this.#state.config.pool.some(entry => (entry.candidateId ?? entry.model) === candidate.candidateId && entry.enabled)) throw new TypeError('The fixed model must be enabled in the pool');
+    return this.#change({ fixedCandidateId: candidate?.candidateId ?? null, fixedModel: candidate?.ownership === 'router-owned' ? candidate.model : null });
   }
-  async removeModel(model) {
-    if (!catalog.some(entry => entry.model === model)) throw new TypeError('Unknown model');
-    return this.#change({ pool: this.#state.config.pool.filter(entry => entry.model !== model) });
+  async removeModel(candidateId) {
+    const candidate = this.#connections.markManaged(candidateId);
+    return this.#change({ pool: this.#state.config.pool.filter(entry => (entry.candidateId ?? entry.model) !== candidate.candidateId && !sameIdentity(entry, candidate)) });
   }
   #restriction(route) {
-    if (route?.provider !== CONTROLLED_PROVIDER) return null;
-    const entry = this.#state.config.pool.find(entry => entry.model === route.model);
+    const candidate = route?.candidateId ? this.#connections.resolve(route.candidateId) : this.#connections.candidateForRoute(route);
+    if (!candidate) return null;
+    if (route?.candidateId && !sameRoute(candidate, route)) return 'REQUEST_SELECTION_MISMATCH';
+    if (!candidate.managed && candidate.ownership !== 'router-owned') return null;
+    if (!candidate.available || !this.ctx.llm.listProviders().some(item => item.id === candidate.provider)) return 'CONNECTION_REMOVED';
+    if (route?.selectionSnapshot && (route.selectionSnapshot.authEpoch !== candidate.authEpoch || route.selectionSnapshot.connectionConfigRevision !== candidate.connectionConfigRevision)) return 'CONNECTION_CHANGED';
+    const entry = this.#state.config.pool.find(entry => (entry.candidateId ?? entry.model) === candidate.candidateId);
     return !entry ? 'MODEL_REMOVED' : !entry.enabled ? 'MODEL_DISABLED' : null;
   }
   async setAutomatic(automatic) {
@@ -703,11 +780,15 @@ export class RouterService extends TypertRemoteService {
     this.#persist();
   }
   #confirm(task, config, call) {
-    task.activeSelection = selection(config);
+    const header = { provider: config.provider, model: config.model };
+    task.activeSelection ??= selection(config);
     if (call) {
-      call.selection = { ...task.activeSelection };
+      if (!sameRoute(call.selection, header)) {
+        task.routingPauseReason = 'REQUEST_SELECTION_MISMATCH';
+        call.failureCode = 'REQUEST_SELECTION_MISMATCH';
+      }
       call.dispatchState = 'header-confirmed';
-      call.snapshot = { ...config };
+      call.hostConfig = { ...config };
     }
   }
 }
@@ -725,14 +806,12 @@ export async function apply(ctx) {
   if (state.schemaVersion !== 1 || typeof state.config?.automatic !== 'boolean' || !Number.isSafeInteger(state.config?.version) || state.config.version < 1 || !Array.isArray(state.tasks)) throw new Error('Unsupported DSH Router state schema');
   state.config.pool ??= defaultPool();
   state.config.fixedModel ??= null;
+  state.config.fixedCandidateId ??= state.config.fixedModel;
   state.config.prices ??= [];
   state.config.budget ??= emptyBudget();
   if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
   if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
-  if (!Array.isArray(state.config.prices) || !state.config.prices.every(item => typeof item.provider === 'string' && item.provider && typeof item.model === 'string' && item.model && sameIdentity(item, selection(item)) && quoteSchema().safeParse(item.quote).success && (item.provider !== CONTROLLED_PROVIDER || item.quote.kind === 'fixture-reference'))) throw new Error('Unsupported DSH Router prices');
-  const pool = state.config.pool;
-  const validEntry = entry => entry && catalog.some(model => model.model === entry.model) && typeof entry.enabled === 'boolean' && Object.entries(selection({ provider: CONTROLLED_PROVIDER, model: entry.model })).every(([key, value]) => entry[key] === value);
-  if (!Array.isArray(pool) || !pool.every(validEntry) || new Set(pool.map(entry => entry.model)).size !== pool.length || (state.config.fixedModel !== null && !catalog.some(model => model.model === state.config.fixedModel))) throw new Error('Unsupported DSH Router pool configuration');
+  if (!Array.isArray(state.config.prices) || !state.config.prices.every(item => typeof item.provider === 'string' && item.provider && typeof item.model === 'string' && item.model && quoteSchema().safeParse(item.quote).success && (item.provider !== CONTROLLED_PROVIDER || item.quote.kind === 'fixture-reference'))) throw new Error('Unsupported DSH Router prices');
   for (const task of state.tasks) {
     if (task.budget?.unenforceableLimits) task.budget.unenforceableLimits = task.budget.unenforceableLimits.map(value => normalizeBudgetConstraint(value, true));
     if (task.budget?.waiting?.blockedBy) task.budget.waiting.blockedBy = task.budget.waiting.blockedBy.map(value => normalizeBudgetConstraint(value));
@@ -755,7 +834,34 @@ export async function apply(ctx) {
       if (possiblyDispatched(call) && !call.usage) call.cost = costOf(tokensOf(null), call.priceQuote);
     }
   }
-  new RouterService(ctx, state, path, ctx.get('routerFileSystem'));
   ctx.llm.registerAdapter([CONTROLLED_PROVIDER], new ControlledAdapter());
+  const connections = new ConnectionRegistry(ctx, state, () => state.config);
+  const disposeControlled = connections.registerControlledFixture({
+    provider: CONTROLLED_PROVIDER,
+    connectionId: 'controlled-local',
+    accountId: 'local',
+    billingPath: 'controlled',
+    ownership: 'router-owned',
+    source: 'controlled-protocol-fixture',
+    sourceKey: 'router-controlled:v1',
+    configRevision: 1,
+    configured: true,
+    candidateIds: Object.fromEntries(catalog.map(model => [model.model, model.model])),
+    models: catalog.map(model => ({ ...model, maxContextTokens: 32768 })),
+  });
+  await connections.refresh();
+  const pool = state.config.pool;
+  for (const entry of pool ?? []) if (!entry.candidateId && entry.provider === CONTROLLED_PROVIDER && catalog.some(model => model.model === entry.model)) entry.candidateId = entry.model;
+  for (const item of state.config.prices) {
+    if (!item.candidateId && item.provider === CONTROLLED_PROVIDER && catalog.some(model => model.model === item.model)) item.candidateId = item.model;
+  }
+  const validEntry = entry => entry && typeof entry.enabled === 'boolean' && (() => { try { const candidate = connections.resolve(entry.candidateId, { allowLegacyControlled: false }); return sameIdentity(entry, candidate); } catch { return false; } })();
+  if (!Array.isArray(pool) || !pool.every(validEntry) || new Set(pool.map(entry => entry.candidateId)).size !== pool.length || (state.config.fixedCandidateId !== null && (() => { try { connections.resolve(state.config.fixedCandidateId); return true; } catch { return false; } })() === false)) throw new Error('Unsupported DSH Router pool configuration');
+  const service = new RouterService(ctx, state, path, connections, ctx.get('routerFileSystem'));
+  ctx.on('llm/adapters-updated', () => { void service.refreshConnections().catch(() => {}); });
+  ctx.on('settings/document-updated', (namespace, revision) => { connections.invalidateSettings(namespace, revision); void service.refreshConnections().catch(() => {}); });
+  ctx.on('credentials/reference-updated', () => { connections.invalidateCredentials(); void service.refreshConnections().catch(() => {}); });
+  ctx.on('credentials/record-updated', () => { connections.invalidateCredentials(); void service.refreshConnections().catch(() => {}); });
+  ctx.effect(() => disposeControlled, 'router: owned connection registration');
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.
 }

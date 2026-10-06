@@ -1,0 +1,26 @@
+# T08 公开宿主连接复用证据
+
+目标为 DSH Desktop 0.2.0-rc.2 / Cordis 4.0.4，Router 0.4.2。自动化使用真实 SessionController、AgentLoop、Renderer、Typert 和公开 RPC；provider 传输为独立受控边界，不联网、不读取凭据。
+
+## 固定接口
+
+`src/connections.mjs` 的 `ConnectionRegistry.snapshot()` 输出 `{ snapshotEpoch: number, capturedAt, candidates, unsupported }`。每个候选包含 Host 分配的稳定 candidateId、嵌套五元 identity、ownership/source、正整数 Router `connectionConfigRevision`、`authEpoch`、可空且允许为 0 的宿主 `observedSettingsRevision`、Router 使用许可、provider 授权事实、可用状态、推理验证、能力与容量事实、quote/quoteVersion。公开合同没有给出的账号、计费、能力和容量保持 unknown/null。
+
+`capture(candidateId, config)` 固定 `{ candidateId, identity, registryEpoch, connectionConfigRevision, authEpoch, capability/capabilities, maxContextTokens, quote, quoteVersion, enabled }`。`assertCurrent` 与派发 guard 比较当前 route、epoch、revision 和池资格。`registerOwned(source)` 按精确 route 登记并返回 disposer；不按 provider 前缀猜归属。Host-only `exactTask` 返回克隆，`publishAcceptance` 只接受版本化验收结果；二者不进入 Typert RPC。
+
+## 自动化结果
+
+- 两个同名模型来自不同 native route 时 candidateId、connectionId、启用、固定、报价和 Call 身份互不串联；未启用时零 provider 调用。
+- 请求中间件若把已预留 Call 改写为另一 route，在持久化派发意图前以 REQUEST_SELECTION_MISMATCH 拒绝，两个 adapter 都保持零调用，账本不把实际请求错归到旧身份。
+- 主动启用后通过完整 Task 得到受控响应；prompt/header/Call 五元身份、candidateId、selectionSnapshot、quoteVersion 和 5-token 用量一致。
+- native route 被 owned registry 以新账号/计费身份接管时，旧 candidate 进入 tombstone，新身份获得新 candidateId 且默认未启用；旧池许可、固定和报价不迁移。非 controlled 的 owned 候选不接受旧 model 字符串回退。
+- 公开 owned registry 只保留白名单 metadata，并拒绝保留的 controlled provider/source/scope/authorization 值；只有 Host 内部专用入口登记的两个精确 fixture 身份能显示 controlled 授权及 known 容量，真实 API-owned metadata 保持 configured/declared 或 unknown。
+- 删除池候选后下一固定 Task 暂停。宿主卸载 provider 时，已准备但未派发的 Task 为 CONNECTION_REMOVED、零 adapter entry；重启后 candidateId 稳定、epoch 更新、历史配置保留。
+- settings/document-updated 在同步边界增加 revision/authEpoch；prepared Task 等待期间修改设置，释放后为 CONNECTION_CHANGED、零 adapter entry。credential reference/record 更新采用同一保守失效策略，因为公开元数据不能证明具体账号映射。
+- refresh 使用 generation gate；延迟 listModels 的旧回包不能复活随后已移除的 provider。
+- 新 Task、Call 预留、预算释放和持久化派发意图前刷新公开资格；即使宿主未发事件，模型目录移除或 settings revision 变化也在 adapter entry 前阻止旧快照。
+- 已开始流沿用原 Call；原有 T02/T03 回归继续覆盖流内撤销、预算等待、retry 撤销、已知用量保留、原生 pending 和任务保活。
+- owned route 在 native 目录已可见时只保留一个 active 候选，旧身份以 tombstone 留证；snapshot 不投影未识别字段或 secret。candidateId 与另一候选五元 identity 拼接的 reserveCall 在创建 Call 前拒绝。
+- 实际 rc.2 Renderer 通过 RPC 刷新、显示来源/未知授权/不支持 provider，并以 candidateId 加入模型池。
+
+独立 `companion/native-provider` bundle 仅用公开 LLM 注册合同。`scripts/verify-native-companion.mjs` 的两阶段 RPC 已在 root 的隔离 Desktop 完成：发现→未启用对照→主动启用→完整 Task，以及卸载→旧 fixed candidate 完整 Task 阻止→历史/default/config 恢复。最终严格配置恢复和两次重启结果见 [目标桌面验收](t08-installed-host-evidence.md)，双轴结果见 [复审记录](t08-review.md)。本页不以受控服务认证远端 API、真实账号或通用社区兼容。

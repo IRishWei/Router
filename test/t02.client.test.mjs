@@ -16,7 +16,7 @@ test('the native settings mount manages pool and fixed routing, executes a task 
     mounted = await mountSettings(await ctx.router.snapshot(), async (_path, endpoint, payload) => {
       const method = endpoint.split('/')[1];
       const args = payload.args;
-      const value = method === 'snapshot' ? await ctx.router.snapshot() : method === 'setAutomatic' ? await ctx.router.setAutomatic(args.automatic) : method === 'setModelEnabled' ? await ctx.router.setModelEnabled(args.model, args.enabled) : method === 'removeModel' ? await ctx.router.removeModel(args.model) : await ctx.router.setFixedModel(args.model);
+      const value = method === 'snapshot' ? await ctx.router.snapshot() : method === 'setAutomatic' ? await ctx.router.setAutomatic(args.automatic) : method === 'setModelEnabled' ? await ctx.router.setModelEnabled(args.candidateId, args.enabled) : method === 'removeModel' ? await ctx.router.removeModel(args.candidateId) : await ctx.router.setFixedModel(args.candidateId);
       return { ok: true, value: JSON.parse(JSON.stringify(value)) };
     });
     const page = mounted.page;

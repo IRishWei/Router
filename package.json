@@ -1,6 +1,6 @@
 {
   "name": "@irishwei/dsh-router",
-  "version": "0.3.7",
+  "version": "0.4.2",
   "description": "Local DSH model routing with observable task records",
   "type": "module",
   "license": "MIT",
@@ -24,7 +24,7 @@
     "build": "node scripts/build.mjs",
     "test": "node --test test/*.test.mjs",
     "check": "node scripts/check.mjs",
-    "bundle": "npm run build && npm pack --pack-destination artifacts"
+    "bundle": "npm run build && npm pack --pack-destination artifacts && npm pack ./companion/native-provider --pack-destination artifacts"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "~4.0.4",

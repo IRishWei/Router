@@ -6,15 +6,16 @@ export const quoteSchema = () => z.object({ source: z.string().min(1).max(500), 
 const moneyLimit = () => z.object({ currency: z.string().regex(/^[A-Z]{3}$/), kind: z.enum(['api-calculated', 'subscription-reference', 'fixture-reference']), amount: rate() }).strict();
 export const budgetSchema = () => z.object({ tokens: z.number().int().nonnegative().safe().nullable(), durationMs: z.number().int().nonnegative().safe().nullable(), money: z.array(moneyLimit()).max(20) }).strict();
 export const extensionSchema = () => z.object({ tokens: z.number().int().positive().safe().optional(), durationMs: z.number().int().positive().safe().optional(), money: z.array(moneyLimit()).max(20).optional() }).strict().refine(value => value.tokens || value.durationMs || value.money?.some(item => item.amount > 0), 'A positive extension is required');
-const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), fixedModel: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), tasks: z.array(z.json()), blockedRequests: z.array(z.json()).optional(), storageError: z.string().nullable(), models: z.array(z.json()) }) };
+const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), fixedModel: z.string().nullable().optional(), fixedCandidateId: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), candidateSnapshot: z.json().optional(), unsupportedProviders: z.array(z.json()).optional(), tasks: z.array(z.json()), blockedRequests: z.array(z.json()).optional(), storageError: z.string().nullable(), models: z.array(z.json()) }) };
 const parameter = (name, create) => ({ name, wire: name, source: 'json', codec: { mode: 'strict', typeSymbol: `@irishwei/dsh-router#${name}`, create } });
 const parameters = {
   snapshot: [],
+  refreshConnections: [],
   setAutomatic: [parameter('automatic', () => z.boolean())],
-  setModelEnabled: [parameter('model', () => z.string()), parameter('enabled', () => z.boolean())],
-  removeModel: [parameter('model', () => z.string())],
-  setFixedModel: [parameter('model', () => z.string().nullable())],
-  setPriceQuote: [parameter('provider', () => z.string().min(1).max(100)), parameter('model', () => z.string().min(1).max(100)), parameter('quote', () => quoteSchema().nullable())],
+  setModelEnabled: [parameter('candidateId', () => z.string()), parameter('enabled', () => z.boolean())],
+  removeModel: [parameter('candidateId', () => z.string())],
+  setFixedModel: [parameter('candidateId', () => z.string().nullable())],
+  setPriceQuote: [parameter('candidateId', () => z.string().min(1).max(200)), parameter('quote', () => quoteSchema().nullable())],
   setBudgetDefaults: [parameter('budget', () => budgetSchema())],
   extendTaskBudget: [parameter('taskId', () => z.string()), parameter('extension', () => extensionSchema())],
   stopTask: [parameter('taskId', () => z.string())],
