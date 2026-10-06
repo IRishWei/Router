@@ -1,6 +1,6 @@
 # Ticket 衔接与执行边界
 
-2026-10-07 核对 GitHub #2—#25：24张票的正文与本地发布快照一致，36条原生阻塞关系一致且无环。T01/#2、T02/#3、T04/#5已关闭；T03/#4以0.3.7、T08/#9以0.4.2通过双轴复审和最终安装验收。当前独立前沿工作为T05/#6、T06/#7、T12/#13、T13/#14，ready-for-agent不替代前置和凭据门槛。T06等待既有OpenAI API Key使用/创建选择，其余可独立推进。
+2026-10-07 核对 GitHub #2—#25：24张票的正文与本地发布快照一致，36条原生阻塞关系一致且无环。T01/#2、T02/#3、T04/#5已关闭；T03/#4以0.3.7、T08/#9以0.4.2、T12/#13以0.5.1通过双轴复审和最终安装验收。当前独立前沿工作为T05/#6、T06/#7、T13/#14，ready-for-agent不替代前置和凭据门槛。T06等待既有OpenAI API Key使用/创建选择，其余可独立推进。
 
 ## 共享契约
 
@@ -39,10 +39,11 @@ T04 已实际验证旧 oh-my-dsh 原包在目标 Desktop 被官方 CLI 与公开
 
 ## T08—T13 整合约束
 
-T08 的首轮固定复审发现的请求错归、身份许可继承、同名模型串用及无事件资格刷新问题，已在最终0.4.2修复；controlled信任与验证脚本恢复顺序的增量也已通过独立复验。最终目标桌面证据见 `t08-installed-host-evidence.md`。T12/T13 仍在整合，以下是后续实现必须共同满足的契约。
+T08 的首轮固定复审发现的请求错归、身份许可继承、同名模型串用及无事件资格刷新问题，已在最终0.4.2修复；controlled信任与验证脚本恢复顺序的增量也已通过独立复验。最终目标桌面证据见 `t08-installed-host-evidence.md`。T12 已通过0.5.1实际桌面验收，见 `t12-installed-host-evidence.md`；T13 仍在整合，以下是后续实现必须共同满足的契约。
 
 - T08 统一导出 `candidateSnapshotSchema`；T12 消费该 schema，不另建宽松快照验证器。`candidateId` 标识完整五元身份；身份变更保留旧 tombstone，新身份默认未启用。旧 model 字符串兼容只适用于已知 controlled fixture。
 - 用户启用许可、提供商凭据状态、目录声明能力、推理实测分别记录。未知提供商状态不冒充已认证，也不能与用户明确启用许可混为一个字段。Router revision/epoch 为正整数；Host 公开 settings revision 可为零或未知。
+- `registryEpoch` 是整个注册表的观察版本，不是候选授权代数。无关候选变更后，同一完整身份、authEpoch 和 connectionConfigRevision 的后续 Call 可以使用更新的 canonical capture；不能要求后续标题或评审的 registryEpoch 等于首个 Call。旧于初始可信 capture 的快照必须拒绝。
 - 新调用及预算等待释放后主动刷新公开 Host 资格，再同步校验所捕获候选。真实 request provider/model 必须匹配 Call selection；不匹配在派发意图及 adapter 消费前拒绝，不能调用后才暂停。刷新发现失效时暂停原请求，不临时换模型。
 - T12 的判断和 T13 的评审必须使用真实 registry capture 和同一个 owned Call runner；固定候选、预算、取消与当前资格检查不能由模块自己绕过。模型调用用途在 Router Call 中记录，不向 DSH 填入不存在的 `purpose` 值。
 - T13 按实际产物、明确要求及覆盖发布版本化证据。编程检查要绑定实际工作区产物和真实工具执行，构建通过不能代替行为测试；预设失败 JSON 只验证协调逻辑。评审次数按整体 Router Task 及已记账 Call 控制，后续恢复不能重置额度。
