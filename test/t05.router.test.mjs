@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -210,6 +210,11 @@ test('a DeepSeek authentication failure pauses the Task after one accounted atte
     assert.match(recordedEvents, /"code":"AUTH"/);
     assert.match(recordedEvents, /"status":401/);
     assert.equal(JSON.stringify(task).includes(secret), false);
+    const persistedSession = JSON.stringify(ctx.sessions.get(sessionId).snapshotEvents());
+    const persistedRouter = await readFile(join(home, 'router', 'test', 'state.json'), 'utf8');
+    assert.equal(persistedSession.includes(secret), false);
+    assert.equal(persistedRouter.includes(secret), false);
+    assert.match(persistedSession, /DeepSeek provider request failed/);
   } finally {
     if (connection) await connection.disconnect();
     if (ctx) await ctx.fiber.dispose();
