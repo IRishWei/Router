@@ -108,6 +108,9 @@ test('owned registration replaces a visible native identity without inheriting i
     assert.equal(owned.accountId, 'account-7');
     assert.equal(owned.enabled, false);
     assert.equal(owned.quote, null);
+    assert.equal(owned.capabilities.contextWindow.confidence, 'declared');
+    assert.equal(owned.compatibility.confidence, 'declared');
+    assert.equal(owned.compatibility.scope, 'owned-provider-metadata');
     assert.equal(snapshot.config.fixedCandidateId, native.candidateId);
     assert.equal(JSON.stringify(snapshot).includes('MUST_NOT_APPEAR'), false);
     const { sessionId } = await ctx.sessionController.create({ cwd: home });

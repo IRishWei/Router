@@ -143,7 +143,7 @@ export class ConnectionRegistry {
         authorizationStatus: source.authorizationStatus ?? candidate?.authorizationStatus ?? 'unknown',
         capability: model.capability,
         maxContextTokens: model.maxContextTokens ?? null,
-        supportScope: source.supportScope ?? (source.ownership === 'router-owned' ? 'controlled-protocol-fixture' : 'host-public-metadata'),
+        supportScope: source.supportScope ?? (source.source === 'controlled-protocol-fixture' ? 'controlled-protocol-fixture' : source.ownership === 'router-owned' ? 'owned-provider-metadata' : 'host-public-metadata'),
         settingsNs: source.settingsNs ?? null,
         settingsPath: source.settingsPath ?? null,
         observedSettingsRevision: Number.isSafeInteger(source.settingsRevision) && source.settingsRevision >= 0 ? source.settingsRevision : null,
@@ -216,7 +216,8 @@ export class ConnectionRegistry {
     const pool = stableRouterSnapshot.pool ?? [];
     const entry = pool.find(item => matchesCandidate(item, candidate));
     const priced = (stableRouterSnapshot.prices ?? []).find(item => item.candidateId === candidate.candidateId || sameIdentity(item, candidate));
-    const contextWindow = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: candidate.ownership === 'router-owned' ? 'known' : 'declared', source: candidate.ownership === 'router-owned' ? candidate.source : 'provider-model-metadata' };
+    const controlled = candidate.source === 'controlled-protocol-fixture';
+    const contextWindow = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: controlled ? 'known' : 'declared', source: controlled ? candidate.source : 'provider-model-metadata' };
     const unknownCapacity = { value: null, confidence: 'unknown', source: 'host-public-contract' };
     return structuredClone({
       candidateId: candidate.candidateId,
@@ -245,7 +246,8 @@ export class ConnectionRegistry {
     const candidates = this.#state.connections.candidates.map(candidate => {
       const entry = (config.pool ?? []).find(item => matchesCandidate(item, candidate));
       const quote = (config.prices ?? []).find(item => item.candidateId === candidate.candidateId || sameIdentity(item, candidate));
-      const knownCapacity = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: candidate.ownership === 'router-owned' ? 'known' : 'declared', source: candidate.ownership === 'router-owned' ? candidate.source : 'provider-model-metadata' };
+      const controlled = candidate.source === 'controlled-protocol-fixture';
+      const knownCapacity = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: controlled ? 'known' : 'declared', source: controlled ? candidate.source : 'provider-model-metadata' };
       const unknownCapacity = { value: null, confidence: 'unknown', source: 'host-public-contract' };
       const normalizedQuote = quote ? { ...structuredClone(quote.quote), quoteVersion: quote.quoteVersion ?? null, estimatedCost: null } : null;
       return {
@@ -262,7 +264,7 @@ export class ConnectionRegistry {
         capabilities: { modalities: { text: candidate.capability.text, image: candidate.capability.image }, text: candidate.capability.text, image: candidate.capability.image, tools: candidate.capability.tools, contextWindow: knownCapacity, inputLimit: unknownCapacity, maxOutput: unknownCapacity, maxContextTokens: candidate.maxContextTokens, confidence: candidate.capability.text.confidence, source: candidate.capability.text.source ?? candidate.source },
         quote: normalizedQuote,
         observations: [],
-        compatibility: { confidence: candidate.ownership === 'router-owned' ? 'known' : 'declared', scope: candidate.supportScope },
+        compatibility: { confidence: controlled ? 'known' : 'declared', scope: candidate.supportScope },
       };
     });
     return candidateSnapshotSchema.parse({ epoch: this.epoch, snapshotEpoch: this.epoch, capturedAt: this.#state.connections.capturedAt, candidates, unsupported: structuredClone(this.#state.connections.unsupported) });
