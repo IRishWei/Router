@@ -1,0 +1,496 @@
+{
+  "repository": "IRishWei/Router",
+  "parentIssue": 1,
+  "status": "verified",
+  "tickets": [
+    {
+      "draftId": 1,
+      "issueNumber": 2,
+      "databaseId": 5731616984,
+      "title": "[T01] 桌面插件安装与最小完整任务",
+      "url": "https://github.com/IRishWei/Router/issues/2",
+      "dependencies": [],
+      "file": "tickets/01-desktop-task-path.md"
+    },
+    {
+      "draftId": 2,
+      "issueNumber": 3,
+      "databaseId": 5731617619,
+      "title": "[T02] 模型池管理、手动固定与配置生效",
+      "url": "https://github.com/IRishWei/Router/issues/3",
+      "dependencies": [
+        1
+      ],
+      "file": "tickets/02-pool-and-fixed-model.md"
+    },
+    {
+      "draftId": 3,
+      "issueNumber": 4,
+      "databaseId": 5731618233,
+      "title": "[T03] 完整任务记账、预算预留与超限暂停",
+      "url": "https://github.com/IRishWei/Router/issues/4",
+      "dependencies": [
+        2
+      ],
+      "file": "tickets/03-ledger-and-budget.md"
+    },
+    {
+      "draftId": 4,
+      "issueNumber": 5,
+      "databaseId": 5731618994,
+      "title": "[T04] 社区候选兼容验证与复用决定",
+      "url": "https://github.com/IRishWei/Router/issues/5",
+      "dependencies": [
+        2
+      ],
+      "file": "tickets/04-community-reuse-gate.md"
+    },
+    {
+      "draftId": 5,
+      "issueNumber": 6,
+      "databaseId": 5731619645,
+      "title": "[T05] DeepSeek API 连接到完整任务",
+      "url": "https://github.com/IRishWei/Router/issues/6",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/05-deepseek-api.md"
+    },
+    {
+      "draftId": 6,
+      "issueNumber": 7,
+      "databaseId": 5731620280,
+      "title": "[T06] OpenAI API 连接到完整任务",
+      "url": "https://github.com/IRishWei/Router/issues/7",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/06-openai-api.md"
+    },
+    {
+      "draftId": 7,
+      "issueNumber": 8,
+      "databaseId": 5731621137,
+      "title": "[T07] OpenAI 兼容端点的连接与能力验证",
+      "url": "https://github.com/IRishWei/Router/issues/8",
+      "dependencies": [
+        6
+      ],
+      "file": "tickets/07-compatible-endpoint.md"
+    },
+    {
+      "draftId": 8,
+      "issueNumber": 9,
+      "databaseId": 5731622026,
+      "title": "[T08] 发现并引用已有 DSH 连接",
+      "url": "https://github.com/IRishWei/Router/issues/9",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/08-reuse-dsh-connections.md"
+    },
+    {
+      "draftId": 9,
+      "issueNumber": 10,
+      "databaseId": 5731622682,
+      "title": "[T09] 独立 ChatGPT 授权与首个任务",
+      "url": "https://github.com/IRishWei/Router/issues/10",
+      "dependencies": [
+        6
+      ],
+      "file": "tickets/09-chatgpt-sign-in-task.md"
+    },
+    {
+      "draftId": 10,
+      "issueNumber": 11,
+      "databaseId": 5731623393,
+      "title": "[T10] ChatGPT 续期、切换账号与退出恢复",
+      "url": "https://github.com/IRishWei/Router/issues/11",
+      "dependencies": [
+        9
+      ],
+      "file": "tickets/10-chatgpt-account-lifecycle.md"
+    },
+    {
+      "draftId": 11,
+      "issueNumber": 12,
+      "databaseId": 5731624089,
+      "title": "[T11] 订阅参考价值与额度未知状态",
+      "url": "https://github.com/IRishWei/Router/issues/12",
+      "dependencies": [
+        9
+      ],
+      "file": "tickets/11-subscription-reference-value.md"
+    },
+    {
+      "draftId": 12,
+      "issueNumber": 13,
+      "databaseId": 5731624761,
+      "title": "[T12] 轻量判断与起始模型自动选择",
+      "url": "https://github.com/IRishWei/Router/issues/13",
+      "dependencies": [
+        3,
+        4
+      ],
+      "file": "tickets/12-initial-routing.md"
+    },
+    {
+      "draftId": 13,
+      "issueNumber": 14,
+      "databaseId": 5731625614,
+      "title": "[T13] 编程、写作验收与有条件模型评审",
+      "url": "https://github.com/IRishWei/Router/issues/14",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/13-basic-acceptance.md"
+    },
+    {
+      "draftId": 14,
+      "issueNumber": 15,
+      "databaseId": 5731626383,
+      "title": "[T14] 研究任务的来源支持与覆盖验收",
+      "url": "https://github.com/IRishWei/Router/issues/15",
+      "dependencies": [
+        13
+      ],
+      "file": "tickets/14-research-acceptance.md"
+    },
+    {
+      "draftId": 15,
+      "issueNumber": 16,
+      "databaseId": 5731627176,
+      "title": "[T15] 图像理解的模型选择与自动验收",
+      "url": "https://github.com/IRishWei/Router/issues/16",
+      "dependencies": [
+        6,
+        12,
+        13
+      ],
+      "file": "tickets/15-vision-task-acceptance.md"
+    },
+    {
+      "draftId": 16,
+      "issueNumber": 17,
+      "databaseId": 5731627786,
+      "title": "[T16] 受阻后的单 agent 专家咨询",
+      "url": "https://github.com/IRishWei/Router/issues/17",
+      "dependencies": [
+        12,
+        13
+      ],
+      "file": "tickets/16-consultation.md"
+    },
+    {
+      "draftId": 17,
+      "issueNumber": 18,
+      "databaseId": 5731628564,
+      "title": "[T17] 稳定边界接管与完整上下文交接",
+      "url": "https://github.com/IRishWei/Router/issues/18",
+      "dependencies": [
+        16,
+        15
+      ],
+      "file": "tickets/17-stable-takeover.md"
+    },
+    {
+      "draftId": 18,
+      "issueNumber": 19,
+      "databaseId": 5731629192,
+      "title": "[T18] 整条任务链的故障恢复与暂停",
+      "url": "https://github.com/IRishWei/Router/issues/19",
+      "dependencies": [
+        17,
+        10
+      ],
+      "file": "tickets/18-task-recovery.md"
+    },
+    {
+      "draftId": 19,
+      "issueNumber": 20,
+      "databaseId": 5731629794,
+      "title": "[T19] 首次引导、三页管理与任务时间线",
+      "url": "https://github.com/IRishWei/Router/issues/20",
+      "dependencies": [
+        18,
+        11,
+        7,
+        8,
+        5
+      ],
+      "file": "tickets/19-guided-ui-history.md"
+    },
+    {
+      "draftId": 20,
+      "issueNumber": 21,
+      "databaseId": 5731630673,
+      "title": "[T20] 四类任务的冻结样例与自动对照报告",
+      "url": "https://github.com/IRishWei/Router/issues/21",
+      "dependencies": [
+        19,
+        14
+      ],
+      "file": "tickets/20-automated-comparison-suite.md"
+    },
+    {
+      "draftId": 21,
+      "issueNumber": 22,
+      "databaseId": 5731631390,
+      "title": "[T21] 真实对照实验与继续开发门槛",
+      "url": "https://github.com/IRishWei/Router/issues/22",
+      "dependencies": [
+        20
+      ],
+      "file": "tickets/21-live-benefit-gate.md"
+    },
+    {
+      "draftId": 22,
+      "issueNumber": 23,
+      "databaseId": 5731632204,
+      "title": "[T22] 本地观察、影子计算与策略版本",
+      "url": "https://github.com/IRishWei/Router/issues/23",
+      "dependencies": [
+        19,
+        14
+      ],
+      "file": "tickets/22-local-shadow-learning.md"
+    },
+    {
+      "draftId": 23,
+      "issueNumber": 24,
+      "databaseId": 5731632813,
+      "title": "[T23] 小范围真实策略试用、采用与回退",
+      "url": "https://github.com/IRishWei/Router/issues/24",
+      "dependencies": [
+        21,
+        22
+      ],
+      "file": "tickets/23-controlled-strategy-trials.md"
+    },
+    {
+      "draftId": 24,
+      "issueNumber": 25,
+      "databaseId": 5731633669,
+      "title": "[T24] 目标桌面的完整交付验证",
+      "url": "https://github.com/IRishWei/Router/issues/25",
+      "dependencies": [
+        23
+      ],
+      "file": "tickets/24-desktop-delivery.md"
+    }
+  ],
+  "nativeDependencyCount": 36,
+  "verification": {
+    "issueCount": 24,
+    "nativeDependencyCount": 36,
+    "parentUnchanged": true,
+    "actionableIssues": [
+      2
+    ],
+    "tickets": [
+      {
+        "issueNumber": 2,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": []
+      },
+      {
+        "issueNumber": 3,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          2
+        ]
+      },
+      {
+        "issueNumber": 4,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          3
+        ]
+      },
+      {
+        "issueNumber": 5,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          3
+        ]
+      },
+      {
+        "issueNumber": 6,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          4
+        ]
+      },
+      {
+        "issueNumber": 7,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          4
+        ]
+      },
+      {
+        "issueNumber": 8,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          7
+        ]
+      },
+      {
+        "issueNumber": 9,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          4
+        ]
+      },
+      {
+        "issueNumber": 10,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          7
+        ]
+      },
+      {
+        "issueNumber": 11,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          10
+        ]
+      },
+      {
+        "issueNumber": 12,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          10
+        ]
+      },
+      {
+        "issueNumber": 13,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          4,
+          5
+        ]
+      },
+      {
+        "issueNumber": 14,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          4
+        ]
+      },
+      {
+        "issueNumber": 15,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          14
+        ]
+      },
+      {
+        "issueNumber": 16,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          7,
+          13,
+          14
+        ]
+      },
+      {
+        "issueNumber": 17,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          13,
+          14
+        ]
+      },
+      {
+        "issueNumber": 18,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          16,
+          17
+        ]
+      },
+      {
+        "issueNumber": 19,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          11,
+          18
+        ]
+      },
+      {
+        "issueNumber": 20,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          6,
+          8,
+          9,
+          12,
+          19
+        ]
+      },
+      {
+        "issueNumber": 21,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          15,
+          20
+        ]
+      },
+      {
+        "issueNumber": 22,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          21
+        ]
+      },
+      {
+        "issueNumber": 23,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          15,
+          20
+        ]
+      },
+      {
+        "issueNumber": 24,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          22,
+          23
+        ]
+      },
+      {
+        "issueNumber": 25,
+        "bodyMatches": true,
+        "labelMatches": true,
+        "blockedBy": [
+          24
+        ]
+      }
+    ]
+  }
+}

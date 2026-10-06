@@ -1,0 +1,210 @@
+{
+  "repository": "IRishWei/Router",
+  "parentIssue": 1,
+  "tickets": [
+    {
+      "draftId": 1,
+      "title": "桌面插件安装与最小完整任务",
+      "dependencies": [],
+      "file": "tickets/01-desktop-task-path.md"
+    },
+    {
+      "draftId": 2,
+      "title": "模型池管理、手动固定与配置生效",
+      "dependencies": [
+        1
+      ],
+      "file": "tickets/02-pool-and-fixed-model.md"
+    },
+    {
+      "draftId": 3,
+      "title": "完整任务记账、预算预留与超限暂停",
+      "dependencies": [
+        2
+      ],
+      "file": "tickets/03-ledger-and-budget.md"
+    },
+    {
+      "draftId": 4,
+      "title": "社区候选兼容验证与复用决定",
+      "dependencies": [
+        2
+      ],
+      "file": "tickets/04-community-reuse-gate.md"
+    },
+    {
+      "draftId": 5,
+      "title": "DeepSeek API 连接到完整任务",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/05-deepseek-api.md"
+    },
+    {
+      "draftId": 6,
+      "title": "OpenAI API 连接到完整任务",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/06-openai-api.md"
+    },
+    {
+      "draftId": 7,
+      "title": "OpenAI 兼容端点的连接与能力验证",
+      "dependencies": [
+        6
+      ],
+      "file": "tickets/07-compatible-endpoint.md"
+    },
+    {
+      "draftId": 8,
+      "title": "发现并引用已有 DSH 连接",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/08-reuse-dsh-connections.md"
+    },
+    {
+      "draftId": 9,
+      "title": "独立 ChatGPT 授权与首个任务",
+      "dependencies": [
+        6
+      ],
+      "file": "tickets/09-chatgpt-sign-in-task.md"
+    },
+    {
+      "draftId": 10,
+      "title": "ChatGPT 续期、切换账号与退出恢复",
+      "dependencies": [
+        9
+      ],
+      "file": "tickets/10-chatgpt-account-lifecycle.md"
+    },
+    {
+      "draftId": 11,
+      "title": "订阅参考价值与额度未知状态",
+      "dependencies": [
+        9
+      ],
+      "file": "tickets/11-subscription-reference-value.md"
+    },
+    {
+      "draftId": 12,
+      "title": "轻量判断与起始模型自动选择",
+      "dependencies": [
+        3,
+        4
+      ],
+      "file": "tickets/12-initial-routing.md"
+    },
+    {
+      "draftId": 13,
+      "title": "编程、写作验收与有条件模型评审",
+      "dependencies": [
+        3
+      ],
+      "file": "tickets/13-basic-acceptance.md"
+    },
+    {
+      "draftId": 14,
+      "title": "研究任务的来源支持与覆盖验收",
+      "dependencies": [
+        13
+      ],
+      "file": "tickets/14-research-acceptance.md"
+    },
+    {
+      "draftId": 15,
+      "title": "图像理解的模型选择与自动验收",
+      "dependencies": [
+        6,
+        12,
+        13
+      ],
+      "file": "tickets/15-vision-task-acceptance.md"
+    },
+    {
+      "draftId": 16,
+      "title": "受阻后的单 agent 专家咨询",
+      "dependencies": [
+        12,
+        13
+      ],
+      "file": "tickets/16-consultation.md"
+    },
+    {
+      "draftId": 17,
+      "title": "稳定边界接管与完整上下文交接",
+      "dependencies": [
+        16,
+        15
+      ],
+      "file": "tickets/17-stable-takeover.md"
+    },
+    {
+      "draftId": 18,
+      "title": "整条任务链的故障恢复与暂停",
+      "dependencies": [
+        17,
+        10
+      ],
+      "file": "tickets/18-task-recovery.md"
+    },
+    {
+      "draftId": 19,
+      "title": "首次引导、三页管理与任务时间线",
+      "dependencies": [
+        18,
+        11,
+        7,
+        8,
+        5
+      ],
+      "file": "tickets/19-guided-ui-history.md"
+    },
+    {
+      "draftId": 20,
+      "title": "四类任务的冻结样例与自动对照报告",
+      "dependencies": [
+        19,
+        14
+      ],
+      "file": "tickets/20-automated-comparison-suite.md"
+    },
+    {
+      "draftId": 21,
+      "title": "真实对照实验与继续开发门槛",
+      "dependencies": [
+        20
+      ],
+      "file": "tickets/21-live-benefit-gate.md"
+    },
+    {
+      "draftId": 22,
+      "title": "本地观察、影子计算与策略版本",
+      "dependencies": [
+        19,
+        14
+      ],
+      "file": "tickets/22-local-shadow-learning.md"
+    },
+    {
+      "draftId": 23,
+      "title": "小范围真实策略试用、采用与回退",
+      "dependencies": [
+        21,
+        22
+      ],
+      "file": "tickets/23-controlled-strategy-trials.md"
+    },
+    {
+      "draftId": 24,
+      "title": "目标桌面的完整交付验证",
+      "dependencies": [
+        23
+      ],
+      "file": "tickets/24-desktop-delivery.md"
+    }
+  ]
+}
+
