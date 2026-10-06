@@ -1,6 +1,6 @@
 # T02 模型池、固定与稳定配置证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2，Cordis 4.0.4，Host protocol 4。实现包版本 0.2.0。基线为集成分支 `b21b99a714257581807c0adb6db7a5810af7c736`；T01 已在真实桌面验收。本页记录 T02 自动化证据，真实桌面验收由 root 单独记录。
+目标：Windows DSH Desktop 0.2.0-rc.2，Cordis 4.0.4，Host protocol 4。实现包版本 0.2.1。基线为集成分支 `b21b99a714257581807c0adb6db7a5810af7c736`；T01 已在真实桌面验收。本页记录 T02 自动化证据，真实桌面验收由 root 单独记录。
 
 ## 共享路径
 
@@ -9,6 +9,8 @@
 每次 `system-prompt/assemble` 外层截取期望配置与公开 modelSelection.pending。原生 assembly、Router 返回的提示词变量、pre-step 通知与 agent/request 使用同一步快照。没有手动 pending 时选择固定模型、有效上一模型或首个启用候选。有 pending 时保留原生选择；与固定冲突、组装中发生选择变化、目标被禁用或移除时暂停。请求之前仍检查当前启用池，旧快照不能授权已撤销候选的新调用。
 
 `agent/request` 返回完整 native config，保留原生 token 等字段；跨模型时不继承旧模型的 reasoningEffort。`llm/stream` 不替换路由。已开始的流与工具工作保持原快照；下一步 assembly 才应用新配置。每个 Call 保留 routerSnapshot、configVersion、真实 header config、attempt 身份及各次用量。固定只限制自动执行；暂停自动路由仍允许有效原生路径。
+
+0.2.1 在公开 `llm/stream` 的惰性 generator 首次消费时同步复核内存中启用池。若目标已禁用、移除或不在本地池，记录暂停原因并拒绝下游；不 await snapshot，不改 route、config 或 signal。仅构造 iterator 不构成派发。**通过 Router guard 并向下游开始消费**后，本次调用保持原快照，不在后续 chunk 或等待点重新检查；运行中移除不会打断已开始的流。构造 iterator 后的上游等待尚未经过 guard，属于派发前撤销窗口。后续预算等待不得把旧快照当作持续授权。
 
 稳定边界是下一次完整 `system-prompt/assemble`，包括工具结果完成后的下一步。原生同 step 请求 retry 不重新组装提示词，因此继续此前已捕获的快照；运行中修改须等到完整组装边界才生效。T18 的故障替换不能在这样的 retry 中临时切换真实 route，否则提示词与 header 会冲突；新 route 必须建立同一快照的提示词、通知及完整请求。
 
@@ -22,6 +24,10 @@
 | 固定 B，native pending A | FIXED_MODEL_CONFLICT，零 Call；pending A 保留，未跨模型替换。 |
 | 固定匹配、同路由与恢复 | 相同 B 继续实际 B，无重复 notice；随后固定 A 保守暂停；公开选择 A 后真实 header 消费 pending。 |
 | 流中移除 B | 当前 B 请求完成并保留原版本；下一固定 B 请求 FIXED_MODEL_UNAVAILABLE，零 Call。 |
+| agent/request 外层等待后禁用/移除 B | 检查已组装请求，但释放等待后下游流零次、结果为空，分别暂停 MODEL_DISABLED / MODEL_REMOVED；不自动换模型。 |
+| 已构造但未消费的 iterator 等待后移除 B | 首次消费时复核，未进入下游，明确暂停；证明检查不是在 iterator 构造时过早执行。 |
+| 已准备 retry 的等待期间移除 B | 第一 attempt 已报告 7 token 保留，第二 attempt 不进入下游，用量保持未知；Task 暂停，身份及旧版本不变。 |
+| 暂停且 Router 池全部禁用 | 合法 native-fixture 手动选择仍实际返回 NATIVE_OK；原始 signal 不变，pending 按真实 header 消费。 |
 | 原生工具等待中固定 B→A | 客户端/Host 显示有效版本 2、期望 3；工具完成后同一 Task 下一 Call 使用 A/3，prompt/header 一致，仅一条 notice。 |
 | 首次 CONNECTION、原生 retry | 同一步仍用 B/2；两次 attempt 分别记录 7 与 12 token；下一边界才用 A/3。 |
 | assembly / pre-step 等待期间 native 选择变化 | NATIVE_SELECTION_CHANGED，零请求、零错误 notice，pending 保留；解除固定后原生路径恢复。 |
@@ -35,7 +41,11 @@
 
 客户端 harness 仅替换 JSON Connection 传输和 DOM 容器；挂载、namespace 注入与调用 facade 使用未修改宿主模块。T02 设置 RPC 转发到同一个真实 RouterService，不使用另一份页面状态证明执行。
 
-提交前验证：`npm test` 23/23；`npm run check`、`npm run bundle` 和 `git diff --check` 通过。`node scripts/reproduce-same-route-pending.mjs` 输出三个预期阶段。安装包文件为 `artifacts/irishwei-dsh-router-0.2.0.tgz`，构建产物通过宿主 peer 契约外置运行时，客户端只内联 codec。
+0.2.1 审查修复红断言：Router 的 agent/request 检查返回后，外层 hook 等待；此期间禁用 B，再释放，原实现下游流仍执行一次。惰性 guard 修复后下游流为零、任务暂停且输出为空。禁用、移除、未消费 iterator、retry 撤销和合法原生路径共五项新增完整任务验证；既有流中移除继续完成旧 B，固定 B→A 的同 step retry 仍记录 B/2 的 7+12 用量。
+
+公共 RPC 方法从相同 InvocationDescriptor 集合派生 binding 与 Remote 装饰器，仅 flush 作为非 RPC 公共方法额外绑定，避免 Host 与 protocol 名单各自维护。
+
+提交前验证：`npm test` 28/28；`npm run check`、`npm run bundle` 和 `git diff --check` 通过。`node scripts/reproduce-same-route-pending.mjs` 输出三个预期阶段。安装包文件为 `artifacts/irishwei-dsh-router-0.2.1.tgz`，构建产物通过宿主 peer 契约外置运行时，客户端只内联 codec。
 
 ## 原生同路由 pending 限制
 

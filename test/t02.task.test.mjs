@@ -4,6 +4,7 @@ import { mkdtemp, rm, mkdir, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { startNative, submit } from './t02-harness.mjs';
+import { LlmAdapter } from '@deepseek-ai/dsh-llm';
 
 test('a persisted pool cannot grant a different connection or provider through state edits', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t02-invalid-state-'));
@@ -92,6 +93,119 @@ test('an image task cannot dispatch to a candidate whose image capability is unk
     assert.equal(record.pauseReason, 'NO_COMPATIBLE_IMAGE_CANDIDATE');
     assert.equal(record.calls.length, 0);
     assert.equal(ctx.sessions.get(sessionId).requestHeader(), undefined);
+  } finally {
+    await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+for (const scenario of [
+  { label: 'disabled', revoke: ctx => ctx.router.setModelEnabled('controlled-tools', false), reason: 'MODEL_DISABLED' },
+  { label: 'removed', revoke: ctx => ctx.router.removeModel('controlled-tools'), reason: 'MODEL_REMOVED' },
+  { label: 'removed after stream creation but before consumption', lazyStream: true, revoke: ctx => ctx.router.removeModel('controlled-tools'), reason: 'MODEL_REMOVED' },
+]) test(`a prepared native request cannot dispatch a model ${scenario.label} during middleware waiting`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t02-revoke-wait-'));
+  const ctx = await startNative(home);
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let run, dispatches = 0;
+  try {
+    await ctx.router.setFixedModel('controlled-tools');
+    if (scenario.lazyStream) ctx.on('llm/stream', (_request, next) => {
+      const stream = next();
+      return (async function* () { entered.resolve(); await release.promise; yield* stream; })();
+    }, { prepend: true });
+    else ctx.on('agent/request', async (_context, next) => { const config = await next(); entered.resolve(); await release.promise; return config; }, { prepend: true });
+    ctx.on('llm/stream', async function* (_request, next) { dispatches++; yield* next(); });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, 'Reply AFTER_REVOKE');
+    await entered.promise;
+    await scenario.revoke(ctx);
+    assert.equal(dispatches, 0);
+    release.resolve();
+    const record = await run;
+    assert.equal(dispatches, 0);
+    assert.equal(record.lifecycle, 'paused');
+    assert.equal(record.pauseReason, scenario.reason);
+    assert.equal(record.result, '');
+    assert.equal(record.calls[0].selection.model, 'controlled-tools');
+    assert.equal(record.calls[0].usage, null);
+  } finally {
+    release.resolve();
+    if (run) await run.catch(() => {});
+    await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('revocation during a prepared native retry preserves its first usage and prevents another dispatch', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t02-retry-revoke-'));
+  const ctx = await startNative(home);
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let run, prepared = 0, dispatches = 0;
+  try {
+    await ctx.router.setFixedModel('controlled-tools');
+    ctx.on('agent/request', async (_context, next) => { const config = await next(); if (++prepared === 2) { entered.resolve(); await release.promise; } return config; }, { prepend: true });
+    ctx.on('llm/stream', async function* (_request, next) {
+      dispatches++;
+      if (dispatches === 1) {
+        yield { type: 'usage', usage: { inputTokens: 5, outputTokens: 2, totalTokens: 7 } };
+        yield { type: 'finish', reason: { kind: 'error', failure: { code: 'CONNECTION', message: 'Controlled connection failure' } } };
+      } else yield* next();
+    });
+    ctx.on('agent/request-error', ({ failure }, next) => failure.code === 'CONNECTION' ? { kind: 'retry' } : next());
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, 'Reply RETRY_AFTER_REVOKE');
+    await entered.promise;
+    await ctx.router.removeModel('controlled-tools');
+    release.resolve();
+    const record = await run;
+    assert.equal(dispatches, 1);
+    assert.equal(record.pauseReason, 'MODEL_REMOVED');
+    assert.equal(record.lifecycle, 'paused');
+    assert.equal(record.result, '');
+    assert.deepEqual(record.calls.map(call => [call.selection.model, call.configVersion, call.usage?.totalTokens ?? null]), [['controlled-tools', 2, 7], ['controlled-tools', 2, null]]);
+    assert.ok(record.calls.every(call => call.status === 'failed'));
+  } finally {
+    release.resolve();
+    if (run) await run.catch(() => {});
+    await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('paused routing with an empty Router pool still permits a real native manual route', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t02-native-after-revoke-'));
+  const ctx = await startNative(home);
+  let seen, originalSignal;
+  try {
+    class NativeFixture extends LlmAdapter {
+      async resolveModel(provider, model) { return { provider, id: model, name: model }; }
+      async listModels(provider) { return [await this.resolveModel(provider, 'native')]; }
+      async *stream(request) {
+        seen = request;
+        yield { type: 'text-delta', index: 0, text: 'NATIVE_OK' };
+        yield { type: 'finish', reason: { kind: 'stop' } };
+      }
+    }
+    ctx.llm.registerAdapter(['native-fixture'], new NativeFixture());
+    ctx.on('llm/stream', (request, next) => { originalSignal = request.signal; return next(); });
+    await ctx.router.setAutomatic(false);
+    await ctx.router.setModelEnabled('controlled', false);
+    await ctx.router.setModelEnabled('controlled-tools', false);
+    const before = ctx.agentDefaultModel.currentSelection();
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await ctx.sessionController.selectModel({ sessionId, provider: 'native-fixture', model: 'native' });
+    const selectedDefault = ctx.agentDefaultModel.currentSelection();
+    const record = await submit(ctx, sessionId, 'Reply NATIVE_OK');
+    assert.equal(record.result, 'NATIVE_OK');
+    assert.equal(record.lifecycle, 'completed');
+    assert.equal(seen.provider, 'native-fixture');
+    assert.equal(seen.model, 'native');
+    assert.equal(seen.signal.aborted, false);
+    assert.equal(seen.signal, originalSignal);
+    assert.equal(ctx.sessionProjections.stateOf(ctx.sessions.get(sessionId), 'modelSelection').pending, null);
+    assert.deepEqual(ctx.agentDefaultModel.currentSelection(), selectedDefault);
+    assert.equal(before.provider, 'router-controlled');
   } finally {
     await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true });

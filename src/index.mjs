@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
+import { descriptors } from './protocol.mjs';
 
 export const inject = ['llm', 'profileContext'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -71,8 +72,9 @@ export class RouterService extends TypertRemoteService {
     this.#path = path;
     this.#files = files;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
-    for (const method of ['snapshot', 'setAutomatic', 'setModelEnabled', 'removeModel', 'setFixedModel', 'flush']) this[method] = this[method].bind(this);
-    for (const method of ['snapshot', 'setAutomatic', 'setModelEnabled', 'removeModel', 'setFixedModel']) {
+    const methods = descriptors.map(descriptor => descriptor.method);
+    for (const method of [...methods, 'flush']) this[method] = this[method].bind(this);
+    for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
     ctx.on('session/event', (session, event) => {
@@ -160,6 +162,18 @@ export class RouterService extends TypertRemoteService {
       // Return the entire downstream config, including native effort and token settings.
       return config;
     }, { prepend: true });
+    const service = this;
+    ctx.on('llm/stream', async function* (request, next) {
+      // Check when consumed: outer request/budget middleware may have waited.
+      // Revocation blocks dispatch; fixed/automatic changes await full assembly.
+      const blocked = service.#restriction(request);
+      if (blocked) {
+        const task = [...service.#active.values()].find(task => task.sessionId === request.sessionId);
+        if (task) task.routingPauseReason = blocked;
+        throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND');
+      }
+      yield* next();
+    });
     ctx.effect(() => () => this.flush(), 'router: persist on dispose');
   }
   async snapshot() {
