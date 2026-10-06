@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "config": {
+    "automatic": false,
+    "version": 5,
+    "pool": [
+      {
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled",
+        "enabled": true
+      },
+      {
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled-tools",
+        "enabled": true
+      }
+    ],
+    "fixedModel": null,
+    "prices": [
+      {
+        "connectionId": "dsh-native:native-crash",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "native-crash",
+        "model": "crash",
+        "quote": {
+          "source": "Local legacy migration fixture, not an official price",
+          "date": "2026-10-07",
+          "currency": "USD",
+          "kind": "api-calculated",
+          "confidence": "declared",
+          "perMillion": {
+            "input": 2,
+            "output": 6
+          },
+          "reasoning": "included-in-output"
+        }
+      }
+    ],
+    "budget": {
+      "tokens": 100,
+      "durationMs": null,
+      "money": [
+        {
+          "currency": "USD",
+          "kind": "api-calculated",
+          "amount": 0.001
+        }
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "id": "1594e5a8-fe17-41f7-8249-5be45d0714a0",
+      "sessionId": "session-dec9186a-115b-4793-aa98-2c555ef6ca5b",
+      "turn": 1,
+      "lifecycle": "paused",
+      "acceptance": {
+        "verdict": "unconfirmed",
+        "evidence": []
+      },
+      "activeSelection": {
+        "connectionId": "dsh-native:native-crash",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "native-crash",
+        "model": "crash"
+      },
+      "configVersion": 4,
+      "result": "",
+      "calls": [
+        {
+          "id": "d575776b-a57d-4354-b8e0-b1e9ebdfb0bf",
+          "taskId": "1594e5a8-fe17-41f7-8249-5be45d0714a0",
+          "purpose": "execution",
+          "accountingEntry": "task-call-v1",
+          "attempt": 1,
+          "step": 1,
+          "selection": {
+            "connectionId": "dsh-native:native-crash",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "native-crash",
+            "model": "crash"
+          },
+          "configVersion": 4,
+          "routerSnapshot": {
+            "automatic": false,
+            "version": 4,
+            "pool": [
+              {
+                "connectionId": "controlled-local",
+                "accountId": "local",
+                "billingPath": "controlled",
+                "provider": "router-controlled",
+                "model": "controlled",
+                "enabled": true
+              },
+              {
+                "connectionId": "controlled-local",
+                "accountId": "local",
+                "billingPath": "controlled",
+                "provider": "router-controlled",
+                "model": "controlled-tools",
+                "enabled": true
+              }
+            ],
+            "fixedModel": null,
+            "prices": [
+              {
+                "connectionId": "dsh-native:native-crash",
+                "accountId": "unknown",
+                "billingPath": "unknown",
+                "provider": "native-crash",
+                "model": "crash",
+                "quote": {
+                  "source": "Local legacy migration fixture, not an official price",
+                  "date": "2026-10-07",
+                  "currency": "USD",
+                  "kind": "api-calculated",
+                  "confidence": "declared",
+                  "perMillion": {
+                    "input": 2,
+                    "output": 6
+                  },
+                  "reasoning": "included-in-output"
+                }
+              }
+            ],
+            "budget": {
+              "tokens": 100,
+              "durationMs": null,
+              "money": [
+                {
+                  "currency": "USD",
+                  "kind": "api-calculated",
+                  "amount": 0.001
+                }
+              ]
+            }
+          },
+          "status": "not-dispatched",
+          "dispatchState": "header-confirmed",
+          "dispatchStarted": false,
+          "usage": null,
+          "priceQuote": {
+            "source": "Local legacy migration fixture, not an official price",
+            "date": "2026-10-07",
+            "currency": "USD",
+            "kind": "api-calculated",
+            "confidence": "declared",
+            "perMillion": {
+              "input": 2,
+              "output": 6
+            },
+            "reasoning": "included-in-output"
+          },
+          "reservation": {
+            "state": "released",
+            "tokens": {
+              "input": null,
+              "output": null,
+              "cacheRead": null,
+              "cacheWrite": null,
+              "reasoning": null,
+              "total": null
+            },
+            "money": {
+              "currency": "USD",
+              "kind": "api-calculated",
+              "amount": null,
+              "knownSubtotal": 0,
+              "parts": {
+                "input": null,
+                "output": null,
+                "cacheRead": null,
+                "cacheWrite": null
+              },
+              "missing": [
+                "input",
+                "output",
+                "cacheRead",
+                "cacheWrite"
+              ],
+              "reasoning": "included-in-output",
+              "billingConfirmation": "unconfirmed"
+            },
+            "durationMs": null,
+            "source": "unknown",
+            "confidence": "unknown"
+          },
+          "preparedAt": "2026-10-06T19:39:46.956Z",
+          "snapshot": {
+            "provider": "native-crash",
+            "model": "crash"
+          },
+          "hostAttemptId": "session-dec9186a-115b-4793-aa98-2c555ef6ca5b:1"
+        }
+      ],
+      "inputs": [
+        {
+          "messageId": "4ccd0173-b315-4802-8449-e850ab45ef24",
+          "requestId": "494232a1-91f6-47f6-8670-eb1a9a30c859",
+          "turn": 1,
+          "claimedAt": "2026-10-06T19:39:46.952Z"
+        }
+      ],
+      "timeline": [
+        {
+          "kind": "input-claimed",
+          "messageId": "4ccd0173-b315-4802-8449-e850ab45ef24",
+          "requestId": "494232a1-91f6-47f6-8670-eb1a9a30c859",
+          "turn": 1
+        },
+        {
+          "kind": "selection",
+          "reason": "native-pending",
+          "provider": "native-crash",
+          "model": "crash",
+          "configVersion": 4
+        }
+      ],
+      "startedAt": "2026-10-06T19:39:46.952Z",
+      "budget": {
+        "limits": {
+          "tokens": 100,
+          "durationMs": null,
+          "money": [
+            {
+              "currency": "USD",
+              "kind": "api-calculated",
+              "amount": 0.001
+            }
+          ]
+        },
+        "extensions": [],
+        "unenforceableLimits": [
+          "tokens: unknown usage or forecast; only known consumption is enforceable",
+          "money:USD:api-calculated: unknown usage, missing price or different currency; amount forecast cannot be enforced"
+        ]
+      },
+      "pauseReason": "HOST_RESTARTED",
+      "endedAt": "2026-10-06T19:39:47.061Z"
+    }
+  ]
+}

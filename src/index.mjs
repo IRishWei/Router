@@ -77,7 +77,7 @@ export class RouterService extends TypertRemoteService {
     this.#files = files;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'markCallDispatched']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent']) this[method] = this[method].bind(this);
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
@@ -195,7 +195,7 @@ export class RouterService extends TypertRemoteService {
       };
       try {
         verify();
-        if (call) await service.markCallDispatched(call.taskId, call.id);
+        if (call) await service.persistDispatchIntent(call.taskId, call.id);
         // No await between this final signal/ownership/eligibility check and next().
         verify();
         if (call) { call.dispatchStarted = true; call.dispatchedAt = new Date().toISOString(); service.#persist(); }
@@ -245,7 +245,7 @@ export class RouterService extends TypertRemoteService {
     await this.#waitBudget(task, call, signal);
     return call.id;
   }
-  async markCallDispatched(taskId, callId) {
+  async persistDispatchIntent(taskId, callId) {
     if (this.#storageError) throw new LlmError('Router storage is unavailable before dispatch', 'MODEL_NOT_FOUND');
     const task = [...this.#active.values()].find(task => task.id === taskId);
     const call = task?.calls.find(call => call.id === callId);
@@ -476,6 +476,13 @@ export async function apply(ctx) {
     if (task.budget?.unenforceableLimits) task.budget.unenforceableLimits = task.budget.unenforceableLimits.map(value => normalizeBudgetConstraint(value, true));
     if (task.budget?.waiting?.blockedBy) task.budget.waiting.blockedBy = task.budget.waiting.blockedBy.map(value => normalizeBudgetConstraint(value));
     for (const event of task.timeline ?? []) if (event.kind === 'budget-wait' && event.blockedBy) event.blockedBy = event.blockedBy.map(value => normalizeBudgetConstraint(value));
+    // 0.3.0 may have persisted its own mistaken zero-consumption restart classification.
+    if (task.lifecycle === 'paused' && task.pauseReason === 'HOST_RESTARTED') {
+      for (const call of task.calls) if (!call.dispatchProtocol && call.status === 'not-dispatched' && call.dispatchState === 'header-confirmed') {
+        call.dispatchUncertain = true; call.status = 'interrupted';
+        if (!call.usage) call.cost = costOf(tokensOf(null), call.priceQuote);
+      }
+    }
   }
   for (const task of state.tasks) if (['running', 'waiting-budget'].includes(task.lifecycle)) {
     task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; task.endedAt = new Date().toISOString();

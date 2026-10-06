@@ -1,12 +1,12 @@
 # T03 任务账本与预算自动化证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.1；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，审查修复时合并 9e553fa。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；0.3.0 和 0.3.1 的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
+目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.2；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 修复基于集成 ad0bb07，提交前合并 ae9c945。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
 
 ## 行为与共享入口
 
 任务在真实 turn/start 创建，steer 和 queue 的归属取自公开 agent/inbox/claimed 的 turn 与消息/request 身份。所有调用保留完整 selection（connectionId、accountId、billingPath、provider、model）、taskId、独立 callId、purpose、稳定配置版本、真实 header/attempt、报价与预留。自动路由不写原生全局默认。
 
-Host-only await reserveCall(taskId, details, signal) → await markCallDispatched(taskId, callId) → settleCall(taskId, callId, settlement) 是统一预算/账本入口。可声明 assessment、execution、review、consultation、retry、redo；这只是公共契约，不产生尚未实现的策略。当前执行和原生 loop retry 实际走相同入口。调用前持久化预留、等待预算；markCallDispatched 必须 await 持久化可能派发意图成功后才允许进入传输，它沿用 reserveCall 内部保存的原 signal，不新增可遗漏的 signal 参数。该意图不证明实际发送。原生流在 await 后同步复查 pending、当前资格和 signal，再消费下游并记录 dispatchStarted；后续 Host-only 调用方也须保留自己负责的最终资格与选择检查。结束时按报告用量结算。并发预留在结算前仍计入预留总数；结算释放后唤醒同任务等待方再检查。未来调用必须沿用该入口，不得另建预算。
+Host-only await reserveCall(taskId, details, signal) → await persistDispatchIntent(taskId, callId) → settleCall(taskId, callId, settlement) 是统一预算/账本入口。可声明 assessment、execution、review、consultation、retry、redo；这只是公共契约，不产生尚未实现的策略。当前执行和原生 loop retry 实际走相同入口。调用前持久化预留、等待预算；persistDispatchIntent 必须 await 持久化可能派发意图成功后才允许进入传输，它沿用 reserveCall 内部保存的原 signal，不新增可遗漏的 signal 参数。该意图不证明实际发送。原生流在 await 后同步复查 pending、当前资格和 signal，再消费下游并记录 dispatchStarted；后续 Host-only 调用方也须保留自己负责的最终资格与选择检查。结束时按报告用量结算。并发预留在结算前仍计入预留总数；结算释放后唤醒同任务等待方再检查。未来调用必须沿用该入口，不得另建预算。
 
 公开预算命令为 setBudgetDefaults(budget)、extendTaskBudget(taskId, extension)、stopTask(taskId)。默认各项不限；修改默认只影响新任务。扩展只能增加仍活动任务的明确上限，保存成功后释放等待，不替换 signal、任务、turn 或 step。停止通过原生 Agent.cancel，属于取消；不能把取消说成可恢复等待。等待期间持久化失败会拒绝等待，使 native turn 终结并显示 STATE_WRITE_FAILED，避免等待泄漏。
 
@@ -67,6 +67,18 @@ Spec P2 的两个完整任务测试分别先红于当前调用和另一并发预
 
 Standards 的结构化限制修复使用 {resource, currency?, kind?, reason}。真实 rc.2 Renderer/RPC 测试从公开快照验证对象字段并检查缺价/金额无法完整执行的页面说明；客户端不拆分编码字符串。历史字符串兼容仅在持久化读取边界处理。
 
-这些新增测试仍通过 SessionController 完整任务、真实 adapter 与公开 Router snapshot 验证；子进程仅控制本地磁盘故障和退出，迁移 fixture 仅还原旧记录形状。没有网络请求、真实凭据、付费消费或 Computer Use。markCallDispatched 的 await 契约供 T12/T16 等 Host 调用方衔接；native pending 的最终检查由调用方所在原生流拥有，不扩展 T18 恢复范围。
+这些新增测试仍通过 SessionController 完整任务、真实 adapter 与公开 Router snapshot 验证；子进程仅控制本地磁盘故障和退出，迁移 fixture 仅还原旧记录形状。没有网络请求、真实凭据、付费消费或 Computer Use。persistDispatchIntent 的 await 契约供 T12/T16 等 Host 调用方衔接；native pending 的最终检查由调用方所在原生流拥有，不扩展 T18 恢复范围。
 
 0.3.1 新增10项派发/迁移/部分金额完整任务测试，真实 Renderer 测试更新结构化限制断言。最终 npm test 50/50；npm run check、npm run bundle、git diff --check 通过。交付包 artifacts/irishwei-dsh-router-0.3.1.tgz，SHA256 `26D6719FEC6710011AA65C8B7AA9FE530B99F48C0AD794558BD441EF7E6690C6`。本页不声明0.3.1已安装、已通过独立复审或已关闭 #4。
+
+## 0.3.2 旧 Host 已保存重启记录的迁移
+
+新增 Spec 回归使用真实0.3.0源码（集成9da3681）完整链路：本地 native adapter 进入1次，派发标记写入 EIO 后进程退出；旧 Host 重启误判 paused/HOST_RESTARTED、Call not-dispatched/header-confirmed、callCount=0/total=0，再经公开 setAutomatic 保存。0.3.1 升级仍误判为零，新增公开 Host 迁移测试先红于 not-dispatched 未变为 interrupted。
+
+test/fixtures/t03-legacy-restarted.json 是上述真实旧 Host 保存的状态，另包含有来源的本地算式报价和预算默认，用于验证原身份、快照、报价及预算不被重置。正常回归直接加载这份记录，不依赖旧 Git 源码存在。修复仅识别无新 dispatchProtocol 且由旧 HOST_RESTARTED 留下的已确认 header 模糊记录；公开快照保留 interrupted、callCount=1、total=null、未知 token/金额调用1。公开保存并再次重启仍保持该纠正，不重放。
+
+同一回归验证明确预算等待/proposed、旧重启 proposed、模型撤销产生的未发 header，以及新 durable-intent-v1 blocked 记录仍为零。没有重置 task/session/call 身份、配置版本、selection、输入、起止时间、报价、Router 快照、预留或预算扩展历史。真实旧源码全链另行复跑，修复后的 Host 升级公开快照同样显示 interrupted/未知。
+
+Standards 的命名修复将 Host-only markCallDispatched 改为 persistDispatchIntent；绑定、原生流、测试调用与当前文档均使用新名，没有误导别名。它只持久化可能派发意图，必须 await；实际下游开始仍由原生流最终同步检查后记录。
+
+最终 npm test 51/51，npm run check、npm run bundle、git diff --check 通过。0.3.2 交付包 artifacts/irishwei-dsh-router-0.3.2.tgz，87007字节，SHA256 `345BD093967335792875D6BA4F57D2F5A0336FE4CB7B6787E12C52F260C8168E`。没有 Computer Use、真实 Desktop 操作、付费请求或凭据操作；本页不声明最终安装宿主验收或独立复审已完成。
