@@ -29,6 +29,8 @@
 
 T03 0.3.4 对 Host 协作者提供 `await reserveCall(taskId, details, signal)` → `streamReservedCall(taskId, callId, request)`，绑定一次精确请求并统一持久化、派发前复查和结算。T12/T13/T16 的判断、评审与咨询不得自行再 persist/settle，也不得只借用相同 session 的原生执行 Call；这个入口不暴露任意调用 RPC。原生执行以实际 Call ID 绑定，辅助标题以实际消息身份归属；主 turn 完成与整体 Task 终结分开，所属辅助 Call 仍等待预算时保留原 Task。停止旧 Task 的辅助调用不能取消同 session 的新 turn。模型撤销或辅助生命周期故障保留主产物和已知消耗，整体暂停并显示原因。
 
+Task保活范围包括尚未返回callId或尚未绑定runner的并发预留阶段；native turn完成不能使同Task等待方失去预算扩展/停止入口。预留失败/取消自动释放自身未发Call，协作者不反查“最后一个Call”手动settle。0.3.5独立复审发现前一种保活遗漏，修复与验证在0.3.6完成后才解除T03前置。
+
 作用域内公开 `ctx.llm` facade 观察辅助流的构造、迭代、关闭和故障，不修改原生 request、brand、signal、waterfall顺序或服务方法。裸公共服务辅助入口无法观察完整生命周期时明确拒绝并显示 AUXILIARY_LIFECYCLE_UNAVAILABLE；无可信归属的 compaction 和已结束Task的手动标题刷新也明确阻止。后续票需要这类功能时须建立可信归属和可观察生命周期，不能用绕过记账的调用来补功能。
 
 T04 已实际验证旧 oh-my-dsh 原包在目标 Desktop 被官方 CLI 与公开 PluginManager 拒绝，无豁免、激活或模型调用。复用决定是继续验证自研候选差异，局部参考咨询形状/纯规则，优先采用各接入票验证过的宿主组件；不移植伪 header、私有流包装、旧 preset 或普通 secret 投影。原包任务及效果未验证，T21 若缺少可比社区基线需明确 baseline unavailable，不把它的失败当作获胜。

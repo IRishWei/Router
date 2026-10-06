@@ -69,3 +69,13 @@ Spec新增P2：外层公开prepend流中间件调用 `next()` 并消费下游至
 独立公开完整任务复现为 `C:\Users\a1500\AppData\Local\Temp\router-review-t03\title-034-next-outer-reject.mjs`。原作者统一修复0.3.5。实际0.3.4安装六项操作及20条历史重启深比较已通过，审查者核对安全证据成立，但不覆盖本新增窗口，#4仍保持打开。
 
 跨ticket接口核对另发现预留清理遗漏：真实 `agent/turn-stopping` 验收gate等待 `reserveCall(review, 原turn signal)`，预算不足时尚未返回callId、runner尚未构造。公开stopTask或原生Controller.cancel后整体paused且原signal已取消、主产物和12 token保留、辅助零派发，但review Call的status/reservation仍waiting。预留入口必须在失败/取消时释放自身未发Call；不能要求T13重复settle，也不能依赖只清理nativeReservation的turn/end。公开完整任务复现及安全JSON为 `C:\Users\a1500\AppData\Local\Temp\router-implementation\t13-review-reserve-cancel-034.{mjs,json}`，固定安装Host构建摘要一致。此项也由原作者在0.3.5统一修复，并交最终Spec复审。
+
+## 0.3.5 修复与复审
+
+固定实现 `24673cf`，集成 `5a24499`。新增15条完整任务回归，全量94/94、check、bundle和差异检查通过。外层终止关闭准确所属内部iterator，guard转发前记录已观察usage；显式prepared中间件隐藏消费也关闭内部资源、一次结算。预留在返回ID前失败/取消由统一入口释放。独立Spec重放0.3.4原窗口与review gate取消，15项针对性检查通过。
+
+Standards：0项硬性违反，1项低优先级判断性Duplicated Code。内部派发与外层输出两观察点的usage/finish记录规则重复；观察点保留，记录规则可提取共用小函数。
+
+Spec新增P2：主Call已预留时，通过公开llm/stream中间件启动并保留同Task的并发consultation reserve，token上限12使其等待。主12完成后，finishTask只检查已绑定流owner，过早删除Task；尚未返回callId的consultation仍waiting/reservation waiting，原signal未取消，extend/stop均拒绝inactive。其后取消也因Task已删无法结算。统一入口已经支持并发预留，不能把新限制推给T13/T16要求其阻止native turn结束；未绑定的等待/已预留Call也必须保留同Task、扩展与停止入口。
+
+独立公开完整任务复现为 `C:\Users\a1500\AppData\Local\Temp\router-review-t03\parallel-reserve-035.mjs`。原作者在0.3.6统一修复该窗口及重复记录规则。0.3.5六项安装操作、26条历史与config46重启深比较通过，但不覆盖此并发未绑定阶段，#4继续保持打开。
