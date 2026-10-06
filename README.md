@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.0.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.3.1.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。
@@ -34,9 +34,9 @@ Host 保存状态至 **DSH_HOME/router/PROFILE/state.json**。页面不是执行
 
 Host 的公开 `router/setPriceQuote` 设置命令接受 provider、model 和报价；当前按已知本地身份或明确标为未知来源的原生身份保存，不能借报价授予连接或调用权限。本地模型只接受 `fixture-reference` 口径，所有试验报价均为明确声明的算式测试数据。连接注册与官方价格发现由后续票实现。
 
-失败或中断调用已报告的用量仍结算；缺失用量、缓存费率、推理重叠或完整价格时保留未知及已知部分。原生模型没有可信的调用预测时不能完整执行对应 token/金额预测上限，页面显示限制；耗时只能在下一调用前检查已耗用时间。实际响应可能超过预留，账本会报告越估算，不承诺请求端或账单的绝对硬上限。
+失败或中断调用已报告的用量仍结算；缺失用量、缓存费率、推理重叠或完整价格时保留未知及已知部分。不完整金额预测仍把当前调用和其他并发预留的同币种、同口径已知下界计入预算，完整金额保持未知。原生模型没有可信的调用预测时不能完整执行对应 token/金额预测上限，页面显示限制；耗时只能在下一调用前检查已耗用时间。实际响应可能超过预留，账本会报告越估算，不承诺请求端或账单的绝对硬上限。
 
-原生 `steer` 补充按已认领消息归当前任务；`queue` 输入属于后续 turn 和新任务。预算等待不取消 signal，取消后不存在公开的原 turn 恢复入口。重启中的未完成任务标记 `HOST_RESTARTED`，不自动重复请求；跨取消/重启恢复属于 T18。
+原生 `steer` 补充按已认领消息归当前任务；`queue` 输入属于后续 turn 和新任务。预算等待不取消 signal，取消后不存在公开的原 turn 恢复入口。0.3.1 在允许下游请求前持久化可能派发的意图，写入失败不进入 adapter；写盘等待结束后再次检查原 signal、模型资格和原生待执行选择。重启中的未完成任务标记 `HOST_RESTARTED`，不自动重复请求。只有可能派发意图、或 0.3.0 中无法证明未发送的已确认 header 时，保留未知消耗，页面明确说明实际发送无法确认；有明确未发送证据的记录仍为零。跨取消/重启恢复属于 T18。
 
 ## 开发验证
 
@@ -52,4 +52,4 @@ npm run bundle
 
 客户端回归通过实际 rc.2 Slot renderer、Typert registry 和 API gateway 挂载设置页，检查任务显示、暂停 RPC、卸载和重新启用；仅 Connection 传输与 DOM 挂载使用测试边界。`node scripts/reproduce-client-mount.mjs` 可输出挂载错误、RPC endpoint 和渲染树。0.1.2 修复设置项访问 `remote.router` 时遗漏 Cordis 依赖声明导致的空白页，已在实际目标桌面确认恢复。
 
-跨票公共记录保留 task/session/call 身份、完整连接与计费来源 selection、请求配置、Router 配置快照、配置版本、执行状态与独立验收状态。Host-only `reserveCall` → `markCallDispatched` → `settleCall` 是后续判断、执行、评审、咨询、retry 和 redo 的统一记账入口，不能绕过任务预算，也不授予模型授权。当前实际生成执行与原生 retry；其他策略调用由后续票实现。T03 自动化证据见 `docs/implementation/t03-budget-evidence.md`，目标安装宿主由集成分支另行验收。
+跨票公共记录保留 task/session/call 身份、完整连接与计费来源 selection、请求配置、Router 配置快照、配置版本、执行状态与独立验收状态。Host-only `await reserveCall(taskId, details, signal)` → `await markCallDispatched(taskId, callId)` → `settleCall(taskId, callId, settlement)` 是后续判断、执行、评审、咨询、retry 和 redo 的统一记账入口，不能绕过任务预算，也不授予模型授权。`markCallDispatched` 必须 await 成功后才允许进入传输；它复查 reserveCall 保存的原 signal 并持久化可能派发意图，不证明实际发送。原生流在返回后立即同步复查 pending、资格和 signal，再消费下游；后续 Host 调用方同样要保留自己负责的最终资格与原生选择检查。限制记录使用 `{resource, currency?, kind?, reason}` 字段，客户端按字段展示。当前实际生成执行与原生 retry；其他策略调用由后续票实现。T03 自动化证据见 `docs/implementation/t03-budget-evidence.md`，目标安装宿主由集成分支另行验收。

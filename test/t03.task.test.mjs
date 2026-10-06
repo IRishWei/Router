@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, rename } from 'node:fs/promises';
+import { mkdtemp, rm, readFile, writeFile, rename } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { startNative, submit } from './t02-harness.mjs';
 import { LlmAdapter } from '@deepseek-ai/dsh-llm';
 
@@ -179,7 +180,7 @@ test('known failed usage and unknown failed usage remain distinct across native 
     assert.equal(task.ledger.money[0].amount, null);
     assert.equal(task.ledger.money[0].knownSubtotal, 0.000062);
     assert.equal(task.ledger.money[0].unknownCalls, 1);
-    assert.match(task.budget.unenforceableLimits.join(' '), /unknown usage or forecast/);
+    assert.ok(task.budget.unenforceableLimits.some(limit => limit.resource === 'tokens' && limit.reason === 'UNKNOWN_USAGE_OR_FORECAST'));
     assert.ok(task.calls.every(call => call.accountingEntry === 'task-call-v1' && call.taskId === task.id && call.reservation.state === 'settled'));
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
@@ -225,7 +226,7 @@ test('a reference-money limit waits before dispatch and changing price cannot re
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     run = submit(ctx, sessionId, 'Reply MONEY_RESUMED');
     const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'waiting-budget')).tasks.at(-1);
-    assert.deepEqual(waiting.budget.waiting.blockedBy, ['money:USD:fixture-reference']);
+    assert.deepEqual(waiting.budget.waiting.blockedBy, [{ resource: 'money', currency: 'USD', kind: 'fixture-reference', reason: 'EXPECTED_LIMIT_EXCEEDED' }]);
     assert.equal(ctx.sessions.get(sessionId).requestHeader(), undefined);
     await ctx.router.setPriceQuote('router-controlled', 'controlled', { ...quote, perMillion: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 } });
     await ctx.router.extendTaskBudget(waiting.id, { money: [{ currency: 'USD', kind: 'fixture-reference', amount: 0.00002 }] });
@@ -282,7 +283,7 @@ test('a time limit waits before dispatch and an explicit time extension preserve
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     run = submit(ctx, sessionId, 'Reply TIME_EXTENDED');
     const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'waiting-budget')).tasks.at(-1);
-    assert.deepEqual(waiting.budget.waiting.blockedBy, ['durationMs']);
+    assert.deepEqual(waiting.budget.waiting.blockedBy, [{ resource: 'durationMs', reason: 'ELAPSED_LIMIT_EXCEEDED' }]);
     assert.equal(ctx.sessions.get(sessionId).requestHeader(), undefined);
     await ctx.router.extendTaskBudget(waiting.id, { durationMs: 60_000 });
     const task = await run;
@@ -338,4 +339,161 @@ test('a failed budget-extension write releases the waiting native turn without d
     if (run) { ctx.agents.get((await ctx.router.snapshot()).tasks.at(-1)?.sessionId)?.cancel({ kind: 'user' }); await run.catch(() => {}); }
     await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true });
   }
+});
+
+test('a dispatch-intent write failure cannot enter the real native adapter', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-intent-eio-'));
+  try {
+    const child = spawnSync(process.execPath, ['test/t03-dispatch-child.mjs'], { cwd: process.cwd(), env: { ...process.env, ROUTER_TEST_HOME: home, ROUTER_TEST_MODE: 'write-failure' }, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(child.status, 0, child.stderr);
+    const result = JSON.parse(child.stdout.trim());
+    assert.equal(result.adapterEntries, 0);
+    assert.equal(result.task.pauseReason, 'STATE_WRITE_FAILED');
+    assert.equal(result.task.result, '');
+  } finally { await rm(home, { recursive: true, force: true }); }
+});
+
+test('a crash after real adapter entry reloads possible consumption as unknown and never replays', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-adapter-crash-'));
+  let ctx;
+  try {
+    const child = spawnSync(process.execPath, ['test/t03-dispatch-child.mjs'], { cwd: process.cwd(), env: { ...process.env, ROUTER_TEST_HOME: home, ROUTER_TEST_MODE: 'adapter-crash' }, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(child.status, 0, child.stderr);
+    assert.equal(JSON.parse(child.stdout.trim()).adapterEntries, 1);
+    ctx = await startNative(home);
+    const task = (await ctx.router.snapshot()).tasks.at(-1);
+    assert.equal(task.pauseReason, 'HOST_RESTARTED');
+    assert.equal(task.calls[0].status, 'interrupted');
+    assert.equal(task.ledger.callCount, 1);
+    assert.equal(task.ledger.tokens.total, null);
+    assert.equal(task.ledger.unknownTokenCalls.total, 1);
+    assert.equal(task.result, '');
+  } finally { if (ctx) await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('an unpersisted not-sent clarification stays unknown after a crash', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-clear-crash-'));
+  let ctx;
+  try {
+    const child = spawnSync(process.execPath, ['test/t03-dispatch-child.mjs'], { cwd: process.cwd(), env: { ...process.env, ROUTER_TEST_HOME: home, ROUTER_TEST_MODE: 'blocked-clear-crash' }, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(child.status, 0, child.stderr);
+    const result = JSON.parse(child.stdout.trim());
+    assert.equal(result.adapterEntries, 0);
+    assert.equal(result.task.calls[0].dispatchIntent, 'blocked');
+    assert.equal(result.task.ledger.callCount, 0);
+    ctx = await startNative(home);
+    const task = (await ctx.router.snapshot()).tasks.at(-1);
+    assert.equal(task.calls[0].dispatchIntent, 'possible');
+    assert.equal(task.ledger.tokens.total, null);
+    assert.equal(task.ledger.callCount, 1);
+    assert.equal(task.ledger.uncertainDispatchCalls, 1);
+  } finally { if (ctx) await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const concurrent of [false, true]) test(`a partial money forecast counts its known lower bound${concurrent ? ' and another held partial reservation' : ''}`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-partial-money-'));
+  const ctx = await startNative(home);
+  let run, signal;
+  try {
+    await ctx.router.setPriceQuote('router-controlled', 'controlled', { source: 'Local partial forecast worked example', date: '2026-10-07', currency: 'USD', kind: 'fixture-reference', confidence: 'declared', perMillion: { input: 2, output: 6 }, reasoning: 'included-in-output' });
+    await ctx.router.setBudgetDefaults({ tokens: null, durationMs: null, money: [{ currency: 'USD', kind: 'fixture-reference', amount: concurrent ? 0.0003 : 0.00004 }] });
+    ctx.on('agent/request', (request, next) => { signal = request.signal; return next(); });
+    ctx.tools.register({ name: 'router_test_wait', description: 'Controlled accounting boundary', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() {
+      const task = (await ctx.router.snapshot()).tasks.at(-1);
+      const common = { purpose: 'consultation', selection: task.activeSelection, routerSnapshot: task.calls[0].routerSnapshot };
+      const ids = [await ctx.router.reserveCall(task.id, { ...common, forecast: { inputTokens: 100, outputTokens: 10, cacheReadTokens: 5, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 115 } }, signal)];
+      if (concurrent) ids.push(await ctx.router.reserveCall(task.id, { ...common, forecast: { inputTokens: 10, outputTokens: 0, cacheReadTokens: 5, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 15 } }, signal));
+      for (const id of ids) {
+        await ctx.router.markCallDispatched(task.id, id);
+        ctx.router.settleCall(task.id, id, { status: 'completed', usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 0 }, finishReason: 'stop' });
+      }
+      return 'TOOL_OK';
+    } });
+    ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, '[router:tool]\nReply PARTIAL_MONEY');
+    const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.filter(call => call.purpose === 'consultation').length >= (concurrent ? 2 : 1))).tasks.at(-1);
+    assert.equal(waiting.lifecycle, 'waiting-budget');
+    assert.equal(waiting.budget.waiting.proposedMoney.amount, null);
+    assert.ok(Math.abs(waiting.budget.waiting.proposedMoney.knownSubtotal - (concurrent ? 0.00002 : 0.00026)) < 1e-15);
+    assert.equal(waiting.ledger.money[0].amount, 0.00004);
+    assert.deepEqual(waiting.budget.waiting.blockedBy, [{ resource: 'money', currency: 'USD', kind: 'fixture-reference', reason: 'EXPECTED_LIMIT_EXCEEDED' }]);
+    await ctx.router.extendTaskBudget(waiting.id, { money: [{ currency: 'USD', kind: 'fixture-reference', amount: concurrent ? 0.00004 : 0.00027 }] });
+    const task = await run;
+    assert.equal(task.id, waiting.id);
+    assert.equal(task.result, 'PARTIAL_MONEY');
+    assert.equal(task.calls[1].reservation.money.amount, null);
+  } finally {
+    if (run) { ctx.agents.get((await ctx.router.snapshot()).tasks.at(-1)?.sessionId)?.cancel({ kind: 'user' }); await run.catch(() => {}); }
+    await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true });
+  }
+});
+
+for (const scenario of ['revoke', 'native-pending', 'abort']) test(`the durable-intent wait rechecks ${scenario} before downstream consumption`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-intent-window-'));
+  const entered = Promise.withResolvers(), release = Promise.withResolvers();
+  let held = false, run, command, signal, sessionId, taskId, sends = 0;
+  const ctx = await startNative(home, { files: { rename, async writeFile(path, data, options) {
+    const call = JSON.parse(data).tasks.at(-1)?.calls.at(-1);
+    if (!held && call?.dispatchIntent === 'possible' && !call.dispatchStarted) { held = true; entered.resolve(); await release.promise; }
+    return writeFile(path, data, options);
+  } } });
+  try {
+    ctx.on('agent/request', async (request, next) => { signal = request.signal; const config = await next(); taskId = (await ctx.router.snapshot()).tasks.at(-1).id; return config; });
+    ctx.on('llm/stream', async function* (_request, next) { sends++; yield* next(); });
+    ({ sessionId } = await ctx.sessionController.create({ cwd: home }));
+    run = submit(ctx, sessionId, 'Reply SHOULD_NOT_DISPATCH');
+    await entered.promise;
+    if (scenario === 'revoke') command = ctx.router.removeModel('controlled');
+    if (scenario === 'native-pending') await ctx.sessionController.selectModel({ sessionId, provider: 'router-controlled', model: 'controlled-tools' });
+    if (scenario === 'abort') command = ctx.router.stopTask(taskId);
+    release.resolve(); if (command) await command;
+    const task = await run;
+    assert.equal(sends, 0);
+    assert.equal(task.result, '');
+    assert.equal(task.pauseReason, scenario === 'revoke' ? 'MODEL_REMOVED' : scenario === 'native-pending' ? 'NATIVE_SELECTION_CHANGED' : 'BUDGET_STOPPED');
+    assert.equal(task.ledger.callCount, 0);
+    assert.equal(signal.aborted, scenario === 'abort');
+    if (scenario === 'native-pending') assert.equal(ctx.sessionProjections.stateOf(ctx.sessions.get(sessionId), 'modelSelection').pending.model, 'controlled-tools');
+  } finally {
+    release.resolve(); if (command) await command.catch(() => {});
+    if (run) { ctx.agents.get(sessionId)?.cancel({ kind: 'user' }); await run.catch(() => {}); }
+    await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true });
+  }
+});
+
+for (const legacy of [false, true]) test(`restart retains unknown consumption for ${legacy ? 'a legacy 0.3.0 ambiguous header' : 'a durable intent before adapter entry'}`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-intent-crash-'));
+  let ctx;
+  try {
+    const child = spawnSync(process.execPath, ['test/t03-dispatch-child.mjs'], { cwd: process.cwd(), env: { ...process.env, ROUTER_TEST_HOME: home, ROUTER_TEST_MODE: 'intent-crash' }, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(child.status, 0, child.stderr);
+    assert.equal(JSON.parse(child.stdout.trim()).adapterEntries, 0);
+    if (legacy) {
+      const path = join(home, 'router', 'test', 'state.json');
+      const state = JSON.parse(await readFile(path, 'utf8'));
+      const call = state.tasks.at(-1).calls[0];
+      delete call.dispatchProtocol; delete call.dispatchIntent; delete call.dispatchIntentAt;
+      state.tasks.at(-1).budget.unenforceableLimits = ['tokens: unknown usage or forecast; only known consumption is enforceable', 'money:USD:api-calculated: unknown usage, missing price or different currency; amount forecast cannot be enforced'];
+      const notSent = structuredClone(state.tasks.at(-1));
+      notSent.id = 'legacy-explicit-not-sent'; notSent.lifecycle = 'paused'; notSent.pauseReason = 'BUDGET_STOPPED'; notSent.endedAt = notSent.startedAt;
+      notSent.calls[0].taskId = notSent.id; notSent.calls[0].status = 'not-dispatched'; notSent.calls[0].dispatchState = 'proposed'; notSent.calls[0].reservation.state = 'released';
+      state.tasks.unshift(notSent);
+      await writeFile(path, JSON.stringify(state));
+    }
+    ctx = await startNative(home);
+    const task = (await ctx.router.snapshot()).tasks.at(-1);
+    assert.equal(task.pauseReason, 'HOST_RESTARTED');
+    assert.equal(task.calls[0].status, 'interrupted');
+    assert.equal(task.ledger.callCount, 1);
+    assert.equal(task.ledger.tokens.total, null);
+    assert.equal(task.ledger.unknownTokenCalls.total, 1);
+    if (legacy) assert.deepEqual(task.budget.unenforceableLimits, [{ resource: 'tokens', reason: 'UNKNOWN_USAGE_OR_FORECAST' }, { resource: 'money', currency: 'USD', kind: 'api-calculated', reason: 'UNKNOWN_PRICE_USAGE_OR_CURRENCY' }]);
+    if (legacy) {
+      const notSent = (await ctx.router.snapshot()).tasks.find(task => task.id === 'legacy-explicit-not-sent');
+      assert.equal(notSent.calls[0].status, 'not-dispatched');
+      assert.equal(notSent.ledger.callCount, 0);
+      assert.equal(notSent.ledger.tokens.total, 0);
+    }
+  } finally { if (ctx) await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });

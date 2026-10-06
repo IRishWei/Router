@@ -54,6 +54,7 @@ test('the real settings facade saves budgets, extends one waiting task, displays
     await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [{ currency: 'USD', kind: 'api-calculated', amount: 0 }] });
     const unknown = await submit(ctx, sessionId, 'Reply UNKNOWN_MONEY');
     assert.equal(unknown.ledger.unknownPriceCalls, 1);
+    assert.deepEqual(unknown.budget.unenforceableLimits, [{ resource: 'money', currency: 'USD', kind: 'api-calculated', reason: 'UNKNOWN_PRICE_USAGE_OR_CURRENCY' }]);
     await click('任务记录'); await click('刷新任务记录');
     assert.match(JSON.stringify(page.toJSON()), /缺少价格，费用未知/);
     assert.match(JSON.stringify(page.toJSON()), /无法完整执行金额上限/);

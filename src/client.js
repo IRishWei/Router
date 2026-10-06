@@ -16,8 +16,8 @@ window.__ModuleLoader__.load({
       BUDGET_STOPPED: '用户已停止此任务；已报告的消耗保留。',
     };
     const amountKind = kind => ({ 'api-calculated': '计算费用', 'subscription-reference': '订阅参考价值', 'fixture-reference': '本地 fixture 参考值' })[kind] ?? '未知费用';
-    const budgetReason = value => value === 'tokens' ? 'token 上限' : value === 'durationMs' ? '耗时上限' : value.startsWith('money:') ? `${value.split(':')[1]} ${amountKind(value.split(':')[2])}上限` : value;
-    const budgetWarning = value => value.startsWith('tokens:') ? 'token 用量或预测不完整，只能检查已知消耗。' : value.startsWith('durationMs:') ? '下一次调用耗时未知，只能检查已耗用时间；运行中的调用可能超过估算。' : value.startsWith('money:') ? `${value.split(':')[1]} ${amountKind(value.split(':')[2])}缺少适用报价、完整用量或同币种预测，无法完整执行金额上限。` : value;
+    const budgetReason = value => value.resource === 'tokens' ? 'token 上限' : value.resource === 'durationMs' ? '耗时上限' : value.resource === 'money' ? `${value.currency} ${amountKind(value.kind)}上限` : '预算限制';
+    const budgetWarning = value => value.reason === 'UNKNOWN_USAGE_OR_FORECAST' ? 'token 用量或预测不完整，只能检查已知消耗。' : value.reason === 'UNKNOWN_NEXT_CALL_DURATION' ? '下一次调用耗时未知，只能检查已耗用时间；运行中的调用可能超过估算。' : value.reason === 'UNKNOWN_PRICE_USAGE_OR_CURRENCY' ? `${value.currency} ${amountKind(value.kind)}缺少适用报价、完整用量或同币种预测，无法完整执行金额上限。` : '旧记录的预算限制无法确认。';
     const number = value => value === null || value === undefined ? '未知' : String(value);
     const field = (label, value, update, disabled, props = {}) => h('label', { style: { display: 'block', margin: '8px 0' } }, `${label} `, h('input', { 'aria-label': label, value, disabled, onChange: event => update(event.target.value), ...props }));
     function BudgetEditor({ budget, disabled, save }) {
@@ -48,7 +48,7 @@ window.__ModuleLoader__.load({
       return h('div', null,
         h('p', null, `任务预算：token ${limits.tokens === null ? '不限' : limits.tokens} · 耗时 ${limits.durationMs === null ? '不限' : `${limits.durationMs / 1000} 秒`}${task.lifecycle === 'waiting-budget' ? ' · 预算等待：下一次调用尚未发送' : ''}`),
         ...limits.money.map(item => h('p', { key: `${item.currency}:${item.kind}` }, `${amountKind(item.kind)}上限：${item.currency} ${item.amount}`)),
-        ...(task.budget.unenforceableLimits ?? []).map(reason => h('p', { key: reason, role: 'status' }, budgetWarning(reason))),
+        ...(task.budget.unenforceableLimits ?? []).map(reason => h('p', { key: `${reason.resource}:${reason.currency ?? ''}:${reason.kind ?? ''}:${reason.reason}`, role: 'status' }, budgetWarning(reason))),
         task.budget.waiting && active ? h('p', null, `等待原因：${task.budget.waiting.blockedBy.map(budgetReason).join('、')} · 下次预留 token ${number(task.budget.waiting.proposedTokens)}`) : null,
         active ? h('fieldset', { disabled }, h('legend', null, '扩展或停止当前任务'),
           limits.tokens !== null ? field(`增加 token ${task.id}`, tokens, setTokens, disabled, { type: 'number', min: 1, step: 1 }) : null,
@@ -69,6 +69,7 @@ window.__ModuleLoader__.load({
       return h('div', null,
         h('p', null, `token：${number(ledger.tokens.total)}${ledger.tokens.total === null ? `（已知部分 ${ledger.knownTokens.total}）` : ''} · 输入 ${number(ledger.tokens.input)} · 输出 ${number(ledger.tokens.output)} · 缓存读 ${number(ledger.tokens.cacheRead)} · 缓存写 ${number(ledger.tokens.cacheWrite)} · 推理 ${number(ledger.tokens.reasoning)}`),
         h('p', null, `耗时：${(ledger.elapsedMs / 1000).toFixed(3)} 秒 · 记账调用 ${ledger.callCount}`),
+        ledger.uncertainDispatchCalls ? h('p', null, `${ledger.uncertainDispatchCalls} 次调用仅保留可能派发的意图；是否实际发送及消耗未知，不能按零计算。`) : null,
         ...ledger.money.map(item => h('p', { key: `${item.currency}:${item.kind}` }, `${amountKind(item.kind)}：${item.currency} ${number(item.amount)}${item.amount === null ? `（已知部分 ${item.knownSubtotal}；${item.unknownCalls} 次用量未完整）` : ''} · 估算，账单未确认`)),
         ledger.unknownPriceCalls ? h('p', null, `${ledger.unknownPriceCalls} 次调用缺少价格，费用未知，不能按零支出或执行完整金额上限。`) : null,
         ...task.calls.map(call => h('details', { key: call.id }, h('summary', null, `${call.purpose} · ${call.selection.provider}/${call.selection.model} · ${call.status}`),
