@@ -438,7 +438,14 @@ test('credential replacement revokes the mounted generation instead of rebinding
       endpoint: { kind: 'controlled-test', baseURL: endpoint.baseURL },
     });
     const prepared = await ctx.llm.prepareCall({ provider: provider.metadata.provider, model: 'deepseek-flash', reasoningEffort: 'off', maxTokens: 8 });
-    await storeDeepSeekApiKey(ctx.credentials, accountId, 'credential-generation-two');
+    await assert.rejects(
+      storeDeepSeekApiKey(ctx.credentials, accountId, 'credential-generation-two'),
+      /new account binding/,
+    );
+    await ctx.credentials.modifyRecord(deepSeekCredentialKey(accountId), async () => ({
+      kind: 'api-key',
+      key: 'credential-generation-two',
+    }));
     const chunks = [];
     for await (const chunk of prepared.stream({
       ...prepared.config,

@@ -66,7 +66,12 @@ export function deepSeekCredentialKey(accountId) {
 export async function storeDeepSeekApiKey(credentials, accountId, rawApiKey) {
   const key = deepSeekCredentialKey(accountId);
   const apiKey = assertUsableApiKey(rawApiKey, 'dsh-router', String(key));
-  await credentials.modifyRecord(key, async () => ({ kind: 'api-key', key: apiKey }));
+  await credentials.modifyRecord(key, async current => {
+    if (current !== undefined) {
+      throw new TypeError('an existing DeepSeek credential cannot be replaced; create a new account binding');
+    }
+    return { kind: 'api-key', key: apiKey };
+  });
 }
 
 export async function describeDeepSeekCredential(credentials, accountId) {

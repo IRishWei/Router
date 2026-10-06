@@ -1,9 +1,8 @@
-# T05 DeepSeek API：Phase 1 受控证据
+# T05 DeepSeek API：Provider 与 Router Task 受控证据
 
-2026-10-07，基于集成提交 `98a0338` 和目标 Host 匹配的正式
-`@deepseek-ai/dsh-llm-deepseek@0.2.0-rc.2`。本阶段只建立独立
-DeepSeek 连接、目录和凭据模块；尚未接入共享 candidate registry、
-Controller、Renderer 或完整 Router Task。
+2026-10-07，Phase 1 基于 `98a0338` 建立 provider，Phase 2 合入已验收的
+T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
+`@deepseek-ai/dsh-llm-deepseek@0.2.0-rc.2`。
 
 ## 已实现边界
 
@@ -23,6 +22,14 @@ Controller、Renderer 或完整 Router Task。
 - 本模块的字符串 `credentialGeneration` 只标识凭据装载代次。阶段 2 由单一
   adapter 投影为 T08 registry schema，并独立生成其正整数 `authEpoch`；本模块
   metadata 不复制 candidate snapshot schema。
+- `deepseek-router.mjs` 将安全 metadata 一次性投影到公开 `registerOwned`
+  schema；候选默认禁用，由 Router 的公开方法显式启用并固定后才能执行。
+- 同一 `accountId` 的 credential 写入是 create-only。未知新 key 必须使用新
+  binding，因此产生新 provider/candidate 且不继承旧 pool 许可；删除旧 key
+  会撤销 provider generation 并 tombstone 旧 candidate。
+- 完整 Task 通过真实 rc.2 adapter 和本地 HTTP/SSE 执行。无价格时每个主调用
+  与标题调用仍分别记入账本，费用保持 unknown；401、Task stop、重启和凭据
+  撤销都保留逐 Call 证据。
 
 ## 自动验证
 
@@ -36,8 +43,8 @@ Controller、Renderer 或完整 Router Task。
 
 ## 尚未完成
 
-T08 共享 registry 通过最终复审并合入 integration 后，需将本模块的安全
-metadata 接入真实 `registerOwned`，再迁移共享 Controller/Renderer。最终
-必须通过完整 Task 的预算、账本、身份和实际请求一致性测试；目标 Desktop
-还需用户在安全界面选择凭据并授权一次有限预算真实请求。完成这些门槛前，
-受控 SSE 不认证真实 DeepSeek API，T05/#6 保持打开。
+共享设置/Renderer 尚需提供“保存 credential binding”和“显式启用 candidate”
+两个独立动作。目录 GET 只展示非秘密 metadata；任何检测 POST 必须由用户
+显式触发、使用有限预算并进入 Router Task 账本。目标 Desktop 还需用户在
+安全界面选择凭据并授权一次有限预算真实请求。完成这些门槛前，受控 SSE
+不认证真实 DeepSeek API，T05/#6 保持打开。
