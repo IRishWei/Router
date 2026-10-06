@@ -1,6 +1,6 @@
 # Ticket 衔接与执行边界
 
-2026-10-07 核对 GitHub #2—#25：24 张票的正文与本地发布快照一致，36 条原生阻塞关系一致且无环。当前可开工的是 T01/#2；ready-for-agent 不表示前置已完成。
+2026-10-07 核对 GitHub #2—#25：24 张票的正文与本地发布快照一致，36 条原生阻塞关系一致且无环。T01/#2 已通过真实桌面验收并关闭，当前前沿为 T02/#3；ready-for-agent 不表示前置已完成。
 
 ## 共享契约
 
@@ -23,7 +23,7 @@
 
 ## 目标宿主的选择边界
 
-目标为 Windows DSH Desktop 0.2.0-rc.2，安装包 build `04f392c9ddd144fa426da2045178797da6db6c11`，内置 Cordis 4.0.4，Host protocol 4。这是安装包源码证据，还需运行验证。
+目标为 Windows DSH Desktop 0.2.0-rc.2，安装包 build `04f392c9ddd144fa426da2045178797da6db6c11`，内置 Cordis 4.0.4，Host protocol 4。T01 已完成本目标的真实运行验证，证据见 `t01-host-evidence.md`；新增路由行为仍需各票独立验证。
 
 `agent/request` waterfall 位于 `llm.prepareCall()` 和持久化 `request/header` 之前，是应用 provider/model 选择的公开边界。`llm/stream` 已绑定适配器及完整请求配置；在该事件临时替换模型会造成配置不匹配。T01 必须验证真实请求、持久化日志、session 展示之间的协同，再确定后续路由使用的入口。
 
