@@ -42,7 +42,7 @@ class ReviewFixture extends LlmAdapter {
             findings: input.requirements.map(rule => verdict === 'null-finding' ? null : ({
               requirementId: rule.id,
               verdict: ['extra-top-level', 'extra-finding'].includes(verdict) ? 'passed' : verdict,
-              artifactQuote: 'ARTICLE',
+              artifactQuote: input.artifact.text,
               explanation: 'Controlled rubric evidence; no empirical quality claim.',
               ...(verdict === 'extra-finding' ? { overrideVerdict: 'passed' } : {}),
             })),
@@ -562,6 +562,39 @@ for (const action of ['extend', 'stop']) test(`a review budget wait preserves th
       assert.equal(reviewCall.status, 'not-dispatched');
       assert.equal(reviewCall.reservation.state, 'released');
     }
+  } finally { if (run) await run.catch(() => {}); registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('a real steer during review waiting supersedes the old artifact and reassesses the same Task', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t13-review-steer-'));
+  const ctx = await startNative(home);
+  const adapter = new ReviewFixture();
+  ctx.llm.registerAdapter(['review-steer'], adapter);
+  const registered = await enableReviewCandidate(ctx, 'review-steer');
+  const acceptance = new AcceptanceCoordinator(ctx, { captureCandidate: captureRegisteredCandidate(ctx), review: { enabled: true, candidateId: registered.candidateId, allowCrossModelReview: true, maxTokens: 256, forecast: { totalTokens: 256 } } });
+  let run;
+  try {
+    await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, 'Reply ORIGINAL\n仅检查以下明确要求：\n评审标准：「正文说明测试约束」。');
+    const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
+    await ctx.sessionController.prompt({ sessionId, requestId: 'acceptance-steer', mode: 'steer', content: [{ type: 'text', text: 'Reply CORRECTED\n仅检查以下明确要求：\n正文必须包含「CORRECTED」。' }] }, new AbortController().signal);
+    await ctx.router.extendTaskBudget(waiting.id, { tokens: 512 });
+    const task = await run;
+    const result = acceptance.getResult(task.id);
+    assert.equal(task.id, waiting.id);
+    assert.equal(task.result, 'ORIGINALCORRECTED');
+    assert.equal(result.artifact.text, 'CORRECTED');
+    assert.equal(result.verdict, 'passed');
+    assert.equal(result.requirements.length, 2);
+    assert.equal(result.requirements.some(requirement => requirement.origin.requestId === 'acceptance-steer'), true);
+    assert.equal(result.history.length, 1);
+    assert.equal(result.history[0].phase, 'superseded');
+    assert.equal(result.history[0].supersededReason, 'next-step-pending');
+    assert.equal(result.history[0].artifact.text, 'ORIGINAL');
+    assert.equal(result.history[0].verdict, 'unconfirmed');
+    assert.deepEqual(task.calls.map(call => call.purpose), ['execution', 'review', 'execution', 'review']);
+    assert.equal(adapter.reviews.length, 2);
   } finally { if (run) await run.catch(() => {}); registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 

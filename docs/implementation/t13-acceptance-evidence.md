@@ -25,10 +25,10 @@
 
 评审测试通过 T08 `registerOwned` 注册并由用户配置启用受控候选，再经 T12 已合入的唯一 Host-only `router.captureCandidate`、统一 reserve/stream runner 完成同一 Task 的 Call 和 ledger。覆盖单次成功、高风险冲突、无效 JSON、JSON `null`、`null` finding 及顶层/finding 额外字段一次复核；review JSON 只接受协议列出的精确字段。另覆盖跨模型未授权零调用、token cap/forecast 不匹配零调用、传输失败暂停、预算等待后候选撤销零派发、扩展后继续及停止释放。两次评审 Call 持久化后实际重启 Router Host 并重建 coordinator，重放验收 event seam 不会重新 capture 或发起第三次调用，证据明确标记 `REVIEW_ATTEMPT_LIMIT`。评审输入不含 provider/model、账号、连接、计费、费用、策略、配置版本或要求来源；主产物在预算停止、资格撤销和传输失败后仍保留。
 
-其余完整任务测试覆盖明确写作成功、Unicode code point 长度、结构失败、禁止项失败、部分覆盖、确定性失败不触发 review，以及真实工具 step 后只检查最终产物。所有 provider 均为本地受控 fixture，无网络、凭据或付费调用。
+其余完整任务测试覆盖明确写作成功、Unicode code point 长度、结构失败、禁止项失败、部分覆盖、确定性失败不触发 review，以及真实工具 step 后只检查最终产物。真实 Controller steer 在 review 预算等待期间进入同一 Task；旧产物结论保留为 superseded 历史，新产物与新要求重新检查，且整个 Task 仍受两次 review Call 上限约束。所有 provider 均为本地受控 fixture，无网络、凭据或付费调用。
 
 ## 尚未整合
 
-共享 `src/index.mjs` 接线、RPC/Renderer 展示、真实 Controller 驱动的重启再评估、steer/supersede 的整合测试与实际 Desktop 验收仍待后续。独立模块已消费现有 `exactTask`/`publishAcceptance`，并在完整任务测试中直接使用唯一 Host-only `router.captureCandidate`；不保留第二套快照投影。
+共享 `src/index.mjs` 接线、RPC/Renderer 展示、真实 Controller 驱动的重启再评估与实际 Desktop 验收仍待后续。独立模块已消费现有 `exactTask`/`publishAcceptance`，并在完整任务测试中直接使用唯一 Host-only `router.captureCandidate`；不保留第二套快照投影。
 
 本模块不注入自修消息：rc.2 没有 Router self-repair 的已声明 MessageSourceKind，不能把插件提示伪装成用户来源。一次自修协调、真实来源类型和 attempts 归 T16/共享 Host coordinator；T13 只提供稳定 blocking/repairable/selfRepairAttempted 字段，避免两个模块各自重复“首次修复”。上述共享接线和验收完成前不能单独关闭 #14。
