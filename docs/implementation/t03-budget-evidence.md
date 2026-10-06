@@ -1,6 +1,6 @@
 # T03 任务账本与预算自动化证据
 
-目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.4；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
+目标：Windows DSH Desktop 0.2.0-rc.2、Cordis 4.0.4、Host protocol 4。当前版本 0.3.5；工作分支 codex/router-t03 从集成 189418b 创建，初次提交前合并 0d0295e，0.3.1 审查修复时合并 9e553fa，0.3.2 提交前合并 ae9c945，0.3.3 修复合并47561d4，0.3.4 修复合并a3f3fed。T01/T02 已完成目标宿主验收，本页覆盖 T03 的自动化完整任务与真实 Renderer/RPC；各版本的目标安装宿主验收由 root 单独记录，不把本页当作已安装的证明。
 
 ## 行为与共享入口
 
@@ -118,3 +118,22 @@ Spec的两项P2通过真实rc.2三个Title模块完整任务先红：预算等�
 Standards所指出的历史歧义判断提取为legacyDispatchIsAmbiguous；两条迁移分支保留各自not-dispatched/prepared条件，原旧输入迁移与v2明确未发边界继续测试。
 
 提交前合并集成a3f3fed。最终npm test 79/79（增加12项完整任务故障/生命周期回归）、npm run check、npm run bundle及git diff --check通过。交付artifacts/irishwei-dsh-router-0.3.4.tgz，91437字节，SHA256 `8FC8D8805A0D448000337C190C04C78E6D848A1D82F8E9955B3FD779F91A253C`。没有Computer Use、真实Desktop、用户凭据或付费请求；固定提交之后由集成owner进行独立双轴复审及实际安装RPC验收，本页不将方案认可当作复审通过。
+
+## 0.3.5 已开始内部流的准确关闭与预留取消
+
+Spec 新 P2 的真实三个 rc.2 Title 模块完整任务先红：public prepend llm/stream 在原标题入口手动调用 downstream.next() 读到 usage12，然后抛错但不委托内部 return；主原生 turn 已完成，原标题 fallback，Task 一直 running，辅助 usage 留空。新增回归先失败于公开 Task 始终不能暂停。修复记录本入口实际持有的内部迭代器，在外层 reject/done/return/throw、原 signal 或 Task 停止时关闭这些迭代器，等待所属 Call 一次结算后释放归属；不靠 deadline 必然取消，也不删除 owner 来伪装完成。
+
+| 新增完整任务分支 | 结果 |
+| --- | --- |
+| 标题外层手动 next 后 reject/done，分别读到 usage 或文本前缀 | 四项真实三个 Title 模块回归。已报告 usage 时 main12+title12=24；只观察前缀时 known12、total=null、unknown1。Task 暂停并保留 main MAIN/nativeLifecycle=completed，主 Call 的 possible/started 标记不被辅助故障清除。 |
+| public 标题流 return/throw，外层未向内部委托关闭 | 两项回归。所属内部流结束，reported24 保留，一次 call-settlement；原标题 signal 未被 Router 改写或主动 abort。 |
+| 内部 yield 已报告 usage 时 stopTask/原标题 signal 取消 | 两项回归。停止得到 paused/BUDGET_STOPPED；用户 rename 的原信号取消保留 native completed。两者辅助 interrupted、known24、一次结算。 |
+| 标题首次 next 仍预算等待，外层直接 done | 唤醒准确 Call 的等待，Task paused/AUXILIARY_STREAM_CLOSED；main12、辅助零发且预留 released。 |
+| 显式 prepared.stream 手动 next 后 reject/done，分别读到 usage 或文本前缀 | 四项真实 Controller/Loop/工具完整任务。新增 rejection+usage 先红于本地 adapter finally 次数0，修复后各分支准确关闭1次，咨询一次结算。两次主执行24保持 completed；咨询 usage12 共36，前缀未报告时 known24/total=null/unknown1，其他 Call 不被合并或重写。 |
+| review 在 turn-stopping 预算等待、尚未返回 callId 时 stop/native cancel | 两项公开完整任务先红于 waiting 预留残留，修复后统一 reserveCall 在拒绝返回前释放该未发送 Call。Task paused、main MAIN/12 保留；原 turn signal aborted、review not-dispatched/released、一次结算；公开 Host 重启仍保持 released 和相同账本。T13 无需自行获取未返回的 callId 或 settle。 |
+
+内部 owned dispatch 在向任何外层消费者交付前记录 usage/finish，所以 prepared 中间件已读取但没有 yield 给最终消费者的已知用量仍保留。已派发且没有报告用量保持未知，不把关闭算成未发；未派发的预算等待取消才释放为零。包装、跟踪和关闭均使用公开 AsyncIterator 与 Cordis 导出事件，不读写私有 hooks，不替换原生服务。native 品牌流直接委托原路径；原 reservation/request signal 与 Router 停止 signal 合成为 adapter 的取消信号，保留各自取消原因。
+
+相比0.3.4新增15项完整任务回归；辅助与任务文件合计65/65通过，旧0.3.0/0.3.2迁移、晚标题/队列、精确 native 绑定、金额/未知成本和三类 crash 回归均保留。最终 npm test 94/94、npm run check、npm run bundle 和 git diff --check 通过，提交前合并集成923a9b7。
+
+交付包 artifacts/irishwei-dsh-router-0.3.5.tgz，92517字节，SHA256 `EA41C65E3062F443D2CF0ED3B86E4234F26D35412EBF8A4200F9A2B454811FEC`；Host lib/index.js SHA256 `D310C6D81A62B97B8C2C26715ECC9492D82AB8BD6D9190F1F2DE2AB42782ECAE`，客户端 lib/client.js SHA256 `38BF362EA7BD2EFF6373F5EE2CE5689F5675700DD8A2EF45FFDE6320E2763C50`。本轮不操作真实Desktop，不使用Computer Use、用户凭据或付费请求，不关闭或push #4。固定提交后的独立双轴复审与目标安装RPC仍由集成owner执行。

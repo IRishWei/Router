@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import SessionTitle from '@deepseek-ai/dsh-session-title';
 import * as FirstPromptTitle from '@deepseek-ai/dsh-session-title-first-prompt-llm';
-import { createUserMessage } from '@deepseek-ai/dsh-llm';
+import { createUserMessage, LlmAdapter } from '@deepseek-ai/dsh-llm';
 import { startNative, submit } from './t02-harness.mjs';
 
 async function withTitles(home) {
@@ -23,6 +23,23 @@ async function waitFor(ctx, predicate) {
     await new Promise(resolve => setTimeout(resolve, 5));
   }
   throw new Error('The public auxiliary task state did not reach the boundary');
+}
+function capturePublicTitleStream(ctx) {
+  const captured = Promise.withResolvers();
+  ctx.on('internal/get', (_caller, name, _error, next) => {
+    const value = next();
+    if (name !== 'llm') return value;
+    return new Proxy(value, { get(target, key, receiver) {
+      if (key !== 'stream') return Reflect.get(target, key, receiver);
+      const stream = Reflect.get(target, key, target);
+      return request => {
+        const result = Reflect.apply(stream, target, [request]);
+        if (request.purpose === 'session-title') captured.resolve(result);
+        return result;
+      };
+    } });
+  }, { prepend: true });
+  return captured.promise;
 }
 test('the real first-prompt title shares the task budget through its own call without clobbering execution', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t03-title-'));
@@ -194,6 +211,138 @@ for (const reported of [false, true]) test(`a public title consumer closing afte
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 
+for (const reported of [true, false]) for (const mode of ['reject', 'done']) test(`an outer manual next ${mode} closes the title iterator after ${reported ? 'usage' : 'a prefix'}`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-manual-next-'));
+  const ctx = await withTitles(home);
+  let rejectedOnce = false, observedUsage, originalSignal;
+  ctx.on('llm/stream', async function* (request, next) {
+    if (request.purpose === 'session-title' && !rejectedOnce) {
+      rejectedOnce = true; originalSignal = request.signal;
+      const downstream = next()[Symbol.asyncIterator]();
+      while (true) {
+        const result = await downstream.next();
+        if (result.done) break;
+        if (result.value.type === (reported ? 'usage' : 'text-delta')) { observedUsage = result.value.usage; break; }
+      }
+      if (mode === 'reject') throw new Error('Local outer rejection after observed title consumption');
+      return;
+    }
+    yield* next();
+  }, { prepend: true });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN');
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'paused')).tasks.at(-1);
+    assert.equal(observedUsage?.totalTokens, reported ? 12 : undefined);
+    assert.equal(task.pauseReason, mode === 'reject' ? 'AUXILIARY_STREAM_REJECTED' : 'AUXILIARY_STREAM_CLOSED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.calls.length, 2);
+    assert.equal(task.calls[0].dispatchIntent, 'possible');
+    assert.equal(task.calls[0].status, 'completed');
+    assert.equal(task.calls[1].status, 'interrupted');
+    assert.deepEqual(task.calls[1].usage, reported ? observedUsage : null);
+    assert.equal(task.calls[1].dispatchIntent, 'possible');
+    assert.equal(task.calls[1].dispatchStarted, true);
+    assert.equal(task.ledger.tokens.total, reported ? 24 : null);
+    assert.equal(task.ledger.knownTokens.total, reported ? 24 : 12);
+    assert.equal(task.ledger.unknownTokenCalls.total, reported ? 0 : 1);
+    assert.equal(originalSignal.aborted, false);
+    await assert.rejects(ctx.router.stopTask(task.id), /not active/);
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const method of ['return', 'throw']) test(`public title stream ${method} closes a manually consumed downstream without delegated close`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-manual-close-'));
+  const ctx = await withTitles(home), captured = capturePublicTitleStream(ctx), held = Promise.withResolvers(), pending = Promise.withResolvers();
+  let intercepted = false, originalSignal;
+  ctx.on('llm/stream', (request, next) => {
+    if (request.purpose !== 'session-title' || intercepted) return next();
+    intercepted = true; originalSignal = request.signal;
+    return {
+      [Symbol.asyncIterator]() { return this; },
+      async next() {
+        const downstream = next()[Symbol.asyncIterator]();
+        while (true) { const result = await downstream.next(); if (result.done || result.value.type === 'usage') break; }
+        held.resolve(); return pending.promise;
+      },
+      async return() { const result = { done: true }; pending.resolve(result); return result; },
+      async throw(error) { pending.reject(error); throw error; }
+    };
+  }, { prepend: true });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN'); await held.promise;
+    const stream = await captured;
+    if (method === 'return') assert.equal((await stream.return()).done, true);
+    else await assert.rejects(stream.throw(new Error('Public title caller rejected its outer iterator')), /caller rejected/);
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'paused')).tasks.at(-1);
+    assert.equal(task.pauseReason, method === 'return' ? 'AUXILIARY_STREAM_CLOSED' : 'AUXILIARY_STREAM_REJECTED');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.calls[1].status, 'interrupted');
+    assert.equal(task.calls[1].usage.totalTokens, 12);
+    assert.equal(task.ledger.tokens.total, 24);
+    assert.equal(task.timeline.filter(event => event.kind === 'call-settlement' && event.callId === task.calls[1].id).length, 1);
+    assert.equal(originalSignal.aborted, false);
+  } finally { pending.resolve({ done: true }); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const action of ['stop', 'original-abort']) test(`${action} closes a title owned iterator suspended after manually observed usage`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-manual-cancel-'));
+  const ctx = await withTitles(home), held = Promise.withResolvers(), release = Promise.withResolvers();
+  let intercepted = false, originalSignal;
+  ctx.on('llm/stream', async function* (request, next) {
+    if (request.purpose === 'session-title' && !intercepted) {
+      intercepted = true; originalSignal = request.signal;
+      const downstream = next()[Symbol.asyncIterator]();
+      while (true) { const result = await downstream.next(); if (result.done || result.value.type === 'usage') break; }
+      held.resolve(); await release.promise; return;
+    }
+    yield* next();
+  }, { prepend: true });
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN'); await held.promise;
+    const before = (await ctx.router.snapshot()).tasks.at(-1);
+    if (action === 'stop') await ctx.router.stopTask(before.id);
+    else ctx.sessionTitle.rename(ctx.sessions.get(sessionId), 'PINNED');
+    const task = (await waitFor(ctx, state => ['paused', 'completed'].includes(state.tasks.at(-1)?.lifecycle))).tasks.at(-1);
+    assert.equal(task.lifecycle, action === 'stop' ? 'paused' : 'completed');
+    if (action === 'stop') assert.equal(task.pauseReason, 'BUDGET_STOPPED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.calls[1].status, 'interrupted');
+    assert.equal(task.calls[1].usage.totalTokens, 12);
+    assert.equal(task.ledger.tokens.total, 24);
+    assert.equal(task.timeline.filter(event => event.kind === 'call-settlement' && event.callId === task.calls[1].id).length, 1);
+    assert.equal(originalSignal.aborted, action === 'original-abort');
+  } finally { release.resolve(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+test('an outer title done also closes an owned budget reservation whose first next is still pending', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-title-manual-budget-'));
+  const ctx = await withTitles(home);
+  let intercepted = false, pendingNext;
+  ctx.on('llm/stream', (request, next) => {
+    if (request.purpose !== 'session-title' || intercepted) return next();
+    intercepted = true;
+    pendingNext = next()[Symbol.asyncIterator]().next().catch(error => error);
+    return (async function* () {})();
+  }, { prepend: true });
+  try {
+    await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    await submit(ctx, sessionId, 'Reply MAIN');
+    const task = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'paused')).tasks.at(-1);
+    assert.equal(task.pauseReason, 'AUXILIARY_STREAM_CLOSED');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, 12);
+    assert.equal(task.calls[1].dispatchStarted, false);
+    assert.equal(task.calls[1].reservation.state, 'released');
+    assert.equal((await pendingNext).code, 'AUXILIARY_STREAM_CLOSED');
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
 for (const method of ['return', 'throw']) test(`an explicit reserved stream ${method} before consumption releases its call and task ownership`, async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t03-explicit-return-'));
   const ctx = await startNative(home);
@@ -275,6 +424,66 @@ for (const mode of ['rejection', 'close']) test(`an outer prepared-stream ${mode
     assert.equal(call.dispatchStarted, false);
     assert.equal(call.reservation.state, 'released');
     assert.equal(task.calls.filter(call => call.purpose === 'execution').every(call => call.dispatchIntent === 'possible'), true);
+  } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
+for (const mode of ['rejection', 'done']) for (const reported of [true, false]) test(`a prepared outer ${mode} after manually reading ${reported ? 'usage' : 'a prefix'} closes the exact consultation adapter`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-explicit-inner-close-'));
+  const ctx = await startNative(home);
+  let signal, closed = 0;
+  class Consultation extends LlmAdapter {
+    async listModels(provider) { return [{ provider, id: 'local', name: 'Local consultation fixture' }]; }
+    async resolveModel(provider, id) { return { provider, id, name: 'Local consultation fixture', contextWindow: 32768, maxTokens: 1024 }; }
+    async *stream() {
+      try {
+        yield { type: 'text-delta', index: 0, text: 'CONSULTED' };
+        yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } };
+        yield { type: 'finish', reason: { kind: 'stop' } };
+      } finally { closed++; }
+    }
+  }
+  ctx.llm.registerAdapter(['local-consult'], new Consultation());
+  ctx.on('agent/request', (request, next) => { signal = request.signal; return next(); });
+  ctx.on('llm/stream', async function* (request, next) {
+    if (request.provider !== 'local-consult') { yield* next(); return; }
+    const downstream = next()[Symbol.asyncIterator]();
+    while (true) {
+      const result = await downstream.next();
+      if (result.done) throw new Error('The local fixture did not report usage');
+      if (result.value.type === (reported ? 'usage' : 'text-delta')) {
+        if (mode === 'rejection') throw new Error('Prepared caller rejected after privately reading a chunk');
+        return;
+      }
+    }
+  }, { prepend: true });
+  ctx.tools.register({ name: 'router_test_wait', description: 'Consult through an interrupted public prepared stream', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() {
+    const task = (await ctx.router.snapshot()).tasks.at(-1);
+    const identity = { connectionId: 'dsh-native:local-consult', accountId: 'unknown', billingPath: 'unknown', provider: 'local-consult', model: 'local' };
+    const id = await ctx.router.reserveCall(task.id, { purpose: 'consultation', selection: identity, forecast: { totalTokens: 12 } }, signal);
+    const stream = ctx.router.streamReservedCall(task.id, id, { provider: identity.provider, model: identity.model, signal, messages: [createUserMessage({ content: [{ type: 'text', text: 'Reply CONSULTED' }] })] });
+    if (mode === 'rejection') await assert.rejects(async () => { for await (const _chunk of stream) {} }, /Prepared caller rejected/);
+    else for await (const _chunk of stream) {}
+    return 'TOOL_OK';
+  } });
+  ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
+  try {
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, '[router:tool]\nReply MAIN');
+    assert.equal(closed, 1);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'AUXILIARY_CALL_FAILED');
+    assert.equal(task.nativeLifecycle, 'completed');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(task.ledger.tokens.total, reported ? 36 : null);
+    assert.equal(task.ledger.knownTokens.total, reported ? 36 : 24);
+    assert.equal(task.ledger.unknownTokenCalls.total, reported ? 0 : 1);
+    const call = task.calls.find(call => call.purpose === 'consultation');
+    assert.equal(call.usage?.totalTokens ?? null, reported ? 12 : null);
+    assert.equal(call.dispatchIntent, 'possible');
+    assert.equal(call.dispatchStarted, true);
+    assert.equal(task.timeline.filter(entry => entry.kind === 'call-settlement' && entry.callId === call.id).length, 1);
+    assert.equal(task.calls.filter(call => call.purpose === 'execution').every(call => call.status === 'completed' && call.dispatchIntent === 'possible'), true);
+    assert.equal(signal.aborted, false);
   } finally { await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 

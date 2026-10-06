@@ -17,6 +17,43 @@ async function waitFor(ctx, predicate) {
   throw new Error('The public task state did not reach the expected boundary');
 }
 
+for (const action of ['stop', 'native-cancel']) test(`a review reservation canceled by ${action} before returning its id is released by the common gate`, async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t03-review-reserve-cancel-'));
+  let ctx = await startNative(home), run, nativeSignal, reviewSignal, reserveReturned = false;
+  ctx.on('agent/request', (request, next) => { nativeSignal = request.signal; return next(); });
+  ctx.on('agent/turn-stopping', async ({ agent, turn, signal }) => {
+    reviewSignal = signal;
+    const task = (await ctx.router.snapshot()).tasks.find(task => task.sessionId === agent.session.id && task.turn === turn);
+    await ctx.router.reserveCall(task.id, { purpose: 'review', selection: task.activeSelection, forecast: { totalTokens: 12 } }, signal);
+    reserveReturned = true;
+  });
+  try {
+    await ctx.router.setBudgetDefaults({ tokens: 12, durationMs: null, money: [] });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, 'Reply MAIN');
+    const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
+    assert.equal(reviewSignal, nativeSignal);
+    if (action === 'stop') await ctx.router.stopTask(waiting.id);
+    else ctx.sessionController.cancel({ sessionId });
+    const task = await run, call = task.calls.find(call => call.purpose === 'review');
+    assert.equal(reserveReturned, false);
+    assert.equal(reviewSignal.aborted, true);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.result, 'MAIN');
+    assert.equal(call.status, 'not-dispatched');
+    assert.equal(call.reservation.state, 'released');
+    assert.equal(call.dispatchStarted, false);
+    assert.equal(call.usage, null);
+    assert.equal(task.ledger.tokens.total, 12);
+    assert.equal(task.ledger.callCount, 1);
+    assert.equal(task.timeline.filter(event => event.kind === 'call-settlement' && event.callId === call.id).length, 1);
+    await ctx.fiber.dispose(); ctx = await startNative(home);
+    const reloaded = (await ctx.router.snapshot()).tasks.at(-1);
+    assert.equal(reloaded.calls.find(candidate => candidate.id === call.id).reservation.state, 'released');
+    assert.deepEqual(reloaded.ledger, task.ledger);
+  } finally { await run; await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
+});
+
 test('a complete native task reports a reproducible price snapshot and disjoint token ledger', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t03-ledger-'));
   const ctx = await startNative(home);
