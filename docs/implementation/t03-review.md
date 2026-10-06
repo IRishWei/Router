@@ -24,3 +24,21 @@ Standards：原字符串结构耦合已解决，0 项硬性违反；新增 1 项
 Spec：原部分报价 P2 已解决，新的持久化等待窗口、失败零 Adapter、直接崩溃恢复未知均通过。原 P1 仍有一个历史迁移遗漏：实际旧 0.3.0 Adapter 开始调用后写盘失败并崩溃，旧版本重启误判 `not-dispatched/header-confirmed`，用户随后保存设置将其落盘；0.3.1 升级仅处理仍运行/等待和 prepared 记录，漏掉已经 `paused/HOST_RESTARTED` 的错误零消耗结论。独立审查者使用真实旧提交及 rc.2 Host 全链复现。需要识别此旧模糊记录并恢复未知，明确预算等待或未发送记录仍为零。
 
 本轮 Standards 1 项判断、Spec 1 项 P1 残留，仍由同一实现者统一修复；#4 保持打开。
+
+## 第二次修复与代码复审
+
+修复 `b43888c`，集成 `8145666`，版本 0.3.2。旧版本已重启并保存的误判记录纠正为 `interrupted/dispatchUncertain`，保留身份、报价、配置、预算和扩展；明确未发记录仍为零。常规回归使用真实旧 Host 录制的输入，无历史 Git 源码依赖。方法改为 `await persistDispatchIntent`，绑定、调用、测试和当前说明同步。
+
+Standards 本轮独立复审：0 项硬性违反、0 项新增判断性问题，原 Primitive Obsession 与 Mysterious Name 均已解决。
+
+Spec 本轮代码复审未发现新的迁移问题。审查者重新运行真实旧 Adapter 已进入→写盘 EIO→退出→旧 Host 重启保存→升级0.3.2，确认调用数1、完整用量未知、未知次数1；公开保存后再重启仍保留，不重放。预算等待/proposed、非重启撤销和新协议明确未发送记录仍为零；原部分报价及持久化等待窗口已在上一轮独立验证，本轮未改其行为。
+
+集成 51/51 回归、check、diff 检查通过。安装 Host/客户端与构建产物摘要一致；预算扩展、停止、缺价及14条历史重启深比较通过，见 [安装宿主验证](t03-installed-host-evidence.md)。随后安装宿主字段核对发现并发辅助请求缺陷；这些检查不能据此视为最终验收。
+
+## 安装宿主差异：辅助请求借用执行 Call
+
+P1：0.3.2 三条实际完成的执行调用出现 `dispatchIntent=blocked`、`dispatchStarted=true`。实际 Desktop 的公开 `dsh-session-title` 在 header 后异步生成标题，使用同 session 的独立 LLM 请求。Router 的 `llm/stream` 仅按 session 取执行 `#inflight`；标题请求再次持久化同一 Call 时遭拒，却在 catch 中清掉执行调用的派发状态。
+
+原实现者使用真实 rc.2 LLM waterfall 并发调用确定复现。独立 Spec 审查者使用真实 SessionController、SessionTitleService 和公开 title provider 注册完成完整任务复现：标题失败而主任务成功，账本留下上述矛盾。进一步在主 Adapter 已进入、尚无 usage 时让标题请求触发并将清零状态落盘，直接退出并重启后，新协议记录被误判为未发送，调用数/token/未知次数均为零；无需存储故障即可丢失潜在消费。
+
+需要隔离执行与辅助请求的 Call 所有权，拒绝无所有权入口时不得改写另一调用的持久化意图。允许消费的辅助请求也必须有独立预留、结算和 Task 归属，涵盖主 turn 已完成时仍在途或等待预算的生命周期；只过滤辅助请求会漏记额外消费。此问题仍交原 T03 实现者统一修复。#4 保持打开，0.3.2 不作为最终验收版本。
