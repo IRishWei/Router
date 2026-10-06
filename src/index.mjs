@@ -78,7 +78,7 @@ export class RouterService extends TypertRemoteService {
   #steps = new WeakMap();
   #waiters = new Map();
   #callSignals = new Map();
-  #unboundAborts = new Map();
+  #unboundAbortDisposers = new Map();
   #dispatchClaims = new WeakSet();
   #requestBindings = new WeakSet();
   #ownedRequests = new WeakMap();
@@ -427,7 +427,7 @@ export class RouterService extends TypertRemoteService {
     return this.#watchOwnedStream(stream, owner);
   }
   #bindCall(call) {
-    this.#unboundAborts.get(call.id)?.(); this.#unboundAborts.delete(call.id);
+    this.#unboundAbortDisposers.get(call.id)?.(); this.#unboundAbortDisposers.delete(call.id);
     this.#requestBindings.add(call);
   }
   #releaseUnboundCall(task, call, reason, fault = false) {
@@ -486,7 +486,7 @@ export class RouterService extends TypertRemoteService {
     if (details.nativePurpose !== undefined) call.nativePurpose = details.nativePurpose;
     this.#callSignals.set(call.id, signal);
     const abort = () => this.#releaseUnboundCall(task, call, 'ABORTED');
-    this.#unboundAborts.set(call.id, () => signal.removeEventListener('abort', abort));
+    this.#unboundAbortDisposers.set(call.id, () => signal.removeEventListener('abort', abort));
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) abort();
     this.#persist();
@@ -526,7 +526,7 @@ export class RouterService extends TypertRemoteService {
     if (!call || ['settled', 'released'].includes(call.reservation.state)) throw new TypeError('The call cannot be settled twice');
     call.status = settlement.status;
     this.#callSignals.delete(call.id);
-    this.#unboundAborts.get(call.id)?.(); this.#unboundAborts.delete(call.id);
+    this.#unboundAbortDisposers.get(call.id)?.(); this.#unboundAbortDisposers.delete(call.id);
     call.usage = settlement.usage ? Object.fromEntries(Object.entries(settlement.usage).filter(([key, value]) => ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'totalTokens'].includes(key) && Number.isSafeInteger(value) && value >= 0)) : null;
     if (settlement.seq !== undefined) call.settlementSeq = settlement.seq;
     call.finishReason = settlement.finishReason;
