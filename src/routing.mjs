@@ -3,8 +3,9 @@ import { costOf, tokensOf } from './ledger.mjs';
 const OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'quality']);
 const MODALITIES = new Set(['text', 'image']);
 const MAX_ASSESSMENT_OUTPUT_TOKENS = 512;
+const MAX_ASSESSMENT_OUTPUT_CHARS = 65_536;
 const IDENTITY_KEYS = ['connectionId', 'accountId', 'billingPath', 'provider', 'model'];
-const AUTHORIZED = new Set(['authorized', 'configured', 'controlled-fixture']);
+const BLOCKED_PROVIDER_AUTHORIZATION = new Set(['disabled', 'invalid', 'not-configured', 'revoked', 'unauthorized']);
 
 function validRequirements(requirements) {
   if (!requirements || typeof requirements !== 'object') return false;
@@ -25,8 +26,18 @@ function mergeRequirements(explicit, supplemental) {
 
 function validAssessment(result) {
   return result?.purpose === 'assessment'
+    && typeof result.callId === 'string'
+    && result.callId.length > 0
     && result.evidence === 'sufficient'
     && validRequirements(result.requirements);
+}
+
+function assessmentRequirements(value) {
+  const normalized = {};
+  if (value.modalities !== undefined) normalized.modalities = [...new Set(value.modalities)];
+  if (value.tools === true) normalized.tools = true;
+  if (value.contextTokens !== undefined) normalized.contextTokens = value.contextTokens;
+  return normalized;
 }
 
 function validateSnapshot(snapshot) {
@@ -36,7 +47,7 @@ function validateSnapshot(snapshot) {
     if (typeof candidate.candidateId !== 'string' || !candidate.candidateId) throw new TypeError('candidateId is required');
     if (ids.has(candidate.candidateId)) throw new TypeError(`duplicate candidateId: ${candidate.candidateId}`);
     ids.add(candidate.candidateId);
-    if (IDENTITY_KEYS.some(key => typeof candidate[key] !== 'string' || !candidate[key])) throw new TypeError(`candidate identity is incomplete: ${candidate.candidateId}`);
+    if (IDENTITY_KEYS.some(key => typeof candidate.identity?.[key] !== 'string' || !candidate.identity[key])) throw new TypeError(`candidate identity is incomplete: ${candidate.candidateId}`);
     if (!Number.isSafeInteger(candidate.connectionConfigRevision) || candidate.connectionConfigRevision < 1 || !Number.isSafeInteger(candidate.authEpoch) || candidate.authEpoch < 1) throw new TypeError(`candidate revision is invalid: ${candidate.candidateId}`);
   }
 }
@@ -49,7 +60,8 @@ function capabilityStatus(capability) {
 
 function exclusionReasons(candidate, requirements) {
   const reasons = [];
-  if (!AUTHORIZED.has(candidate.authorization?.status)) reasons.push('CANDIDATE_NOT_AUTHORIZED');
+  if (candidate.routerAuthorization?.status !== 'enabled') reasons.push('CANDIDATE_NOT_AUTHORIZED');
+  if (BLOCKED_PROVIDER_AUTHORIZATION.has(candidate.providerAuthorization?.status)) reasons.push('CANDIDATE_PROVIDER_NOT_AUTHORIZED');
   if (!candidate.enabled) reasons.push('CANDIDATE_DISABLED');
   if (!candidate.inPool) reasons.push('CANDIDATE_NOT_IN_POOL');
   if (candidate.availability?.status !== 'available') reasons.push('CANDIDATE_UNAVAILABLE');
@@ -76,10 +88,13 @@ function exclusionReasons(candidate, requirements) {
 function selected(candidate, snapshotEpoch) {
   const quote = candidate.quote ? structuredClone(candidate.quote) : null;
   const quoteVersion = quote?.quoteVersion ?? null;
-  if (quote) delete quote.quoteVersion;
+  if (quote) {
+    delete quote.quoteVersion;
+    delete quote.estimatedCost;
+  }
   return {
     candidateId: candidate.candidateId,
-    identity: Object.fromEntries(IDENTITY_KEYS.map(key => [key, candidate[key]])),
+    identity: structuredClone(candidate.identity),
     snapshotEpoch,
     registryEpoch: snapshotEpoch,
     connectionConfigRevision: candidate.connectionConfigRevision,
@@ -89,6 +104,59 @@ function selected(candidate, snapshotEpoch) {
     quoteVersion,
     enabled: true,
   };
+}
+
+function insufficientAssessment(callId, reason) {
+  return { purpose: 'assessment', evidence: 'insufficient', callId, reason };
+}
+
+/** Execute one Host-owned assessment call through the shared Task reservation runner. */
+export async function runInitialAssessment({ router, taskId, decision, request, forecast, signal }) {
+  if (!router || typeof router.reserveCall !== 'function' || typeof router.streamReservedCall !== 'function') throw new TypeError('assessment router runner is required');
+  if (typeof taskId !== 'string' || !taskId) throw new TypeError('assessment taskId is required');
+  if (!signal || request?.signal !== signal) throw new TypeError('assessment request must use the original signal');
+  if (decision?.kind !== 'assessment-required' || decision.assessment?.purpose !== 'assessment' || decision.assessment.maxCalls !== 1) throw new TypeError('assessment decision is invalid');
+  const outputLimit = decision.assessment.maxOutputTokens;
+  if (!Number.isSafeInteger(outputLimit) || outputLimit < 1 || outputLimit > MAX_ASSESSMENT_OUTPUT_TOKENS) throw new TypeError('assessment output limit is invalid');
+  if (!forecast || !Number.isSafeInteger(forecast.outputTokens) || forecast.outputTokens < 0 || forecast.outputTokens > outputLimit || !Number.isSafeInteger(forecast.totalTokens) || forecast.totalTokens < forecast.outputTokens) throw new TypeError('assessment forecast is invalid or exceeds the output limit');
+  if (!Array.isArray(request.messages)) throw new TypeError('assessment messages are required');
+  signal.throwIfAborted();
+
+  const assessor = decision.assessor;
+  const callId = await router.reserveCall(taskId, {
+    purpose: 'assessment',
+    selection: structuredClone(assessor.identity),
+    candidateId: assessor.candidateId,
+    selectionSnapshot: structuredClone(assessor),
+    forecast: structuredClone(forecast),
+  }, signal);
+  signal.throwIfAborted();
+  const { purpose: _purpose, provider: _provider, model: _model, maxTokens: _maxTokens, ...requestRest } = request;
+  const stream = router.streamReservedCall(taskId, callId, {
+    ...requestRest,
+    provider: assessor.identity.provider,
+    model: assessor.identity.model,
+    maxTokens: outputLimit,
+    signal,
+  });
+  let raw = '';
+  let oversized = false;
+  let finish = null;
+  for await (const chunk of stream) {
+    if (chunk.type === 'text-delta') {
+      if (raw.length + chunk.text.length > MAX_ASSESSMENT_OUTPUT_CHARS) oversized = true;
+      if (!oversized) raw += chunk.text;
+    }
+    if (chunk.type === 'finish') finish = chunk.reason?.kind ?? null;
+  }
+  if (oversized || finish !== 'stop') return insufficientAssessment(callId, oversized ? 'ASSESSMENT_OUTPUT_TOO_LARGE' : 'ASSESSMENT_DID_NOT_STOP');
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.evidence !== 'sufficient' || !validRequirements(parsed.requirements)) return insufficientAssessment(callId, parsed?.evidence === 'insufficient' ? 'ASSESSMENT_EVIDENCE_INSUFFICIENT' : 'ASSESSMENT_RESULT_INVALID');
+    return { purpose: 'assessment', evidence: 'sufficient', callId, requirements: assessmentRequirements(parsed.requirements) };
+  } catch {
+    return insufficientAssessment(callId, 'ASSESSMENT_RESULT_INVALID');
+  }
 }
 
 function measured(candidate, metric, observationsByCandidate) {

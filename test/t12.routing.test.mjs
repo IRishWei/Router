@@ -1,39 +1,56 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { selectInitialRoute } from '../src/routing.mjs';
+import { runInitialAssessment, selectInitialRoute } from '../src/routing.mjs';
+
+const support = (supported, confidence = supported === null ? 'unknown' : 'known') => ({ supported, confidence, source: 'test-registry' });
+const capacity = (value, confidence = value === null ? 'unknown' : 'known') => ({ value, confidence, source: 'test-registry' });
+function capabilitySet({ text = support(true), image = support(false), tools = support(true), maxContextTokens = 32_000 } = {}) {
+  return {
+    modalities: { text, image },
+    text,
+    image,
+    tools,
+    contextWindow: capacity(maxContextTokens),
+    inputLimit: capacity(null),
+    maxOutput: capacity(null),
+    maxContextTokens,
+    confidence: text.confidence,
+    source: 'test-registry',
+  };
+}
 
 function candidate(candidateId, overrides = {}) {
-  return {
-    candidateId,
+  const identity = {
     connectionId: `connection-${candidateId}`,
     accountId: `account-${candidateId}`,
     billingPath: 'api',
     provider: `provider-${candidateId}`,
     model: `model-${candidateId}`,
-    ownership: 'router',
+  };
+  return {
+    candidateId,
+    identity,
+    ...identity,
+    ownership: 'router-owned',
     source: 'test-registry',
-    authorization: { status: 'controlled-fixture' },
+    routerAuthorization: { status: overrides.enabled === false ? 'disabled' : 'enabled' },
+    providerAuthorization: { status: 'unknown' },
     availability: { status: 'available' },
+    inferenceVerification: { status: 'unknown' },
     enabled: true,
     inPool: true,
-    capabilities: {
-      modalities: {
-        text: { supported: true, confidence: 'verified' },
-        image: { supported: false, confidence: 'verified' },
-      },
-      tools: { supported: true, confidence: 'verified' },
-      maxContextTokens: 32_000,
-      confidence: 'verified',
-      source: 'adapter',
-    },
+    capabilities: capabilitySet(),
     connectionConfigRevision: 4,
     authEpoch: 7,
+    observedSettingsRevision: null,
+    quote: null,
+    observations: [],
     ...overrides,
   };
 }
 
 function snapshot(...candidates) {
-  return { snapshotEpoch: 11, candidates };
+  return { epoch: 11, snapshotEpoch: 11, capturedAt: null, candidates, unsupported: [] };
 }
 
 function quote(candidateId, rate, currency = 'USD', kind = 'api-calculated') {
@@ -46,6 +63,7 @@ function quote(candidateId, rate, currency = 'USD', kind = 'api-calculated') {
     confidence: 'known',
     perMillion: { input: rate, output: rate },
     reasoning: 'included-in-output',
+    estimatedCost: null,
   };
 }
 
@@ -57,29 +75,11 @@ test('eligibility and required capabilities are enforced before a cheap candidat
     quote: quote('cheap', 0.01),
   });
   const imageUnknown = candidate('unknown-image', {
-    capabilities: {
-      modalities: {
-        text: { supported: true, confidence: 'verified' },
-        image: { supported: null, confidence: 'unknown' },
-      },
-      tools: { supported: true, confidence: 'verified' },
-      maxContextTokens: 32_000,
-      confidence: 'verified',
-      source: 'adapter',
-    },
+    capabilities: capabilitySet({ image: support(null), maxContextTokens: 32_000 }),
     quote: quote('unknown', 0.02),
   });
   const qualified = candidate('qualified', {
-    capabilities: {
-      modalities: {
-        text: { supported: true, confidence: 'verified' },
-        image: { supported: true, confidence: 'declared' },
-      },
-      tools: { supported: true, confidence: 'verified' },
-      maxContextTokens: 64_000,
-      confidence: 'declared',
-      source: 'catalog',
-    },
+    capabilities: capabilitySet({ image: support(true, 'declared'), maxContextTokens: 64_000 }),
     quote: quote('qualified', 0.30),
   });
 
@@ -92,14 +92,11 @@ test('eligibility and required capabilities are enforced before a cheap candidat
   assert.equal(decision.kind, 'execute');
   assert.equal(decision.selected.candidateId, 'qualified');
   assert.deepEqual(decision.selected.identity, {
-    connectionId: qualified.connectionId,
-    accountId: qualified.accountId,
-    billingPath: qualified.billingPath,
-    provider: qualified.provider,
-    model: qualified.model,
+    ...qualified.identity,
   });
   assert.equal(decision.selected.snapshotEpoch, 11);
   assert.equal(decision.selected.quoteVersion, 'quote-qualified');
+  assert.equal('estimatedCost' in decision.selected.quote, false);
   assert.deepEqual(decision.excluded, [
     { candidateId: 'cheap', reasons: ['CANDIDATE_UNAVAILABLE'] },
     { candidateId: 'unknown-image', reasons: ['IMAGE_CAPABILITY_UNKNOWN', 'CONTEXT_CAPACITY_INSUFFICIENT'] },
@@ -247,7 +244,7 @@ test('fixed, pending and empty-pool failures pause with their eligibility eviden
   });
   assert.equal(fixed.kind, 'pause');
   assert.deepEqual(fixed.reasonCodes, ['FIXED_CANDIDATE_INELIGIBLE']);
-  assert.deepEqual(fixed.excluded, [{ candidateId: 'disabled', reasons: ['CANDIDATE_DISABLED'] }]);
+  assert.deepEqual(fixed.excluded, [{ candidateId: 'disabled', reasons: ['CANDIDATE_NOT_AUTHORIZED', 'CANDIDATE_DISABLED'] }]);
 
   const missingPending = selectInitialRoute({
     task: { requirements: { modalities: ['text'] } },
@@ -263,6 +260,28 @@ test('fixed, pending and empty-pool failures pause with their eligibility eviden
   });
   assert.equal(empty.kind, 'pause');
   assert.deepEqual(empty.reasonCodes, ['NO_ELIGIBLE_CANDIDATE']);
+});
+
+test('Router permission is separate from provider credential evidence', () => {
+  const unknownProviderAuthorization = candidate('native', {
+    providerAuthorization: { status: 'unknown' },
+  });
+  const allowed = selectInitialRoute({
+    task: { requirements: { modalities: ['text'] } },
+    candidateSnapshot: snapshot(unknownProviderAuthorization),
+  });
+  assert.equal(allowed.kind, 'execute');
+  assert.equal(allowed.selected.candidateId, 'native');
+
+  const revoked = candidate('revoked', {
+    providerAuthorization: { status: 'revoked' },
+  });
+  const blocked = selectInitialRoute({
+    task: { requirements: { modalities: ['text'] } },
+    candidateSnapshot: snapshot(revoked),
+  });
+  assert.equal(blocked.kind, 'pause');
+  assert.deepEqual(blocked.excluded, [{ candidateId: 'revoked', reasons: ['CANDIDATE_PROVIDER_NOT_AUTHORIZED'] }]);
 });
 
 test('semantic assessment is opt-in, budget-visible and bounded to one qualified candidate call', () => {
@@ -309,16 +328,7 @@ test('semantic assessment is opt-in, budget-visible and bounded to one qualified
 test('a valid assessment can only add requirements and invalid evidence cannot change eligibility', () => {
   const textOnly = candidate('text-only');
   const multimodal = candidate('multimodal', {
-    capabilities: {
-      modalities: {
-        text: { supported: true, confidence: 'verified' },
-        image: { supported: true, confidence: 'declared' },
-      },
-      tools: { supported: true, confidence: 'verified' },
-      maxContextTokens: 64_000,
-      confidence: 'verified',
-      source: 'adapter',
-    },
+    capabilities: capabilitySet({ image: support(true, 'declared'), maxContextTokens: 64_000 }),
   });
   const base = {
     task: { requirements: { modalities: ['text'], contextTokens: 8_000 } },
@@ -330,6 +340,7 @@ test('a valid assessment can only add requirements and invalid evidence cannot c
     ...base,
     assessmentResult: {
       purpose: 'assessment',
+      callId: 'assessment-1',
       evidence: 'sufficient',
       requirements: { modalities: ['image'], tools: true, contextTokens: 48_000 },
       candidateEligibility: { 'text-only': true },
@@ -381,9 +392,111 @@ test('calibration stays off by default and exposes its budget before explicit au
 });
 
 test('the routing boundary rejects ambiguous candidate identities and duplicate candidate ids', () => {
-  const duplicate = snapshot(candidate('same'), candidate('same', { provider: 'other-provider' }));
+  const duplicate = snapshot(candidate('same'), candidate('same', { identity: { ...candidate('same').identity, provider: 'other-provider' } }));
   assert.throws(() => selectInitialRoute({ task: { requirements: { modalities: ['text'] } }, candidateSnapshot: duplicate }), /duplicate candidateId/);
 
-  const incomplete = candidate('incomplete', { accountId: '' });
+  const incomplete = candidate('incomplete', { identity: { ...candidate('incomplete').identity, accountId: '' } });
   assert.throws(() => selectInitialRoute({ task: { requirements: { modalities: ['text'] } }, candidateSnapshot: snapshot(incomplete) }), /candidate identity/);
+});
+
+test('owned assessment uses one reservation, the original signal and the selected snapshot', async () => {
+  const assessor = candidate('assessor');
+  const decision = selectInitialRoute({
+    task: { requirements: { modalities: ['text'] } },
+    candidateSnapshot: snapshot(assessor),
+    assessmentRequest: { required: true, enabled: true, budgetApproved: true, maxOutputTokens: 200 },
+  });
+  const signal = new AbortController().signal;
+  const calls = [];
+  const router = {
+    async reserveCall(taskId, details, receivedSignal) {
+      calls.push({ kind: 'reserve', taskId, details, signal: receivedSignal });
+      return 'assessment-call';
+    },
+    streamReservedCall(taskId, callId, request) {
+      calls.push({ kind: 'stream', taskId, callId, request });
+      return (async function* () {
+        yield { type: 'text-delta', text: '{"evidence":"sufficient","requirements":{"modalities":["image"],"tools":true}}' };
+        yield { type: 'usage', usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 } };
+        yield { type: 'finish', reason: { kind: 'stop' } };
+      })();
+    },
+  };
+  const result = await runInitialAssessment({
+    router,
+    taskId: 'task-1',
+    decision,
+    signal,
+    forecast: { inputTokens: 100, outputTokens: 200, totalTokens: 300 },
+    request: { signal, messages: [{ role: 'user', content: [{ type: 'text', text: 'bounded assessment input' }] }], purpose: 'must-not-forward' },
+  });
+
+  assert.equal(result.callId, 'assessment-call');
+  assert.equal(result.evidence, 'sufficient');
+  assert.deepEqual(result.requirements, { modalities: ['image'], tools: true });
+  assert.equal(calls.length, 2);
+  assert.equal(calls[0].details.purpose, 'assessment');
+  assert.equal(calls[0].details.candidateId, 'assessor');
+  assert.deepEqual(calls[0].details.selection, assessor.identity);
+  assert.equal(calls[0].details.selectionSnapshot.candidateId, 'assessor');
+  assert.equal(calls[0].signal, signal);
+  assert.equal(calls[1].request.signal, signal);
+  assert.equal(calls[1].request.provider, assessor.identity.provider);
+  assert.equal(calls[1].request.model, assessor.identity.model);
+  assert.equal(calls[1].request.maxTokens, 200);
+  assert.equal(calls[1].request.purpose, undefined);
+});
+
+test('assessment rejects mismatched signals and invalid normal output cannot grant requirements', async () => {
+  const assessor = candidate('assessor');
+  const decision = selectInitialRoute({
+    task: { requirements: { modalities: ['text'] } },
+    candidateSnapshot: snapshot(assessor),
+    assessmentRequest: { required: true, enabled: true, budgetApproved: true, maxOutputTokens: 32 },
+  });
+  const signal = new AbortController().signal;
+  const otherSignal = new AbortController().signal;
+  const router = {
+    async reserveCall() { return 'assessment-call'; },
+    streamReservedCall() {
+      return (async function* () {
+        yield { type: 'text-delta', text: '{"evidence":"sufficient","requirements":{"modalities":["audio"]}}' };
+        yield { type: 'finish', reason: { kind: 'stop' } };
+      })();
+    },
+  };
+
+  const forecast = { inputTokens: 32, outputTokens: 32, totalTokens: 64 };
+  await assert.rejects(runInitialAssessment({ router, taskId: 'task-1', decision, signal, forecast, request: { signal: otherSignal, messages: [] } }), /original signal/);
+  await assert.rejects(runInitialAssessment({ router, taskId: 'task-1', decision, signal, request: { signal, messages: [] } }), /forecast/);
+  const result = await runInitialAssessment({ router, taskId: 'task-1', decision, signal, forecast, request: { signal, messages: [] } });
+  assert.equal(result.evidence, 'insufficient');
+  assert.equal(result.reason, 'ASSESSMENT_RESULT_INVALID');
+  assert.equal(result.requirements, undefined);
+});
+
+test('assessment does not dispatch after reservation failure and leaves settlement to the shared runner', async () => {
+  const decision = selectInitialRoute({
+    task: { requirements: { modalities: ['text'] } },
+    candidateSnapshot: snapshot(candidate('assessor')),
+    assessmentRequest: { required: true, enabled: true, budgetApproved: true, maxOutputTokens: 32 },
+  });
+  const signal = new AbortController().signal;
+  let streams = 0;
+  const budgetError = Object.assign(new Error('budget stopped'), { code: 'ABORTED' });
+  const router = {
+    async reserveCall() { throw budgetError; },
+    streamReservedCall() { streams++; throw new Error('must not dispatch'); },
+    persistDispatchIntent() { throw new Error('runner must own persistence'); },
+    settleCall() { throw new Error('runner must own settlement'); },
+  };
+  await assert.rejects(runInitialAssessment({
+    router,
+    taskId: 'task-1',
+    decision,
+    signal,
+    forecast: { inputTokens: 32, outputTokens: 32, totalTokens: 64 },
+    request: { signal, messages: [] },
+  }), error => error === budgetError);
+  assert.equal(streams, 0);
 });
