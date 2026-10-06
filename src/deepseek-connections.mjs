@@ -1,0 +1,216 @@
+import { credentialKey, isCredentialKeySegment } from '@deepseek-ai/dsh-credentials';
+import { assertUsableApiKey, LlmError } from '@deepseek-ai/dsh-llm';
+import {
+  catalogModelInfo,
+  registerDeepSeekProvider,
+  resolveAdapterOptions,
+} from '@deepseek-ai/dsh-llm-deepseek';
+export {
+  DEEPSEEK_OFFICIAL_CATALOG_URL,
+  fetchDeepSeekModelCatalog,
+} from './deepseek-catalog.mjs';
+
+export const DEEPSEEK_CREDENTIAL_OWNER = 'irishwei-dsh-router';
+export const DEEPSEEK_OFFICIAL_BASE_URL = 'https://api.deepseek.com/anthropic';
+
+export const DEEPSEEK_MODELS = deepFreeze([
+  {
+    id: 'deepseek-flash',
+    name: 'DeepSeek V4.1 Flash',
+    contextWindow: 1_048_576,
+    maxTokens: 393_216,
+    inputModalities: ['text'],
+  },
+  {
+    id: 'deepseek-v4-pro',
+    name: 'DeepSeek V4 Pro',
+    contextWindow: 1_048_576,
+    maxTokens: 393_216,
+    inputModalities: ['text'],
+  },
+]);
+
+const DEEPSEEK_MODEL_IDS = new Set(DEEPSEEK_MODELS.map(({ id }) => id));
+
+function deepFreeze(value) {
+  if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value);
+    for (const nested of Object.values(value)) deepFreeze(nested);
+  }
+  return value;
+}
+
+function requiredString(value, name) {
+  if (typeof value !== 'string' || value.length === 0) throw new TypeError(`${name} must be a non-empty string`);
+  return value;
+}
+
+function positiveInteger(value, name) {
+  if (!Number.isSafeInteger(value) || value < 1) throw new TypeError(`${name} must be a positive safe integer`);
+  return value;
+}
+
+export function assertDeepSeekModelId(model) {
+  if (!DEEPSEEK_MODEL_IDS.has(model)) throw new TypeError(`unsupported DeepSeek model id ${JSON.stringify(model)}`);
+  return model;
+}
+
+export function deepSeekCredentialKey(accountId) {
+  requiredString(accountId, 'accountId');
+  if (!accountId.startsWith('account-') || !isCredentialKeySegment(accountId)) {
+    throw new TypeError('accountId must be an opaque lowercase identifier beginning with "account-"');
+  }
+  return credentialKey(DEEPSEEK_CREDENTIAL_OWNER, accountId);
+}
+
+export async function storeDeepSeekApiKey(credentials, accountId, rawApiKey) {
+  const key = deepSeekCredentialKey(accountId);
+  const apiKey = assertUsableApiKey(rawApiKey, 'dsh-router', String(key));
+  await credentials.modifyRecord(key, async () => ({ kind: 'api-key', key: apiKey }));
+}
+
+export async function describeDeepSeekCredential(credentials, accountId) {
+  const info = await credentials.describeRecord(deepSeekCredentialKey(accountId));
+  return deepFreeze({
+    configured: info.configured,
+    ...(info.kind === undefined ? {} : { kind: info.kind }),
+    writable: info.writable,
+  });
+}
+
+export async function deleteDeepSeekCredential(credentials, accountId) {
+  await credentials.deleteRecord(deepSeekCredentialKey(accountId));
+}
+
+export function deepSeekProviderRoute(accountId) {
+  deepSeekCredentialKey(accountId);
+  return `router-deepseek-${accountId}`;
+}
+
+export function createDeepSeekConnectionMetadata({ connectionId, accountId, configRevision, authEpoch, credential }) {
+  const provider = deepSeekProviderRoute(accountId);
+  requiredString(connectionId, 'connectionId');
+  requiredString(authEpoch, 'authEpoch');
+  positiveInteger(configRevision, 'configRevision');
+  if (!credential || typeof credential.configured !== 'boolean' || typeof credential.writable !== 'boolean') {
+    throw new TypeError('credential must be redacted credential metadata');
+  }
+  return deepFreeze({
+    ownership: 'router-owned',
+    source: 'deepseek-official-api',
+    sourceKey: `deepseek-official-api:${accountId}`,
+    supportScope: 'owned-provider-metadata',
+    connectionId,
+    accountId,
+    billingPath: 'deepseek-api',
+    provider,
+    credentialKey: String(deepSeekCredentialKey(accountId)),
+    configRevision,
+    authEpoch,
+    credential: {
+      configured: credential.configured,
+      ...(credential.kind === undefined ? {} : { kind: credential.kind }),
+      writable: credential.writable,
+    },
+    providerAuthorization: { status: credential.configured ? 'configured' : 'unknown' },
+    catalog: {
+      status: 'declared',
+      source: 'deepseek-public-documentation',
+      models: DEEPSEEK_MODELS,
+    },
+    capabilities: {
+      text: { status: 'declared' },
+      tools: { status: 'declared' },
+      image: { status: 'unsupported' },
+    },
+    inference: { status: 'unverified' },
+  });
+}
+
+function resolveEndpoint(endpoint) {
+  if (endpoint === undefined || endpoint?.kind === 'official') {
+    return { kind: 'official', baseURL: DEEPSEEK_OFFICIAL_BASE_URL };
+  }
+  if (endpoint?.kind !== 'controlled-test') throw new TypeError('DeepSeek endpoint must be official or an explicit controlled-test endpoint');
+  const parsed = new URL(requiredString(endpoint.baseURL, 'endpoint.baseURL'));
+  if (!['127.0.0.1', 'localhost', '[::1]'].includes(parsed.hostname)) {
+    throw new TypeError('controlled-test DeepSeek endpoints must use loopback');
+  }
+  return { kind: 'controlled-test', baseURL: parsed.href.replace(/\/$/, '') };
+}
+
+function providerPlugin(spec, state) {
+  const provider = deepSeekProviderRoute(spec.accountId);
+  const key = deepSeekCredentialKey(spec.accountId);
+  const endpoint = resolveEndpoint(spec.endpoint);
+  const options = deepFreeze({
+    ...resolveAdapterOptions({
+      baseURL: endpoint.baseURL,
+      models: DEEPSEEK_MODELS,
+      retryPolicy: { mode: 'normal', maxRetries: 0 },
+    }),
+    accountId: spec.accountId,
+    authEpoch: spec.authEpoch,
+    credentialKey: String(key),
+  });
+
+  return {
+    inject: ['llm', 'credentials'],
+    apply(ctx) {
+      ctx.on('credentials/record-updated', updated => {
+        if (String(updated) === String(key)) state.revoked = true;
+      });
+      ctx.on('llm/stream', async function* (request, next) {
+        if (request.provider === provider) assertDeepSeekModelId(request.model);
+        yield* next();
+      });
+      registerDeepSeekProvider(ctx, provider, {
+        options: () => options,
+        providerName: 'DeepSeek (Router)',
+        discoverModels: route => Promise.resolve(DEEPSEEK_MODELS.map(model => catalogModelInfo(route, model))),
+        resolveAuth: async connection => {
+          if (!state.active || state.revoked || connection !== options) {
+            throw new LlmError(`dsh-router: authorization changed for provider route "${provider}"`, 'AUTHORIZATION_CHANGED');
+          }
+          const record = await ctx.credentials.readRecord(key);
+          if (!state.active || state.revoked) {
+            throw new LlmError(`dsh-router: authorization changed for provider route "${provider}"`, 'AUTHORIZATION_CHANGED');
+          }
+          if (record?.kind !== 'api-key' || record.key === undefined) {
+            throw new LlmError(`dsh-router: no owned API key for provider route "${provider}"`, 'MISSING_CREDENTIAL');
+          }
+          return { headers: { 'x-api-key': assertUsableApiKey(record.key, 'dsh-router', String(key)) } };
+        },
+      });
+    },
+  };
+}
+
+export async function mountDeepSeekOwnedProvider(ctx, spec) {
+  const credential = await describeDeepSeekCredential(ctx.credentials, spec.accountId);
+  const metadata = createDeepSeekConnectionMetadata({ ...spec, credential });
+  const state = { active: true, revoked: false };
+  let fiber;
+  try {
+    fiber = await ctx.plugin(providerPlugin(spec, state));
+  } catch (error) {
+    state.active = false;
+    throw error;
+  }
+  let disposal;
+  let deletion;
+  let credentialDeleted = false;
+  return Object.freeze({
+    metadata,
+    async disconnect({ deleteCredential = true } = {}) {
+      state.active = false;
+      disposal ??= fiber.dispose();
+      await disposal;
+      if (!deleteCredential || credentialDeleted) return;
+      deletion ??= deleteDeepSeekCredential(ctx.credentials, spec.accountId)
+        .then(() => { credentialDeleted = true; })
+        .finally(() => { deletion = undefined; });
+      await deletion;
+    },
+  });
+}
