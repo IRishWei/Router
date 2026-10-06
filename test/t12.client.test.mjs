@@ -25,6 +25,8 @@ test('the real renderer configures the routing objective and shows reasons, excl
     await click('路由与预算');
     await act(async () => { await page.root.findByProps({ 'aria-label': '路由目标' }).props.onChange({ target: { value: 'quality' } }); });
     await act(async () => { await page.root.findByProps({ 'aria-label': '允许有界语义判断' }).props.onChange({ target: { checked: true } }); });
+    await click('下一个任务使用判断');
+    assert.equal((await ctx.router.snapshot()).semanticAssessmentRequest.status, 'armed');
     const beforePreview = await ctx.router.snapshot();
     const beforePreviewCalls = beforePreview.tasks.reduce((sum, task) => sum + task.calls.length, 0);
     await click('查看校准预算');

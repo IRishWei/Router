@@ -149,10 +149,61 @@ test('opt-in semantic assessment is one budgeted call in the same Task and can o
     assert.deepEqual(record.calls.map(call => call.purpose), ['assessment', 'execution']);
     assert.equal(record.calls[0].id, record.routing.assessment.callId);
     assert.equal(record.calls[0].status, 'completed');
+    assert.deepEqual(record.calls[0].selectionSnapshot, await ctx.router.captureCandidate(record.calls[0].candidateId));
+    assert.match(calls[0].messages.map(message => message.content.filter(part => part.type === 'text').map(part => part.text).join('')).join('\n'), /Reply ASSESSED/);
     assert.equal(record.calls[1].selection.provider, 't12-capable');
     assert.equal(record.ledger.callCount, 2);
   } finally {
     owned?.dispose();
+    if (ctx) await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('a public one-shot assessment carries the actual Task input and is consumed exactly once', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t12-assessment-context-'));
+  const observed = [];
+  let ctx;
+  try {
+    ctx = await startNative(home);
+    ctx.on('llm/stream', async function* (request, next) {
+      if (request.messages.some(message => message.content?.some(part => part.type === 'text' && part.text.startsWith('ROUTER_INITIAL_ASSESSMENT_V1')))) {
+        observed.push(structuredClone(request.messages));
+      }
+      yield* next();
+    }, { prepend: true });
+    await ctx.router.setSemanticAssessment(true);
+    await ctx.router.requestSemanticAssessment();
+    assert.equal((await ctx.router.snapshot()).semanticAssessmentRequest.status, 'armed');
+    const unique = 'CHECK_CURRENT_TASK_CONTEXT_87219';
+    const assessed = await submit(ctx, (await ctx.sessionController.create({ cwd: home })).sessionId, `Please classify ${unique}`);
+    assert.equal(assessed.calls.filter(call => call.purpose === 'assessment').length, 1);
+    assert.equal(assessed.routing.assessment.status, 'insufficient');
+    assert.match(JSON.stringify(observed), new RegExp(unique));
+    assert.equal((await ctx.router.snapshot()).semanticAssessmentRequest, null);
+
+    const ordinary = await submit(ctx, (await ctx.sessionController.create({ cwd: home })).sessionId, 'Reply ONE_SHOT_CONSUMED');
+    assert.equal(ordinary.result, 'ONE_SHOT_CONSUMED');
+    assert.equal(ordinary.calls.some(call => call.purpose === 'assessment'), false);
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('an oversized one-shot assessment is visibly insufficient without reserving or dispatching a Call', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t12-assessment-oversized-'));
+  let ctx;
+  try {
+    ctx = await startNative(home);
+    await ctx.router.setSemanticAssessment(true);
+    await ctx.router.requestSemanticAssessment();
+    const task = await submit(ctx, (await ctx.sessionController.create({ cwd: home })).sessionId, `Classify ${'x'.repeat(20_000)}`);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.routing.assessment.status, 'insufficient');
+    assert.equal(task.routing.assessment.reason, 'ASSESSMENT_CONTEXT_TOO_LARGE');
+    assert.equal(task.calls.length, 0);
+  } finally {
     if (ctx) await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true });
   }
@@ -255,7 +306,7 @@ test('assessment waits visibly for Task budget and resumes through the same rese
     assert.equal(waiting.calls.length, 1);
     assert.equal(waiting.calls[0].purpose, 'assessment');
     assert.equal(waiting.calls[0].dispatchStarted, false);
-    await ctx.router.extendTaskBudget(waiting.id, { tokens: 1 });
+    await ctx.router.extendTaskBudget(waiting.id, { tokens: 10_000 });
     const record = await run;
     assert.deepEqual(record.calls.map(call => call.purpose), ['assessment', 'execution']);
     assert.equal(record.routing.assessment.status, 'completed');
