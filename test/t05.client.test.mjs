@@ -169,16 +169,16 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
 
     await act(async () => { input('DeepSeek API key').props.onChange({ target: { value: secret } }); });
     assert.equal(JSON.stringify(page.toJSON()).includes(secret), false);
-    await act(async () => { await button('保存新的凭据 binding').props.onClick(); });
+    await act(async () => { await button('保存账号密钥').props.onClick(); });
     assert.deepEqual(actions, [{ action: 'save', apiKey: secret }]);
     assert.equal(JSON.stringify(page.toJSON()).includes(secret), false);
 
     await act(async () => { await button('获取公开模型目录').props.onClick(); });
     assert.equal(actions.at(-1).action, 'catalog');
     assert.match(JSON.stringify(page.toJSON()), /DeepSeek V4.1 Flash/);
-    await act(async () => { await button('连接 account-ui-binding').props.onClick(); });
+    await act(async () => { await button('连接账号 account-ui-binding').props.onClick(); });
     assert.equal(actions.some(action => action.action === 'enable'), false);
-    await act(async () => { await button('启用 DeepSeek V4.1 Flash').props.onClick(); });
+    await act(async () => { await button('加入模型选择 DeepSeek V4.1 Flash').props.onClick(); });
     assert.equal(actions.at(-1).action, 'enable');
 
     await act(async () => { input('检测 token 上限').props.onChange({ target: { value: '32' } }); });
@@ -193,13 +193,13 @@ test('the DeepSeek UI keeps credential save, connection, enablement and budgeted
     assert.match(rendered, /task-detection/);
     assert.equal(rendered.includes(secret), false);
 
-    await act(async () => { await button('断开并保留凭据 connection-ui').props.onClick(); });
+    await act(async () => { await button('断开连接并保留密钥 connection-ui').props.onClick(); });
     assert.deepEqual(actions.at(-1), { action: 'disconnect', connectionId: 'connection-ui', deleteCredential: false });
     assert.equal(safe.bindings.length, 1);
-    await act(async () => { await button('连接 account-ui-binding').props.onClick(); });
+    await act(async () => { await button('连接账号 account-ui-binding').props.onClick(); });
     assert.equal(actions.at(-1).action, 'connect');
     assert.equal(router.models[0].enabled, false);
-    assert.match(JSON.stringify(page.toJSON()), /未启用/);
+    assert.match(JSON.stringify(page.toJSON()), /尚未加入/);
   } finally {
     if (mounted) await mounted.dispose();
   }
@@ -242,7 +242,7 @@ test('the DeepSeek Renderer distinguishes same-model candidates by connection, a
   let mounted;
   try {
     mounted = await mountDeepSeekSettings(service, routerApi);
-    const select = mounted.page.root.findByProps({ 'aria-label': '检测模型候选' });
+    const select = mounted.page.root.findByProps({ 'aria-label': '检测模型与账号' });
     const labels = select.findAllByType('option').map(option => option.children.join(''));
     assert.equal(labels.some(label => label.includes('connection-first') && label.includes('account-first') && label.includes('deepseek-api')), true);
     assert.equal(labels.some(label => label.includes('connection-second') && label.includes('account-second') && label.includes('deepseek-api')), true);
