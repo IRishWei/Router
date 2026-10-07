@@ -1,6 +1,6 @@
 # T16 目标 Desktop 安装验收
 
-2026-10-07，Router 0.9.1 与 controlled companion 0.4.3 在独立 DSH home 完成 `v091c` 的 17 项实际验证、已安装客户端的 Renderer 验证、重启、移除夹具和再次重启。实际安装验收及最终独立 Standards/Spec 证据审查均 PASS，#17 已具备关闭资格。
+2026-10-07，Router 0.9.1 与 controlled companion 0.4.3 在独立 DSH home 完成 `v091c` 的 17 项实际验证、已安装客户端的 Renderer 验证、重启、移除夹具和再次重启。实际安装验收及最终独立 Standards/Spec 证据审查均 PASS，[#17 已按 completed 关闭](https://github.com/IRishWei/Router/issues/17#issuecomment-6037344249)。
 
 ## 固定代码与包
 

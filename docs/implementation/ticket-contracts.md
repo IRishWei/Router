@@ -1,6 +1,6 @@
 # Ticket 衔接与执行边界
 
-2026-10-07 核对 GitHub #2—#25：24张票的正文与本地发布快照一致，36条原生阻塞关系一致且无环。T01/#2、T02/#3、T04/#5已关闭；T03/#4以0.3.7、T08/#9以0.4.2、T12/#13以0.5.1、T13/#14以0.6.1通过双轴复审和最终安装验收。当前独立前沿工作为T05/#6、T06/#7、T14/#15、T16/#17，ready-for-agent不替代前置和凭据门槛。T06等待既有OpenAI API Key使用/创建选择，其余可独立推进。
+2026-10-07 核对 GitHub #2—#25：24张票的正文与本地发布快照一致，36条原生阻塞关系一致且无环。T01/#2、T02/#3、T04/#5已关闭；T03/#4以0.3.7、T08/#9以0.4.2、T12/#13以0.5.1、T13/#14以0.6.1、T16/#17以0.9.1通过双轴复审和最终安装验收，累计8/24关闭。当前独立前沿为T05/#6、T06/#7、T14/#15，均为needs-info；ready-for-agent不替代前置和凭据门槛。T05/T06等待真实凭据及调用授权，T06的既有OpenAI API Key使用/创建选择仍未获答复。用户保持网络设置原样，T14保留来源读取待验。
 
 ## 共享契约
 
@@ -78,6 +78,8 @@ T14 0.8.1 的实际安装验收在 2026-10-07 仍未完成。companion 0.3.2 已
 
 用户不希望调整 DNS 后承担网络修复，后续保持全部网络配置原样。在既有全部票范围内，T16 可使用已完成的原生前置 T12/T13 推进共享接线与本地验证；此前等待 T14 实际来源验收的内部接线顺序不再阻止这项独立工作。T14 的失败、待验门槛与原生依赖图均保留，T16 的实际通过另行证明。
 
-T16 0.9.0 共享接线固定为唯一 awaited acceptance→coordination 顺序、Host-only 双 revision CAS、Task 冻结策略、一次自行修正和一次有相关新证据的有界咨询。跨模型与固定任务许可独立；咨询使用共享 reserve→stream、原 Task/turn/预算/signal，建议不是验收证据。旧 Task 不新增字段。T14 尚未提供 canonical 研究失败可信谓词，因此 research/model-review 失败保持 fail-closed。源码和共享 Controller/Renderer 验证不替代目标 Desktop、冻结 companion 与旧 123 Task 深比较，#17 在该验收完成前保持打开。
+T16 0.9.0 共享接线固定为唯一 awaited acceptance→coordination 顺序、Host-only 双 revision CAS、Task 冻结策略、一次自行修正和一次有相关新证据的有界咨询。跨模型与固定任务许可独立；咨询使用共享 reserve→stream、原 Task/turn/预算/signal，建议不是验收证据。旧 Task 不新增字段。T14 尚未提供 canonical 研究失败可信谓词，因此 research/model-review 失败保持 fail-closed。源码和共享 Controller/Renderer 验证不替代目标 Desktop、冻结 companion 与历史深比较；0.9.0阶段没有满足#17关闭门槛。
 
 T16 0.9.1 修复独立复审阻塞项：Host 启动在服务可用前原子持久化全部未确认协调 intent 为 delivery-unknown/stalled；最终 candidate capture 失败与 steer 后交付异常分别记为 stale 和 delivery-unknown；显式咨询候选以 current preference 进入完整 objective ranking，真实 winner 不同则冻结 objective-mismatch、显示原因并零咨询，固定主模型许可继续独立。0.9.0 包身份保留，仅 0.9.1 进入后续安装验收。
+
+T16 0.9.1最终完成17项实际Task验证、已安装Renderer、配置恢复、重启、移除夹具及再次重启，159条完整历史与配置值保留；最终独立Standards/Spec均PASS。#17已按completed关闭，证据见 `t16-installed-host-evidence.md`；T14失败及真实凭据门槛不变，T17仍被T15阻塞，未启动依赖未满足的后续票。
