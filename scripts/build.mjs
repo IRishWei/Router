@@ -18,7 +18,8 @@ await writeFile('lib/deepseek-router.js', (await readFile('src/deepseek-router.m
 await writeFile('lib/deepseek-host.js', (await readFile('src/deepseek-host.mjs', 'utf8')).replace("'./deepseek-connections.mjs'", "'./deepseek-connections.js'").replace("'./deepseek-router.mjs'", "'./deepseek-router.js'"));
 await writeFile('lib/deepseek-deadline.js', await readFile('src/deepseek-deadline.mjs', 'utf8'));
 await writeFile('lib/research-artifact.js', await readFile('src/research-artifact.mjs', 'utf8'));
-await writeFile('lib/research-acceptance.js', (await readFile('src/research-acceptance.mjs', 'utf8')).replace("'./research-artifact.mjs'", "'./research-artifact.js'"));
+await writeFile('lib/research-acceptance.js', (await readFile('src/research-acceptance.mjs', 'utf8')).replace("'./research-artifact.mjs'", "'./research-artifact.js'").replace("'./source-network.mjs'", "'./source-network.js'"));
+await writeFile('lib/source-network.js', await readFile('src/source-network.mjs', 'utf8'));
 await writeFile('lib/research-contribution.js', (await readFile('src/research-contribution.mjs', 'utf8')).replace("'./research-artifact.mjs'", "'./research-artifact.js'"));
 const protocol = await readFile('src/protocol.mjs', 'utf8');
 await writeFile('lib/protocol.js', protocol);
