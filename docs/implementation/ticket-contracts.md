@@ -51,6 +51,8 @@ T08 的首轮固定复审发现的请求错归、身份许可继承、同名模�
 - T13 发布阻塞键及证据；T16 的任务协调器负责首次自修和有条件咨询。两个模块不能各自注入一次“首次”修复。补充、产物版本和新证据使旧结论失效时，保留旧记录并标记 superseded。
 - T14 后续贡献来源/论点证据，仍由唯一 AcceptanceCoordinator 发布及评审；HTTP 可访问不能单独计入论点支持。T16 后续使用公开可扩展 producer source 与 notice，并在 awaited 验收边界 steer 同 turn；不能通过 SessionController.prompt 伪造用户补充，不能新建任务或重置预算。
 
+T05 0.7.4 已通过双轴复审、214项集成测试及目标桌面的连接、预算等待、停止、断开和重启验证，见 `t05-installed-host-evidence.md`；真实 API 凭据及授权门槛仍待完成，#6保持打开。发布包需检查全部相对导入闭包与真实 sibling Fiber 服务依赖，不能只验证源码根 Context。T14 现在独占下一阶段共享接线，使用唯一验收协调器；T16 在该协调器的 awaited 发布边界继续同 Task 的修复/咨询。共享接线顺序不修改 GitHub 原生阻塞图。
+
 T05、T12、T13 的首阶段独立模块可并行开发；共享 `index/protocol/client` 的整合顺序由明确交接控制。最终提交先合并最新 integration，再固定双轴复审；阶段模块测试不替代完整 Controller、Renderer 和目标桌面验收。
 
 ## 目标宿主的选择边界
