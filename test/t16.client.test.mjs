@@ -25,6 +25,7 @@ test('the real Renderer configures frozen coordination permissions and shows dur
     }],
     tasks: [{
       id: 'task-one', activeSelection: { provider: 'fixture', model: 'main' }, lifecycle: 'completed', result: 'AAAAAAAAAAAAAA', configVersion: 1, timeline: [],
+      coordinationPolicy: { enabled: true, candidateId: 'advisor', selectionBasis: 'objective-mismatch' },
       acceptance: { verdict: 'passed', evidence: [] },
       coordination: { version: 1, revision: 5, acceptanceRevision: 3, selfRepair: { used: true }, consultationAttempts: 1, timeline: [], episodes: [{ episodeId: 'episode', blockingKey: 'character-length:failed:evidence', evidenceVersion: 2, status: 'resolved', consultation: { reason: null } }] },
     }],
@@ -54,6 +55,7 @@ test('the real Renderer configures frozen coordination permissions and shows dur
     assert.match(rendered, /已使用一次自行修正/);
     assert.match(rendered, /咨询 1 次/);
     assert.match(rendered, /character-length:failed:evidence/);
+    assert.match(rendered, /任务目标排序不一致/);
     const publicMethods = new Set(descriptors.map(item => item.method));
     assert.equal(publicMethods.has('setCoordinationPolicy'), true);
     assert.equal(publicMethods.has('publishCoordination'), false);

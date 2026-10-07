@@ -420,6 +420,27 @@ test('acceptance changed by the final candidate refresh prevents advice steer', 
   assert.equal(run.task.coordination.episodes[0].consultation.reason, 'ACCEPTANCE_CHANGED');
 });
 
+test('a failed final candidate capture is stale before steer and never becomes delivery-unknown', async () => {
+  const run = harness({ onCapture(_task, captureCount) {
+    if (captureCount === 2) {
+      const error = new Error('candidate was revoked before advice delivery');
+      error.code = 'MODEL_NOT_FOUND';
+      throw error;
+    }
+  } });
+  await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  run.steers.length = 0;
+  run.task.acceptance = failedAcceptance({ revision: 2, observed: { value: 2 } });
+
+  const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  assert.equal(action.kind, 'stale');
+  assert.equal(action.reason, 'CONSULTATION_CANDIDATE_CHANGED');
+  assert.equal(run.steers.length, 0);
+  assert.equal(run.task.coordination.episodes[0].consultation.state, 'stale');
+  assert.equal(run.task.coordination.episodes[0].consultation.reason, 'CONSULTATION_CANDIDATE_CHANGED');
+  assert.equal(run.task.coordination.timeline.some(item => item.kind === 'consultation-delivery-unknown'), false);
+});
+
 test('human input queued during reservation releases the unsent consultation and sends no advice', async () => {
   const run = harness({ onReserve(_task, agent) {
     agent.inbox.nextStep.push({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Use this new constraint' }] });

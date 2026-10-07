@@ -181,11 +181,13 @@ window.__ModuleLoader__.load({
     }
     function CoordinationResult({ task }) {
       const coordination = task.coordination;
-      if (!coordination) return null;
-      const open = coordination.episodes?.filter(item => !['resolved', 'stalled'].includes(item.status)).length ?? 0;
+      const objectiveMismatch = task.coordinationPolicy?.enabled && task.coordinationPolicy.selectionBasis === 'objective-mismatch';
+      if (!coordination && !objectiveMismatch) return null;
+      const open = coordination?.episodes?.filter(item => !['resolved', 'stalled'].includes(item.status)).length ?? 0;
       return h('div', null,
-        h('p', null, `受阻协调：${coordination.selfRepair?.used ? '已使用一次自行修正' : '未使用自行修正'} · 咨询 ${coordination.consultationAttempts} 次 · 未结束阻碍 ${open}`),
-        ...(coordination.episodes ?? []).map(item => h('p', { key: item.episodeId }, `阻碍 ${item.blockingKey} · 证据版本 ${item.evidenceVersion} · ${item.status}${item.consultation?.reason ? ` · ${item.consultation.reason}` : ''}`)));
+        objectiveMismatch ? h('p', null, '配置的咨询候选与任务目标排序不一致，当前任务未授权咨询。') : null,
+        coordination ? h('p', null, `受阻协调：${coordination.selfRepair?.used ? '已使用一次自行修正' : '未使用自行修正'} · 咨询 ${coordination.consultationAttempts} 次 · 未结束阻碍 ${open}`) : null,
+        ...(coordination?.episodes ?? []).map(item => h('p', { key: item.episodeId }, `阻碍 ${item.blockingKey} · 证据版本 ${item.evidenceVersion} · ${item.status}${item.consultation?.reason ? ` · ${item.consultation.reason}` : ''}`)));
     }
     function RouterSettings({ api }) {
       const [state, setState] = React.useState(null);

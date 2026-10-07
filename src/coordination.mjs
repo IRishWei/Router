@@ -128,6 +128,37 @@ function nextEvent(state, event) {
   state.timeline.push({ sequence: state.timeline.length + 1, ...event });
 }
 
+export function recoverPendingCoordination(value, acceptanceRevision = value?.acceptanceRevision) {
+  const state = coordinationSchema.parse(clone(value));
+  if (!positiveInteger(acceptanceRevision)) throw new TypeError('Canonical acceptance revision is required for coordination recovery');
+  const reason = 'RESTART_WITH_UNCONFIRMED_DELIVERY';
+  const events = [];
+  let recoveredSelfRepair = false;
+  let recoveredConsultation = false;
+  if (state.selfRepair?.state === 'intent-persisted') {
+    const episode = state.episodes.find(item => item.episodeId === state.selfRepair.episodeId);
+    if (!episode) throw new TypeError('Self-repair intent has no durable coordination episode');
+    state.selfRepair.state = 'delivery-unknown';
+    episode.status = 'stalled';
+    events.push({ kind: 'self-repair-delivery-unknown', episodeId: episode.episodeId, evidenceVersion: episode.evidenceVersion, reason });
+    recoveredSelfRepair = true;
+  }
+  for (const episode of state.episodes) {
+    const pending = episode.consultation;
+    if (!pending || !['intent-persisted', 'call-reserved', 'advice-ready'].includes(pending.state)) continue;
+    pending.state = 'delivery-unknown';
+    pending.reason = reason;
+    episode.status = 'stalled';
+    events.push({ kind: 'consultation-delivery-unknown', episodeId: episode.episodeId, evidenceVersion: episode.evidenceVersion, callId: pending.callId, reason });
+    recoveredConsultation = true;
+  }
+  if (!events.length) return { changed: false, coordination: state, recoveredSelfRepair, recoveredConsultation };
+  state.revision++;
+  state.acceptanceRevision = acceptanceRevision;
+  for (const event of events) nextEvent(state, { acceptanceRevision, ...event });
+  return { changed: true, coordination: coordinationSchema.parse(state), recoveredSelfRepair, recoveredConsultation };
+}
+
 function repairText(obstacle) {
   const requirement = localText(obstacle.requirements[0]?.description);
   const reason = localText(obstacle.evidence[0]?.reason ?? obstacle.blocking.key);
@@ -349,17 +380,22 @@ export class TaskCoordinationController {
       await this.#recordStale(agent, task, acceptance, 'ACCEPTANCE_CHANGED', advice);
       return { kind: 'stale', reason: 'ACCEPTANCE_CHANGED' };
     }
+    let fresh;
+    try { fresh = await this.#router.captureCandidate(captured.candidateId, { signal }); }
+    catch {
+      await this.#recordStale(agent, task, acceptance, 'CONSULTATION_CANDIDATE_CHANGED', advice);
+      return { kind: 'stale', reason: 'CONSULTATION_CANDIDATE_CHANGED' };
+    }
+    if (!fresh?.enabled || !sameIdentity(fresh.identity, captured.identity) || fresh.authEpoch !== captured.authEpoch || fresh.connectionConfigRevision !== captured.connectionConfigRevision) {
+      await this.#recordStale(agent, task, acceptance, 'CONSULTATION_CANDIDATE_CHANGED', advice);
+      return { kind: 'stale', reason: 'CONSULTATION_CANDIDATE_CHANGED' };
+    }
+    const changedAfterFreshCapture = this.#boundaryChange(agent, task, acceptance, state, episode, signal);
+    if (changedAfterFreshCapture) {
+      await this.#recordStale(agent, task, acceptance, changedAfterFreshCapture, advice);
+      return { kind: 'stale', reason: changedAfterFreshCapture };
+    }
     try {
-      const fresh = await this.#router.captureCandidate(captured.candidateId, { signal });
-      if (!fresh?.enabled || !sameIdentity(fresh.identity, captured.identity) || fresh.authEpoch !== captured.authEpoch || fresh.connectionConfigRevision !== captured.connectionConfigRevision) {
-        await this.#recordStale(agent, task, acceptance, 'CONSULTATION_CANDIDATE_CHANGED', advice);
-        return { kind: 'stale', reason: 'CONSULTATION_CANDIDATE_CHANGED' };
-      }
-      const changedAfterFreshCapture = this.#boundaryChange(agent, task, acceptance, state, episode, signal);
-      if (changedAfterFreshCapture) {
-        await this.#recordStale(agent, task, acceptance, changedAfterFreshCapture, advice);
-        return { kind: 'stale', reason: changedAfterFreshCapture };
-      }
       await agent.steer(message);
     } catch (error) {
       episode.status = 'stalled';
@@ -385,31 +421,17 @@ export class TaskCoordinationController {
   }
 
   async #recoverUnconfirmedDelivery(task, acceptance, state) {
-    let recoveredSelfRepair = false;
-    let recoveredConsultation = false;
-    const reason = 'RESTART_WITH_UNCONFIRMED_DELIVERY';
-    if (state.selfRepair?.state === 'intent-persisted') {
-      const episode = state.episodes.find(item => item.episodeId === state.selfRepair.episodeId);
-      if (!episode) throw new TypeError('Self-repair intent has no durable coordination episode');
-      state.selfRepair.state = 'delivery-unknown';
-      episode.status = 'stalled';
-      state = await this.#commit(task, acceptance, state, episode, 'self-repair-delivery-unknown', { reason });
-      if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
-      recoveredSelfRepair = true;
+    if (state.revision === 0) return null;
+    const recovery = recoverPendingCoordination(state, acceptance.revision);
+    if (!recovery.changed) return null;
+    try {
+      await this.#router.publishCoordination(task.id, { acceptanceRevision: acceptance.revision, coordinationRevision: state.revision }, recovery.coordination);
+    } catch (error) {
+      if (error?.code === 'COORDINATION_STALE') return { kind: 'stale', reason: 'COORDINATION_STALE' };
+      throw error;
     }
-    for (const candidate of [...state.episodes]) {
-      const episode = state.episodes.find(item => item.episodeId === candidate.episodeId);
-      const pending = episode?.consultation;
-      if (!pending || !['intent-persisted', 'call-reserved', 'advice-ready'].includes(pending.state)) continue;
-      pending.state = 'delivery-unknown';
-      pending.reason = reason;
-      episode.status = 'stalled';
-      state = await this.#commit(task, acceptance, state, episode, 'consultation-delivery-unknown', { callId: pending.callId, reason });
-      if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
-      recoveredConsultation = true;
-    }
-    if (recoveredSelfRepair) return { kind: 'none', reason: 'SELF_REPAIR_DELIVERY_UNKNOWN' };
-    if (recoveredConsultation) return { kind: 'none', reason: 'CONSULTATION_DELIVERY_UNKNOWN' };
+    if (recovery.recoveredSelfRepair) return { kind: 'none', reason: 'SELF_REPAIR_DELIVERY_UNKNOWN' };
+    if (recovery.recoveredConsultation) return { kind: 'none', reason: 'CONSULTATION_DELIVERY_UNKNOWN' };
     return null;
   }
 

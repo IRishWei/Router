@@ -13,7 +13,7 @@ import { DeepSeekHost } from './deepseek-host.mjs';
 import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
 import { createHttpSourceEvidenceResolver, createResearchAcceptance } from './research-acceptance.mjs';
 import { validateResearchContribution } from './research-contribution.mjs';
-import { coordinationSchema, TaskCoordinationController } from './coordination.mjs';
+import { coordinationSchema, recoverPendingCoordination, TaskCoordinationController } from './coordination.mjs';
 
 export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -135,14 +135,19 @@ function freezeCoordinationPolicy(config, connections) {
   if (!policy.candidateId) return frozen;
   const snapshot = connections.snapshot(config);
   const forecast = selectionForecast({ modalities: ['text'] }, policy.maxTokens);
+  const forecastsByCandidate = Object.fromEntries(snapshot.candidates.map(candidate => [candidate.candidateId, forecast]));
   const decision = selectInitialRoute({
     task: { requirements: { modalities: ['text'] } },
     candidateSnapshot: snapshot,
     objective: config.routingObjective,
-    fixedCandidateId: policy.candidateId,
-    forecastsByCandidate: { [policy.candidateId]: forecast },
+    currentCandidateId: policy.candidateId,
+    forecastsByCandidate,
   });
-  if (decision.kind !== 'execute' || decision.selected.candidateId !== policy.candidateId) return { ...frozen, candidateId: null };
+  if (decision.kind !== 'execute') return { ...frozen, candidateId: null };
+  if (decision.selected.candidateId !== policy.candidateId) {
+    const configuredWasExcluded = decision.excluded?.some(item => item.candidateId === policy.candidateId);
+    return configuredWasExcluded ? { ...frozen, candidateId: null } : { ...frozen, selectionBasis: 'objective-mismatch' };
+  }
   return { ...frozen, selectionBasis: 'objective-qualified' };
 }
 function conservativeRequestForecast(messages, tools, outputTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS) {
@@ -1292,7 +1297,17 @@ export async function apply(ctx) {
   if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
   if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
   if (!Array.isArray(state.config.prices) || !state.config.prices.every(item => typeof item.provider === 'string' && item.provider && typeof item.model === 'string' && item.model && quoteSchema().safeParse(item.quote).success && (item.provider !== CONTROLLED_PROVIDER || item.quote.kind === 'fixture-reference'))) throw new Error('Unsupported DSH Router prices');
+  let recoveredCoordination = false;
   for (const task of state.tasks) {
+    if (task.coordination !== undefined && task.coordination !== null) {
+      const recovery = recoverPendingCoordination(task.coordination, task.acceptance?.revision ?? task.coordination.acceptanceRevision);
+      if (recovery.changed) {
+        task.coordination = recovery.coordination;
+        task.timeline ??= [];
+        task.timeline.push({ kind: 'coordination-recovered', revision: recovery.coordination.revision, acceptanceRevision: recovery.coordination.acceptanceRevision });
+        recoveredCoordination = true;
+      }
+    }
     if (task.budget?.unenforceableLimits) task.budget.unenforceableLimits = task.budget.unenforceableLimits.map(value => normalizeBudgetConstraint(value, true));
     if (task.budget?.waiting?.blockedBy) task.budget.waiting.blockedBy = task.budget.waiting.blockedBy.map(value => normalizeBudgetConstraint(value));
     for (const event of task.timeline ?? []) if (event.kind === 'budget-wait' && event.blockedBy) event.blockedBy = event.blockedBy.map(value => normalizeBudgetConstraint(value));
@@ -1338,6 +1353,7 @@ export async function apply(ctx) {
   const validEntry = entry => entry && typeof entry.enabled === 'boolean' && (() => { try { const candidate = connections.resolve(entry.candidateId, { allowLegacyControlled: false }); return sameIdentity(entry, candidate); } catch { return false; } })();
   if (!Array.isArray(pool) || !pool.every(validEntry) || new Set(pool.map(entry => entry.candidateId)).size !== pool.length || (state.config.fixedCandidateId !== null && (() => { try { connections.resolve(state.config.fixedCandidateId); return true; } catch { return false; } })() === false)) throw new Error('Unsupported DSH Router pool configuration');
   const service = new RouterService(ctx, state, path, connections, ctx.get('routerFileSystem'));
+  if (recoveredCoordination) await service.commitState();
   const deepSeek = new DeepSeekHost(ctx, state, service.commitState);
   service.attachDeepSeek(deepSeek);
   await deepSeek.restore();

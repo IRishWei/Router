@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.9.0.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.9.1.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。
@@ -34,7 +34,9 @@
 
 咨询只发送当前阻碍、相关要求和相关证据，不发送完整对话、工具权限或凭据；建议有独立输出 token、字符和输入输出总预留上限。咨询沿用原 Task、turn、预算和原 signal，主 agent 继续执行。建议本身不是验收证据，只有后续真实产物的 canonical 验收才能解决阻碍。预算等待可扩展或停止；候选撤销、网络、认证、限流、transport、取消及无新证据不会被当作任务难度，也不会重复咨询。
 
-每个新 Task 冻结完整协调策略；后续设置只影响新任务。持久状态以 acceptance revision 与 coordination revision 双重 CAS 发布，外部动作前记录 intent。重启时无法确认是否已交付的自行修正或咨询不会自动重放。旧 Task 不新增字段或改写历史，任务记录兼容显示新 Task 的自行修正、咨询次数、阻碍状态和失败原因。
+每个新 Task 冻结完整协调策略；后续设置只影响新任务。显式咨询候选作为目标排序中的当前偏好参与完整候选池比较：无可比较 winner 时可保留该合格偏好，真实 winner 不同时保留配置身份并标记目标不匹配，当前 Task 零咨询且界面显示原因，不会偷换候选或虚构排序依据。固定主模型仍需独立的咨询许可。
+
+持久状态以 acceptance revision 与 coordination revision 双重 CAS 发布，外部动作前记录 intent。Host 启动时会一次性持久恢复全部未确认的自行修正和咨询状态为 `delivery-unknown/stalled`，不会等待已暂停历史 Task 再次触发验收，也不会重放。最终候选 capture 失败发生在 steer 前，只记录候选变化；只有实际调用 steer 后的异常才属于交付未知。旧 Task 不新增字段或改写历史，任务记录兼容显示新 Task 的自行修正、咨询次数、阻碍状态和失败原因。
 
 ## 复用宿主连接
 

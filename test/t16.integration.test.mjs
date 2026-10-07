@@ -46,6 +46,46 @@ test('shared coordination settings are opt-in, Host CAS stays private, and each 
   }
 });
 
+test('Task coordination candidate preference must agree with real objective ranking', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t16-objective-policy-'));
+  let ctx;
+  const registrations = [];
+  try {
+    ctx = await startNative(home);
+    await ctx.router.setModelEnabled('controlled', false);
+    await ctx.router.setModelEnabled('controlled-tools', false);
+    registrations.push(await registerTextCandidate(ctx, 't16-objective-a', 'advisor-a', new T16ConsultantAdapter()));
+    registrations.push(await registerTextCandidate(ctx, 't16-objective-b', 'advisor-b', new T16ConsultantAdapter()));
+    const candidates = (await ctx.router.snapshot()).candidateSnapshot.candidates
+      .filter(item => registrations.some(entry => entry.candidate.candidateId === item.candidateId));
+    assert.equal(candidates.length, 2);
+    const [rankedFirst, preference] = candidates;
+    const enabled = { ...disabledCoordination, enabled: true, candidateId: preference.candidateId, allowCrossModel: true };
+    await ctx.router.setRoutingObjective('tokens');
+    await ctx.router.setCoordinationPolicy(enabled);
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const tokenTask = await submit(ctx, sessionId, 'Reply TOKEN_OBJECTIVE');
+    assert.equal(tokenTask.coordinationPolicy.objective, 'tokens');
+    assert.equal(tokenTask.coordinationPolicy.candidateId, preference.candidateId);
+    assert.equal(tokenTask.coordinationPolicy.selectionBasis, 'objective-mismatch');
+
+    await ctx.router.setRoutingObjective('quality');
+    await ctx.router.setCoordinationPolicy({ ...enabled, candidateId: preference.candidateId });
+    const qualityTask = await submit(ctx, sessionId, 'Reply QUALITY_OBJECTIVE');
+    assert.equal(qualityTask.coordinationPolicy.objective, 'quality');
+    assert.equal(qualityTask.coordinationPolicy.candidateId, preference.candidateId);
+    assert.equal(qualityTask.coordinationPolicy.selectionBasis, 'objective-qualified');
+    assert.notEqual(preference.candidateId, rankedFirst.candidateId);
+  } finally {
+    for (const registration of registrations) registration.dispose();
+    if (ctx) {
+      await ctx.router.flush();
+      await ctx.fiber.dispose();
+    }
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
 class T16MainAdapter extends LlmAdapter {
   requests = [];
   async *stream(request) {
@@ -165,7 +205,10 @@ test('one real Task uses canonical 4 → 9 → 14 character evidence through sel
   } finally {
     consultantRegistration?.dispose();
     mainRegistration?.dispose();
-    if (ctx) await ctx.fiber.dispose();
+    if (ctx) {
+      await ctx.router.flush();
+      await ctx.fiber.dispose();
+    }
     await rm(home, { recursive: true, force: true });
   }
 });
@@ -183,7 +226,10 @@ test('fixed execution requires its independent consultation grant', async () => 
   } finally {
     run?.consultantRegistration.dispose();
     run?.mainRegistration.dispose();
-    if (run?.ctx) await run.ctx.fiber.dispose();
+    if (run?.ctx) {
+      await run.ctx.router.flush();
+      await run.ctx.fiber.dispose();
+    }
     await rm(home, { recursive: true, force: true });
   }
 });
@@ -205,7 +251,10 @@ test('a real consultation transport failure stays a failed coordination attempt 
   } finally {
     run?.consultantRegistration.dispose();
     run?.mainRegistration.dispose();
-    if (run?.ctx) await run.ctx.fiber.dispose();
+    if (run?.ctx) {
+      await run.ctx.router.flush();
+      await run.ctx.fiber.dispose();
+    }
     await rm(home, { recursive: true, force: true });
   }
 });
@@ -244,7 +293,10 @@ for (const action of ['extend', 'stop', 'revoke']) test(`a real consultation bud
   } finally {
     run?.consultantRegistration.dispose();
     run?.mainRegistration.dispose();
-    if (run?.ctx) await run.ctx.fiber.dispose();
+    if (run?.ctx) {
+      await run.ctx.router.flush();
+      await run.ctx.fiber.dispose();
+    }
     await rm(home, { recursive: true, force: true });
   }
 });
@@ -272,6 +324,78 @@ test('Host restart preserves completed coordination without replaying history', 
   } finally {
     if (run?.ctx) await run.ctx.fiber.dispose();
     if (restarted) await restarted.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+function persistedCoordinationTask(id, pendingState) {
+  const consultation = pendingState === 'self-repair' ? null : {
+    evidenceVersion: 2,
+    candidateId: 'persisted-consultant',
+    selectionSnapshot: {},
+    callId: pendingState === 'intent-persisted' ? null : `${id}-call`,
+    trigger: 'repeated-obstacle',
+    state: pendingState,
+    adviceHash: pendingState === 'advice-ready' ? 'b'.repeat(64) : null,
+    adviceText: pendingState === 'advice-ready' ? 'Persisted advice' : null,
+    noticeMessageId: pendingState === 'advice-ready' ? `${id}-notice` : null,
+    reason: null,
+  };
+  const episode = {
+    episodeId: `${id}-episode`, blockingId: `${id}-blocking`, blockingKey: 'character-length:failed:evidence',
+    requirementIds: [`${id}-requirement`], firstAcceptanceRevision: 1, latestAcceptanceRevision: 1,
+    evidenceVersion: pendingState === 'self-repair' ? 1 : 2, evidenceFingerprint: 'a'.repeat(64),
+    status: pendingState === 'advice-ready' ? 'advice-ready' : pendingState === 'self-repair' ? 'repair-requested' : 'consulting',
+    consultation,
+  };
+  return {
+    id, sessionId: `${id}-session`, turn: 1, lifecycle: 'paused', pauseReason: 'HOST_RESTARTED',
+    acceptance: { revision: 1, verdict: 'failed', evidence: [] }, result: '', calls: [], timeline: [], configVersion: 1,
+    coordinationPolicy: { ...disabledCoordination, enabled: true },
+    coordination: {
+      version: 1, revision: 1, acceptanceRevision: 1,
+      selfRepair: pendingState === 'self-repair' ? { used: true, episodeId: episode.episodeId, evidenceVersion: 1, noticeMessageId: `${id}-notice`, state: 'intent-persisted' } : null,
+      episodes: [episode], consultationAttempts: pendingState === 'self-repair' ? 0 : 1, timeline: [],
+    },
+  };
+}
+
+test('Host startup atomically persists every unconfirmed coordination delivery without replay', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t16-startup-recovery-'));
+  let ctx;
+  try {
+    const directory = join(home, 'router', 'test');
+    await mkdir(directory, { recursive: true });
+    const pending = ['self-repair', 'intent-persisted', 'call-reserved', 'advice-ready'].map((state, index) => persistedCoordinationTask(`pending-${index}`, state));
+    const completed = persistedCoordinationTask('completed-coordination', 'advice-ready');
+    completed.coordination.episodes[0].status = 'resolved';
+    completed.coordination.episodes[0].consultation.state = 'advice-delivered';
+    const completedCoordination = structuredClone(completed.coordination);
+    const legacy = { id: 'legacy-without-coordination', lifecycle: 'completed', acceptance: { verdict: 'unconfirmed', evidence: [] }, result: 'OLD_RESULT', calls: [], timeline: [], configVersion: 1 };
+    const statePath = join(directory, 'state.json');
+    await writeFile(statePath, JSON.stringify({ schemaVersion: 1, config: { automatic: false, version: 2 }, tasks: [...pending, completed, legacy] }), 'utf8');
+
+    ctx = await startNative(home);
+    const first = await ctx.router.snapshot();
+    for (const [index, task] of pending.entries()) {
+      const recovered = first.tasks.find(item => item.id === task.id);
+      assert.equal(recovered.coordination.revision, 2);
+      assert.equal(recovered.coordination.episodes[0].status, 'stalled');
+      if (index === 0) assert.equal(recovered.coordination.selfRepair.state, 'delivery-unknown');
+      else assert.equal(recovered.coordination.episodes[0].consultation.state, 'delivery-unknown');
+      assert.equal(recovered.coordination.timeline.at(-1).reason, 'RESTART_WITH_UNCONFIRMED_DELIVERY');
+    }
+    assert.deepEqual(first.tasks.find(item => item.id === completed.id).coordination, completedCoordination);
+    assert.deepEqual(first.tasks.find(item => item.id === legacy.id), legacy);
+    const raw = JSON.parse(await readFile(statePath, 'utf8'));
+    assert.deepEqual(raw.tasks.map(task => task.coordination), first.tasks.map(task => task.coordination));
+
+    await ctx.fiber.dispose();
+    ctx = await startNative(home);
+    const second = await ctx.router.snapshot();
+    assert.deepEqual(second.tasks.map(task => task.coordination), first.tasks.map(task => task.coordination));
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true });
   }
 });
