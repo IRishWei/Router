@@ -4,7 +4,7 @@
 
 ## 模块边界
 
-唯一入口是 `afterAcceptance({ agent, turn, signal, acceptance })`。调用方必须先等待 T13 发布同一 Task、同一 revision 的 canonical acceptance，再调用本入口。模块通过 Host-only facade 读取 `exactTask`，并以 `{ acceptanceRevision, coordinationRevision }` 调用 `publishCoordination`；没有内存计数可替代持久 Task 状态。
+唯一入口是 `afterAcceptance({ agent, turn, signal, acceptance })`。调用方必须先等待 T13 发布同一 Task、同一 revision 的 canonical acceptance，再调用本入口。模块通过 Host-only facade 读取 `exactTask`，并以 `{ acceptanceRevision, coordinationRevision }` 调用 `publishCoordination`；没有内存计数可替代持久 Task 状态。Task 冻结策略的 `enabled` 是整个 T16 自动协调总开关；缺失/关闭时零 steer、零新增 Call。Task 冻结的 Router `automatic:false` 同样暂停 T16，即使 T16 策略已启用。咨询候选配置和许可不能隐式开启自修。
 
 首次可信、可修复失败先持久化 Task-wide self-repair intent，再用 `createUserMessage` 和 `agent.steer` 发布 `source.kind='router-self-repair'`、`form='notice'` 的同 turn 消息。它不调用 `SessionController.prompt`，不伪装人类来源，不创建 Task、agent 或预算。
 
@@ -18,7 +18,7 @@
 
 ## 阶段 1 测试
 
-`test/t16.coordination.test.mjs` 覆盖首次自修、相关/无关证据版本、能力不足、未知容量、固定保护、网络分类、重启未知派发、stale acceptance、咨询失败及去重。`test/t16.controller.test.mjs` 使用真实 rc.2 SessionController/AgentLoop/Router owned runner：一个 Task、一个 turn 内完成 `BAD1 -> self-repair -> BAD2 -> consultation Call -> advice -> FIXED`，保留两个自有 source notice、四个同 Task Call 和一次咨询计数。
+`test/t16.coordination.test.mjs` 覆盖总开关、自动路由暂停、首次自修、相关/无关证据版本、能力不足、未知容量、固定保护、网络分类、重启未知派发、stale acceptance、咨询失败及去重。`test/t16.controller.test.mjs` 使用真实 rc.2 SessionController/AgentLoop/Router owned runner 和 controlled acceptance/CAS protocol fixture：一个 Task、一个 turn 内完成 `BAD1 -> self-repair -> BAD2 -> consultation Call -> advice -> FIXED`，保留两个自有 source notice、四个同 Task Call 和一次咨询计数。第二次失败的 receipt 是协议夹具输入，不是 T13/ToolRuntime 已接线的真实检查证据；正式接线仍须用 canonical T13 结果和真实 Host check 回归。
 
 ## 待共享接线
 

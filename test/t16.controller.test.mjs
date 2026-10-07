@@ -59,14 +59,26 @@ class ConsultationAdapter extends LlmAdapter {
   }
 }
 
+async function registerOwnedCandidate(ctx, { provider, model, name }) {
+  const dispose = ctx.router.registerOwned({
+    provider, connectionId: `${provider}-connection`, accountId: `${provider}-account`, billingPath: 'controlled-test', ownership: 'router-owned',
+    source: 't16-controller-test', sourceKey: `${provider}:v1`, configRevision: 1, configured: true, authorizationStatus: 'configured',
+    models: [{ model, name, maxContextTokens: 8192, capability: { text: { supported: true, confidence: 'declared' }, image: { supported: false, confidence: 'declared' }, tools: { supported: false, confidence: 'declared' } } }],
+  });
+  const candidate = (await ctx.router.refreshConnections()).models.find(item => item.identity.provider === provider && item.identity.model === model);
+  await ctx.router.setModelEnabled(candidate.candidateId, true);
+  return { candidate, dispose };
+}
+
 test('the real Controller keeps a producer-owned self-repair notice in the same Task and turn', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t16-controller-'));
   let ctx;
+  let dispose;
   try {
     ctx = await startNative(home);
     const adapter = new RepairingAdapter();
     ctx.llm.registerAdapter(['t16-main'], adapter);
-    await ctx.router.setAutomatic(false);
+    ({ dispose } = await registerOwnedCandidate(ctx, { provider: 't16-main', model: 'main', name: 'T16 main fixture' }));
 
     const acceptances = new Map();
     const coordinations = new Map();
@@ -86,7 +98,7 @@ test('the real Controller keeps a producer-owned self-repair notice in the same 
         return clone(next);
       },
     };
-    const controller = new TaskCoordinationController({ router: facade, policyForTask: () => null });
+    const controller = new TaskCoordinationController({ router: facade, policyForTask: () => ({ enabled: true }) });
     let stops = 0;
     ctx.on('agent/turn-stopping', async payload => {
       const task = ctx.router.exactTask(payload.agent.session.id, payload.turn);
@@ -113,6 +125,7 @@ test('the real Controller keeps a producer-owned self-repair notice in the same 
     assert.equal(coordinations.get(task.id).selfRepair.used, true);
     assert.equal(coordinations.get(task.id).episodes[0].status, 'resolved');
   } finally {
+    dispose?.();
     if (ctx) await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true });
   }
@@ -122,20 +135,17 @@ test('the real Controller runs self-repair, one owned consultation Call, advice 
   const home = await mkdtemp(join(tmpdir(), 'router-t16-controller-consultation-'));
   let ctx;
   let dispose;
+  let disposeMain;
   try {
     ctx = await startNative(home);
     const main = new RepeatedFailureAdapter();
     const expert = new ConsultationAdapter();
     ctx.llm.registerAdapter(['t16-repeated'], main);
     ctx.llm.registerAdapter(['t16-expert'], expert);
-    dispose = ctx.router.registerOwned({
-      provider: 't16-expert', connectionId: 't16-expert-connection', accountId: 't16-expert-account', billingPath: 'controlled-test', ownership: 'router-owned',
-      source: 't16-controller-test', sourceKey: 't16-expert:v1', configRevision: 1, configured: true, authorizationStatus: 'configured',
-      models: [{ model: 'expert', name: 'T16 expert fixture', maxContextTokens: 8192, capability: { text: { supported: true, confidence: 'declared' }, image: { supported: false, confidence: 'declared' }, tools: { supported: false, confidence: 'declared' } } }],
-    });
-    const expertCandidate = (await ctx.router.refreshConnections()).models.find(item => item.identity.provider === 't16-expert');
-    await ctx.router.setModelEnabled(expertCandidate.candidateId, true);
-    await ctx.router.setAutomatic(false);
+    ({ dispose: disposeMain } = await registerOwnedCandidate(ctx, { provider: 't16-repeated', model: 'main', name: 'T16 repeated failure fixture' }));
+    const expertRegistration = await registerOwnedCandidate(ctx, { provider: 't16-expert', model: 'expert', name: 'T16 expert fixture' });
+    dispose = expertRegistration.dispose;
+    const expertCandidate = expertRegistration.candidate;
 
     const acceptances = new Map();
     const coordinations = new Map();
@@ -196,6 +206,7 @@ test('the real Controller runs self-repair, one owned consultation Call, advice 
     assert.equal(coordination.timeline.filter(item => item.kind === 'consultation-intent').length, 1);
   } finally {
     dispose?.();
+    disposeMain?.();
     if (ctx) await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true });
   }

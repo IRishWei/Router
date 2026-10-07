@@ -107,6 +107,7 @@ const capabilityDeficiency = obstacle => obstacle.evidence.some(item => item.rea
 
 const fixedTask = task => task.routing?.reasonCodes?.includes('FIXED_CANDIDATE')
   || task.calls?.some(call => call.routerSnapshot?.fixedCandidateId || call.routerSnapshot?.fixedModel);
+const taskAutomatic = task => task.calls?.find(call => ['execution', 'retry', 'redo'].includes(call.purpose))?.routerSnapshot?.automatic === true;
 const taskObjective = task => task.routing?.objective
   ?? task.calls?.find(call => ['execution', 'retry', 'redo'].includes(call.purpose))?.routerSnapshot?.routingObjective
   ?? null;
@@ -156,6 +157,11 @@ export class TaskCoordinationController {
     if (signal.aborted) return { kind: 'none', reason: 'CANCELED' };
     let task = this.#router.exactTask(agent.session.id, turn);
     if (!task || task.acceptance?.revision !== acceptance?.revision || task.acceptance?.requirementHash !== acceptance?.requirementHash) return { kind: 'stale', reason: 'ACCEPTANCE_CHANGED' };
+    let policy;
+    try { policy = typeof this.#policyForTask === 'function' ? await this.#policyForTask(clone(task)) : null; }
+    catch { return { kind: 'none', reason: 'COORDINATION_POLICY_UNAVAILABLE' }; }
+    if (policy?.enabled !== true) return { kind: 'none', reason: 'COORDINATION_DISABLED' };
+    if (!taskAutomatic(task)) return { kind: 'none', reason: 'AUTOMATIC_ROUTING_PAUSED' };
 
     let state = parsedCoordination(task.coordination);
     const unresolved = trustedObstacle(acceptance);
@@ -202,7 +208,7 @@ export class TaskCoordinationController {
     const repeated = state.selfRepair?.episodeId === episodeId && episode.evidenceVersion > state.selfRepair.evidenceVersion;
     if (!repeated && !missingCapability) return this.#stall(task, acceptance, state, episode, 'OBSTACLE_NOT_REPEATED');
     if (state.consultationAttempts >= 1) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_ATTEMPT_LIMIT');
-    return this.#consult({ agent, signal, task, acceptance, state, episode, obstacle: unresolved, trigger: missingCapability ? 'capability-deficiency' : 'repeated-obstacle' });
+    return this.#consult({ agent, signal, task, acceptance, state, episode, obstacle: unresolved, trigger: missingCapability ? 'capability-deficiency' : 'repeated-obstacle', policy });
   }
 
   async #requestRepair({ agent, signal, task, acceptance, state, episode, obstacle }) {
@@ -230,11 +236,8 @@ export class TaskCoordinationController {
     return { kind: 'self-repair', episodeId: episode.episodeId, evidenceVersion: episode.evidenceVersion, messageId: message.id };
   }
 
-  async #consult({ agent, signal, task, acceptance, state, episode, obstacle, trigger }) {
-    let policy;
-    try { policy = typeof this.#policyForTask === 'function' ? await this.#policyForTask(clone(task)) : null; }
-    catch { return this.#stall(task, acceptance, state, episode, 'CONSULTATION_POLICY_UNAVAILABLE'); }
-    const invalidPolicy = !policy?.enabled || typeof policy.candidateId !== 'string' || !policy.candidateId
+  async #consult({ agent, signal, task, acceptance, state, episode, obstacle, trigger, policy }) {
+    const invalidPolicy = typeof policy.candidateId !== 'string' || !policy.candidateId
       || policy.selectionBasis !== 'objective-qualified' || policy.objective !== taskObjective(task)
       || !positiveInteger(policy.maxTokens) || !positiveInteger(policy.maxAdviceChars) || policy.maxAdviceChars > 16384
       || !positiveInteger(policy.forecast?.totalTokens) || policy.forecast.totalTokens < policy.maxTokens;

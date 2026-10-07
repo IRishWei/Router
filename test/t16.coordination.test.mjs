@@ -57,7 +57,7 @@ function harness({ acceptance = failedAcceptance(), coordination = null, fixed =
     id: 'task-1', sessionId: 'session-1', turn: 1, lifecycle: 'running', configVersion: 7,
     activeSelection: { connectionId: 'main-connection', accountId: 'main-account', billingPath: 'main-billing', provider: 'main-provider', model: 'main-model' },
     routing: { objective: 'balanced', reasonCodes: fixed ? ['FIXED_CANDIDATE'] : ['OBJECTIVE_BALANCED'] },
-    acceptance: clone(acceptance), coordination: clone(coordination), calls: [],
+    acceptance: clone(acceptance), coordination: clone(coordination), calls: [{ purpose: 'execution', routerSnapshot: { automatic: true, routingObjective: 'balanced' } }],
   };
   const router = {
     exactTask(sessionId, turn) { return sessionId === task.sessionId && turn === task.turn ? clone(task) : null; },
@@ -101,6 +101,36 @@ function harness({ acceptance = failedAcceptance(), coordination = null, fixed =
 }
 
 harness.signal = new AbortController().signal;
+
+test('missing or disabled coordination policy adds no model step or Call', async () => {
+  for (const policyValue of [null, { enabled: false, candidateId: consultant.candidateId }]) {
+    const run = harness({ policyValue });
+    const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+    assert.equal(action.kind, 'none');
+    assert.equal(action.reason, 'COORDINATION_DISABLED');
+    assert.equal(run.steers.length, 0);
+    assert.equal(run.reservations.length, 0);
+    assert.equal(run.task.coordination, null);
+  }
+});
+
+test('an enabled policy permits self-repair without using candidate settings as an implicit switch', async () => {
+  const run = harness({ policyValue: { enabled: true } });
+  const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  assert.equal(action.kind, 'self-repair');
+  assert.equal(run.steers.length, 1);
+  assert.equal(run.reservations.length, 0);
+});
+
+test('paused automatic routing suppresses T16 even when its frozen policy is enabled', async () => {
+  const run = harness({ policyValue: { enabled: true } });
+  run.task.calls[0].routerSnapshot.automatic = false;
+  const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  assert.equal(action.kind, 'none');
+  assert.equal(action.reason, 'AUTOMATIC_ROUTING_PAUSED');
+  assert.equal(run.steers.length, 0);
+  assert.equal(run.reservations.length, 0);
+});
 
 test('the first trusted repairable failure persists one Task-wide intent before a producer-owned same-turn steer', async () => {
   const run = harness();
