@@ -211,10 +211,12 @@ const readResponse = (url, route, { deadline, signal, maxBytes, transferBudget, 
     };
   }
   let settled = false;
+  let timer;
   const startingTransferredBytes = transferBudget.used;
   const finish = value => {
     if (settled) return;
     settled = true;
+    clearTimeout(timer);
     signal?.removeEventListener('abort', abort);
     agent.destroy();
     resolve(value);
@@ -240,8 +242,14 @@ const readResponse = (url, route, { deadline, signal, maxBytes, transferBudget, 
     response.once('error', error => finish({ error: normalizeFailure(error, signal, 'SOURCE_UNAVAILABLE') }));
     response.once('end', () => finish({ response, body: Buffer.concat(chunks).toString('utf8') }));
   });
-  const abort = () => request.destroy(codedError('CANCELED'));
-  request.setTimeout(timeoutMs, () => request.destroy(codedError('SOURCE_TIMEOUT')));
+  const stop = code => {
+    const error = codedError(code);
+    request.destroy(error);
+    finish({ error });
+  };
+  const abort = () => stop('CANCELED');
+  timer = setTimeout(() => stop('SOURCE_TIMEOUT'), timeoutMs);
+  timer.unref?.();
   request.once('error', error => finish({ error: normalizeFailure(error, signal, route.kind === 'proxy' ? 'SOURCE_PROXY_UNAVAILABLE' : 'SOURCE_UNAVAILABLE') }));
   signal?.addEventListener('abort', abort, { once: true });
   request.end();

@@ -15,6 +15,20 @@ async function sourceFixture(routes) {
     const route = routes[new URL(request.url, 'http://fixture.local').pathname] ?? { status: 404, body: 'missing' };
     if (route.delayMs) await new Promise(resolve => setTimeout(resolve, route.delayMs));
     response.writeHead(route.status ?? 200, { 'content-type': route.type ?? 'text/plain; charset=utf-8', ...(route.headers ?? {}) });
+    if (route.drip) {
+      response.once('close', () => {
+        route.drip.stats.closed = true;
+        route.drip.stats.resolveClosed();
+      });
+      for (const chunk of route.drip.chunks) {
+        if (response.destroyed) break;
+        response.write(chunk);
+        route.drip.stats.writes += 1;
+        await new Promise(resolve => setTimeout(resolve, route.drip.intervalMs));
+      }
+      if (!response.destroyed) response.end();
+      return;
+    }
     response.end(route.body ?? '');
   });
   server.listen(0, '127.0.0.1');
@@ -460,6 +474,52 @@ test('DNS, redirects and cancellation share one bounded source deadline', async 
     });
     const result = await redirectChain({ sourceRef: { url: fixture.url('/first') }, signal: new AbortController().signal });
     assert.deepEqual(result, { access: 'unavailable', reason: 'SOURCE_TIMEOUT' });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a source that continuously drips bytes cannot extend the absolute source deadline', async () => {
+  let resolveClosed;
+  const stats = { writes: 0, closed: false, resolveClosed: () => resolveClosed() };
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  let resolveCanceledClosed;
+  const canceledStats = { writes: 0, closed: false, resolveClosed: () => resolveCanceledClosed() };
+  const canceledClosed = new Promise(resolve => { resolveCanceledClosed = resolve; });
+  const fixture = await sourceFixture({
+    '/slow-drip': { drip: { chunks: Array(20).fill('x'), intervalMs: 10, stats } },
+    '/canceled-drip': { drip: { chunks: Array(20).fill('y'), intervalMs: 10, stats: canceledStats } },
+  });
+  try {
+    const resolver = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      limits: { timeoutMs: 35 },
+    });
+    const result = await resolver({ sourceRef: { url: fixture.url('/slow-drip') }, signal: new AbortController().signal });
+    assert.deepEqual(result, { access: 'unavailable', reason: 'SOURCE_TIMEOUT' });
+    await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error('source connection remained open')), 100))]);
+    const writesAtClose = stats.writes;
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(stats.closed, true);
+    assert.equal(writesAtClose < 20, true);
+    assert.equal(stats.writes, writesAtClose);
+
+    const cancelResolver = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      limits: { timeoutMs: 200 },
+    });
+    const controller = new AbortController();
+    const pending = cancelResolver({ sourceRef: { url: fixture.url('/canceled-drip') }, signal: controller.signal });
+    setTimeout(() => controller.abort(), 25);
+    assert.deepEqual(await pending, { access: 'unavailable', reason: 'CANCELED' });
+    await Promise.race([canceledClosed, new Promise((_, reject) => setTimeout(() => reject(new Error('canceled source connection remained open')), 100))]);
+    const canceledWritesAtClose = canceledStats.writes;
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(canceledStats.closed, true);
+    assert.equal(canceledWritesAtClose < 20, true);
+    assert.equal(canceledStats.writes, canceledWritesAtClose);
   } finally {
     await fixture.close();
   }
