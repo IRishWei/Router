@@ -676,7 +676,11 @@ test('a real steer during review waiting supersedes the old artifact and reasses
     assert.equal(result.history[0].artifact.text, 'ORIGINAL');
     assert.equal(result.history[0].verdict, 'unconfirmed');
     assert.deepEqual(task.calls.map(call => call.purpose), ['execution', 'review', 'execution', 'review']);
-    assert.equal(adapter.reviews.length, 2);
+    const reviewCalls = task.calls.filter(call => call.purpose === 'review');
+    assert.equal(reviewCalls[0].dispatchStarted, false);
+    assert.equal(reviewCalls[0].reservation.state, 'released');
+    assert.equal(reviewCalls[1].dispatchStarted, true);
+    assert.equal(adapter.reviews.length, 1);
   } finally { if (run) await run.catch(() => {}); registered.dispose(); await ctx.fiber.dispose(); await rm(home, { recursive: true, force: true }); }
 });
 

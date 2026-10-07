@@ -11,6 +11,8 @@ import { AcceptanceCoordinator } from './acceptance.mjs';
 import { createNodeProgramChecks } from './program-checks.mjs';
 import { DeepSeekHost } from './deepseek-host.mjs';
 import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
+import { createHttpSourceEvidenceResolver, createResearchAcceptance } from './research-acceptance.mjs';
+import { validateResearchContribution } from './research-contribution.mjs';
 
 export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -565,7 +567,13 @@ export class RouterService extends TypertRemoteService {
         return result;
       } catch (error) { try { await owner.close('AUXILIARY_STREAM_REJECTED'); } catch {} throw error; }
     };
-    return { [Symbol.asyncIterator]() { return this; }, next: value => advance('next', value), return: value => advance('return', value), throw: error => advance('throw', error) };
+    return {
+      [Symbol.asyncIterator]() { return this; },
+      next: value => advance('next', value),
+      return: value => advance('return', value),
+      throw: error => advance('throw', error),
+      cancel: reason => owner.close(reason, false),
+    };
   }
   #trackedDispatch(owner, next) {
     const stream = (async function* () {
@@ -1288,10 +1296,15 @@ export async function apply(ctx) {
   service.attachDeepSeek(deepSeek);
   await deepSeek.restore();
   const programChecks = createNodeProgramChecks(ctx);
+  const researchAcceptance = createResearchAcceptance({ resolveSourceEvidence: ctx.get('routerResearchSourceEvidence') ?? createHttpSourceEvidenceResolver() });
   new AcceptanceCoordinator(ctx, {
     publishAcceptance: service.publishAcceptance,
     captureCandidate: service.captureCandidate,
     checks: programChecks.checks,
+    contributors: [{
+      contribute: request => researchAcceptance.contribute(request),
+      validate: (value, context) => validateResearchContribution(value, context),
+    }],
     policyForTask: task => ({
       enabled: task.acceptancePolicy?.enabled === true,
       review: {

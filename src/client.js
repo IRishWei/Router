@@ -139,9 +139,24 @@ window.__ModuleLoader__.load({
     function AcceptanceResult({ task }) {
       const acceptance = task.acceptance ?? { verdict: 'unconfirmed', evidence: [] };
       const label = acceptance.verdict === 'passed' ? '通过' : acceptance.verdict === 'failed' ? '失败' : '无法确认';
+      const evidenceLabel = item => item.verdict === 'passed' ? '通过' : item.verdict === 'failed' ? '失败' : '未确认';
+      const research = acceptance.research;
+      const researchRows = [];
+      for (const requirement of research?.requirements ?? []) {
+        if (!requirement.kind.startsWith('research-') || requirement.kind === 'research-unresolved') continue;
+        const support = (acceptance.evidence ?? []).find(item => item.requirementId === requirement.id && item.aspect === 'claim-support');
+        researchRows.push(h('p', { key: `${requirement.id}:claim` }, `研究论点：${requirement.claim} · 论点支持：${support ? evidenceLabel(support) : '未确认'}${support?.reason ? ` · ${support.reason}` : ''}`));
+        for (const reference of (research.sourceReferences ?? []).filter(item => item.requirementId === requirement.id)) {
+          const snapshot = (research.sourceSnapshots ?? []).find(item => item.sourceReferenceId === reference.id);
+          const access = (acceptance.evidence ?? []).find(item => item.sourceReferenceId === reference.id && item.aspect === 'source-access');
+          const quote = (acceptance.evidence ?? []).find(item => item.sourceReferenceId === reference.id && item.aspect === 'quote-binding');
+          researchRows.push(h('p', { key: reference.id }, `来源地址：${snapshot?.displayUrl ?? '不可用'} · 来源访问：${access ? evidenceLabel(access) : '未确认'} · 引文定位：${quote ? evidenceLabel(quote) : '未确认'}${snapshot?.reason ? ` · ${snapshot.reason}` : ''}`));
+        }
+      }
       return h('div', null,
         h('p', null, `验收：${label}${acceptance.coverage ? ` · 覆盖 ${acceptance.coverage.covered}/${acceptance.coverage.required}` : ''}`),
-        ...(acceptance.evidence ?? []).map(item => h('p', { key: item.id ?? item.requirementId }, `${item.verdict === 'passed' ? '通过' : item.verdict === 'failed' ? '失败' : '未确认'} · ${item.source?.kind ?? '未知来源'}${item.reason ? ` · ${item.reason}` : ''}`)),
+        ...(acceptance.evidence ?? []).map(item => h('p', { key: item.id ?? item.requirementId }, `${evidenceLabel(item)} · ${item.aspect ?? item.source?.kind ?? '未知来源'}${item.reason ? ` · ${item.reason}` : ''}`)),
+        ...researchRows,
         acceptance.history?.length ? h('p', null, `保留 ${acceptance.history.length} 个已被新产物或要求取代的验收版本。`) : null,
         acceptance.limitations?.includes('no-overall-quality-guarantee') ? h('p', null, '覆盖仅限明确要求，不代表整体质量保证。') : null);
     }
