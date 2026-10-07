@@ -77,3 +77,7 @@ T05、T12、T13 的首阶段独立模块可并行开发；共享 `index/protocol
 T14 0.8.1 的实际安装验收在 2026-10-07 仍未完成。companion 0.3.2 已修复 standard preset 后置 context 误选且通过独立双轴审查，但真实来源被系统 DNS 解析到受限地址后由生产 reader 正确拒绝；19 项只执行了首 2 项即失败。全部 123 条 Task/Call、配置和原生默认经移除夹具与重启深比较保留，旧失败证据未改写。具体记录见 `t14-installed-host-evidence.md`；#15 不关闭。
 
 用户不希望调整 DNS 后承担网络修复，后续保持全部网络配置原样。在既有全部票范围内，T16 可使用已完成的原生前置 T12/T13 推进共享接线与本地验证；此前等待 T14 实际来源验收的内部接线顺序不再阻止这项独立工作。T14 的失败、待验门槛与原生依赖图均保留，T16 的实际通过另行证明。
+
+T16 0.9.0 共享接线固定为唯一 awaited acceptance→coordination 顺序、Host-only 双 revision CAS、Task 冻结策略、一次自行修正和一次有相关新证据的有界咨询。跨模型与固定任务许可独立；咨询使用共享 reserve→stream、原 Task/turn/预算/signal，建议不是验收证据。旧 Task 不新增字段。T14 尚未提供 canonical 研究失败可信谓词，因此 research/model-review 失败保持 fail-closed。源码和共享 Controller/Renderer 验证不替代目标 Desktop、冻结 companion 与旧 123 Task 深比较，#17 在该验收完成前保持打开。
+
+T16 0.9.1 修复独立复审阻塞项：Host 启动在服务可用前原子持久化全部未确认协调 intent 为 delivery-unknown/stalled；最终 candidate capture 失败与 steer 后交付异常分别记为 stale 和 delivery-unknown；显式咨询候选以 current preference 进入完整 objective ranking，真实 winner 不同则冻结 objective-mismatch、显示原因并零咨询，固定主模型许可继续独立。0.9.0 包身份保留，仅 0.9.1 进入后续安装验收。

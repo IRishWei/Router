@@ -136,6 +136,25 @@ window.__ModuleLoader__.load({
         field('评审输入与输出总预留 token', draft.review.forecastTokens, value => review({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 65536, step: 1 }),
         h('button', { type: 'button', onClick: () => save(draft) }, '保存验收设置'));
     }
+    function CoordinationPolicyEditor({ state, disabled, save }) {
+      const defaults = { enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 256, maxAdviceChars: 4096, forecastTokens: 4096 };
+      const [draft, setDraft] = React.useState(state.config.coordination ?? defaults);
+      React.useEffect(() => { setDraft(state.config.coordination ?? defaults); }, [JSON.stringify(state.config.coordination)]);
+      const patch = change => setDraft(current => ({ ...current, ...change }));
+      return h('fieldset', { disabled }, h('legend', null, '受阻后的有界协调'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '启用受阻协调', checked: draft.enabled, onChange: event => patch({ enabled: event.target.checked }) }), '启用一次自行修正与有界咨询'),
+        h('p', null, '设置只影响新任务。首次可信失败只让当前模型修正一次；相关新失败证据才允许一次咨询，建议仍需重新验收。'),
+        h('label', null, '咨询候选 ', h('select', { 'aria-label': '咨询候选', value: draft.candidateId ?? '', onChange: event => patch({ candidateId: event.target.value || null }) },
+          h('option', { value: '' }, '未选择（仅自行修正）'),
+          ...state.models.map(model => h('option', { key: model.candidateId ?? model.id, value: model.candidateId ?? model.id, disabled: !model.enabled || !model.available }, `${model.name} · ${model.provider}/${model.model} · ${model.connectionId} · ${model.accountId} · ${model.billingPath}${model.enabled && model.available ? '' : '（不可用）'}`)))),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '允许跨模型咨询', checked: draft.allowCrossModel, onChange: event => patch({ allowCrossModel: event.target.checked }) }), '允许所选咨询候选与执行模型不同'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '允许固定任务咨询', checked: draft.allowFixedModel, onChange: event => patch({ allowFixedModel: event.target.checked }) }), '固定执行模型时仍允许所选咨询候选'),
+        h('p', null, '两项许可默认关闭；咨询沿用原任务、预算和执行责任，不会切换主模型。'),
+        field('咨询输出 token 上限', draft.maxTokens, value => patch({ maxTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 4096, step: 1 }),
+        field('咨询建议字符上限', draft.maxAdviceChars, value => patch({ maxAdviceChars: Number(value) }), disabled, { type: 'number', min: 1, max: 16384, step: 1 }),
+        field('咨询输入与输出总预留 token', draft.forecastTokens, value => patch({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 65536, step: 1 }),
+        h('button', { type: 'button', onClick: () => save(draft) }, '保存协调设置'));
+    }
     function AcceptanceResult({ task }) {
       const acceptance = task.acceptance ?? { verdict: 'unconfirmed', evidence: [] };
       const label = acceptance.verdict === 'passed' ? '通过' : acceptance.verdict === 'failed' ? '失败' : '无法确认';
@@ -159,6 +178,16 @@ window.__ModuleLoader__.load({
         ...researchRows,
         acceptance.history?.length ? h('p', null, `保留 ${acceptance.history.length} 个已被新产物或要求取代的验收版本。`) : null,
         acceptance.limitations?.includes('no-overall-quality-guarantee') ? h('p', null, '覆盖仅限明确要求，不代表整体质量保证。') : null);
+    }
+    function CoordinationResult({ task }) {
+      const coordination = task.coordination;
+      const objectiveMismatch = task.coordinationPolicy?.enabled && task.coordinationPolicy.selectionBasis === 'objective-mismatch';
+      if (!coordination && !objectiveMismatch) return null;
+      const open = coordination?.episodes?.filter(item => !['resolved', 'stalled'].includes(item.status)).length ?? 0;
+      return h('div', null,
+        objectiveMismatch ? h('p', null, '配置的咨询候选与任务目标排序不一致，当前任务未授权咨询。') : null,
+        coordination ? h('p', null, `受阻协调：${coordination.selfRepair?.used ? '已使用一次自行修正' : '未使用自行修正'} · 咨询 ${coordination.consultationAttempts} 次 · 未结束阻碍 ${open}`) : null,
+        ...(coordination?.episodes ?? []).map(item => h('p', { key: item.episodeId }, `阻碍 ${item.blockingKey} · 证据版本 ${item.evidenceVersion} · ${item.status}${item.consultation?.reason ? ` · ${item.consultation.reason}` : ''}`)));
     }
     function RouterSettings({ api }) {
       const [state, setState] = React.useState(null);
@@ -202,11 +231,13 @@ window.__ModuleLoader__.load({
         h('p', null, 'Router 受控连接仅生成本地测试响应；主动启用的 DSH 原生连接会使用其宿主 provider。参考报价由公开设置命令保存，不代表官方价格或实际账单。'),
         h(BudgetEditor, { budget: state.config.budget, disabled, save: budget => change(() => api.setBudgetDefaults(budget)) }),
         h(AcceptancePolicyEditor, { state, disabled, save: policy => change(() => api.setAcceptancePolicy(policy)) }),
+        h(CoordinationPolicyEditor, { state, disabled, save: policy => change(() => api.setCoordinationPolicy(policy)) }),
         ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
       const history = () => h('div', null, h('h3', null, '任务记录'), state.tasks.length === 0 ? h('p', null, '尚无任务。') : h('ol', null, ...state.tasks.slice(-20).reverse().map(task => h('li', { key: task.id, style: { padding: '12px 0', whiteSpace: 'pre-wrap' } },
         h('strong', null, `${task.activeSelection?.provider ?? '尚未选择'}/${task.activeSelection?.model ?? '—'}`),
         h('p', null, `${task.lifecycle === 'completed' ? '响应完成' : task.lifecycle === 'paused' ? '任务暂停' : task.lifecycle === 'waiting-budget' ? '预算等待' : '执行中'}${task.pauseReason ? ` · ${reasons[task.pauseReason] ?? task.pauseReason}` : ''}`),
         h(AcceptanceResult, { task }),
+        h(CoordinationResult, { task }),
         h('p', null, task.result || '尚无输出'), h('small', null, `有效配置 ${task.configVersion} · ${task.id}`),
         h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }),
         h('details', null, h('summary', null, '选择与结果记录'), h('pre', null, JSON.stringify(task.timeline, null, 2)))))));
