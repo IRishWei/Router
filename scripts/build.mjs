@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 await mkdir('lib', { recursive: true });
 await mkdir('artifacts', { recursive: true });
 await mkdir('companion/native-provider/lib', { recursive: true });
-const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'").replace("'./routing.mjs'", "'./routing.js'").replace("'./acceptance.mjs'", "'./acceptance.js'").replace("'./program-checks.mjs'", "'./program-checks.js'");
+const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'").replace("'./routing.mjs'", "'./routing.js'").replace("'./acceptance.mjs'", "'./acceptance.js'").replace("'./program-checks.mjs'", "'./program-checks.js'").replace("'./deepseek-host.mjs'", "'./deepseek-host.js'");
 await writeFile('lib/index.js', host);
 await writeFile('lib/ledger.js', await readFile('src/ledger.mjs', 'utf8'));
 await writeFile('lib/connections.js', (await readFile('src/connections.mjs', 'utf8')).replace("'./native-connections.mjs'", "'./native-connections.js'"));
@@ -11,6 +11,10 @@ await writeFile('lib/native-connections.js', await readFile('src/native-connecti
 await writeFile('lib/routing.js', (await readFile('src/routing.mjs', 'utf8')).replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'"));
 await writeFile('lib/acceptance.js', await readFile('src/acceptance.mjs', 'utf8'));
 await writeFile('lib/program-checks.js', await readFile('src/program-checks.mjs', 'utf8'));
+await writeFile('lib/deepseek-connections.js', (await readFile('src/deepseek-connections.mjs', 'utf8')).replace("'./deepseek-catalog.mjs'", "'./deepseek-catalog.js'"));
+await writeFile('lib/deepseek-catalog.js', await readFile('src/deepseek-catalog.mjs', 'utf8'));
+await writeFile('lib/deepseek-router.js', (await readFile('src/deepseek-router.mjs', 'utf8')).replace("'./deepseek-connections.mjs'", "'./deepseek-connections.js'"));
+await writeFile('lib/deepseek-host.js', (await readFile('src/deepseek-host.mjs', 'utf8')).replace("'./deepseek-connections.mjs'", "'./deepseek-connections.js'").replace("'./deepseek-router.mjs'", "'./deepseek-router.js'"));
 const protocol = await readFile('src/protocol.mjs', 'utf8');
 await writeFile('lib/protocol.js', protocol);
 await writeFile('lib/typert.host.js', "export { TYPERT, TYPERT as default } from './protocol.js';\n");
@@ -18,5 +22,6 @@ await writeFile('lib/typert.remote-client.js', "export { TYPERT_REMOTE, TYPERT_R
 await writeFile('companion/native-provider/lib/index.js', await readFile('companion/native-provider/src/index.mjs', 'utf8'));
 // Bundle the codec only. The host's ModuleLoader supplies React and the Cordis runtime.
 const inline = protocol.replace("import { z } from 'zod';", '').replaceAll('export const ', 'const ');
-const client = (await readFile('src/client.js', 'utf8')).replace('const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;', `${inline}\nconst remoteDescriptors = descriptors;`).replace('package: \'@irishwei/dsh-router\', descriptors }),', 'package: \'@irishwei/dsh-router\', descriptors: remoteDescriptors }),');
+const deepSeekClient = (await readFile('src/deepseek-client.mjs', 'utf8')).replaceAll('export function ', 'function ');
+const client = `${deepSeekClient}\n${await readFile('src/client.js', 'utf8')}`.replace('const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;', `${inline}\nconst remoteDescriptors = descriptors;`).replace('package: \'@irishwei/dsh-router\', descriptors }),', 'package: \'@irishwei/dsh-router\', descriptors: remoteDescriptors }),');
 await build({ stdin: { contents: `import { z } from 'zod';\n${client}`, resolveDir: process.cwd() }, outfile: 'lib/client.js', bundle: true, platform: 'browser', format: 'iife', target: 'es2022', minify: true });
