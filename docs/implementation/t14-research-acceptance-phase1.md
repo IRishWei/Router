@@ -24,8 +24,10 @@
 
 普通记录只保存去除 query/fragment 的 display URL、完整 URL hash、内容 hash、HTTP 状态、媒体类型、精确引文与定位；不保存整页正文或 query 值。正文过大、媒体不支持、断链、取消及不可信 adapter 返回值均以稳定 reason code 保持失败或无法确认。相同 requirement/artifact 版本只复用 Task acceptance/history 中通过引用链校验的持久化快照；无进程内跨重启缓存，新 artifact revision 会重新取得来源。
 
+同一 contribution 使用单一 deadline 与原始取消 signal，包含 DNS、每个 redirect 和任意注入 adapter 的等待；结束时移除监听器。来源上限按 canonical URL 对整个 contribution 计数，fragment 不产生新资源；同一 URL 只读取一次，但可为不同论点绑定不同精确引文。累计读取字节也使用整个 contribution 的固定 `maxBytes`，后续来源只得到剩余额度。超过总数、总字节或总时间保持 `unconfirmed` 并记录稳定 reason code，不制造质量失败。
+
 ## 阶段验证与未接线项
 
 `node --test test/t14.research-acceptance.test.mjs` 覆盖：200 无关页面、精确引文、缺失来源、404、冲突、无支持推论、页面指令隔离、query 隐私、私网与危险 redirect、大小限制、adapter 伪记录、固定来源数和持久化复用。
 
-共享接线前仍需：对 DNS/redirect 全链路应用同一 deadline；将来源数、累计字节与时间限制提升为整个 contribution/Task 总量并按 canonical URL 去重；由 Coordinator 校验 contributor 输出及引用闭包，把 research 字段加入 history 白名单，并在同一 `agent/turn-stopping` awaited 顺序中合并、评审、发布。之后还需真实 Controller、Renderer/RPC、重启与目标 Desktop 验收。本阶段不能关闭 #15。
+共享接线前仍需：由 Coordinator 校验 contributor 输出及引用闭包，把 research 字段加入 history 白名单，并在同一 `agent/turn-stopping` awaited 顺序中合并、评审、发布。之后还需真实 Controller、Renderer/RPC、重启与目标 Desktop 验收。本阶段不能关闭 #15。

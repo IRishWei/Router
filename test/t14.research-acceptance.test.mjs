@@ -9,8 +9,9 @@ import {
 } from '../src/research-acceptance.mjs';
 
 async function sourceFixture(routes) {
-  const server = createServer((request, response) => {
+  const server = createServer(async (request, response) => {
     const route = routes[new URL(request.url, 'http://fixture.local').pathname] ?? { status: 404, body: 'missing' };
+    if (route.delayMs) await new Promise(resolve => setTimeout(resolve, route.delayMs));
     response.writeHead(route.status ?? 200, { 'content-type': route.type ?? 'text/plain; charset=utf-8', ...(route.headers ?? {}) });
     response.end(route.body ?? '');
   });
@@ -162,6 +163,40 @@ test('the production reader rejects local addresses before any request and reche
   }
 });
 
+test('DNS, redirects and cancellation share one bounded source deadline', async () => {
+  let lookupCalls = 0;
+  const neverDns = createHttpSourceEvidenceResolver({
+    lookup: async () => { lookupCalls += 1; return new Promise(() => {}); },
+    limits: { timeoutMs: 25 },
+  });
+  const startedAt = Date.now();
+  const timedOut = await neverDns({ sourceRef: { url: 'https://example.test/fact' }, signal: new AbortController().signal });
+  assert.deepEqual(timedOut, { access: 'unavailable', reason: 'SOURCE_TIMEOUT' });
+  assert.equal(lookupCalls, 1);
+  assert.equal(Date.now() - startedAt < 500, true);
+
+  const canceledController = new AbortController();
+  const canceledRequest = neverDns({ sourceRef: { url: 'https://example.test/fact' }, signal: canceledController.signal });
+  canceledController.abort();
+  assert.deepEqual(await canceledRequest, { access: 'unavailable', reason: 'CANCELED' });
+
+  const fixture = await sourceFixture({
+    '/first': { status: 302, delayMs: 20, headers: { location: '/second' } },
+    '/second': { delayMs: 35, body: 'too late' },
+  });
+  try {
+    const redirectChain = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      limits: { timeoutMs: 45 },
+    });
+    const result = await redirectChain({ sourceRef: { url: fixture.url('/first') }, signal: new AbortController().signal });
+    assert.deepEqual(result, { access: 'unavailable', reason: 'SOURCE_TIMEOUT' });
+  } finally {
+    await fixture.close();
+  }
+});
+
 test('credentials, unsafe redirects and oversized sources fail closed with stable reason codes', async () => {
   const fixture = await sourceFixture({
     '/private-redirect': { status: 302, headers: { location: 'http://169.254.169.254/latest/meta-data' } },
@@ -240,7 +275,82 @@ test('unresolved clauses, source limits and invalid adapter records remain visib
   assert.equal(limited.evidence.find(item => item.aspect === 'claim-support').reason, 'SOURCE_LIMIT_EXCEEDED');
   assert.equal(limited.requirements.some(item => item.kind === 'research-unresolved'), true);
   assert.equal(limited.evidence.some(item => item.reason === 'RESEARCH_REQUIREMENT_UNRESOLVED'), true);
-  assert.equal(resolutions, 1);
+  assert.equal(resolutions, 2);
+});
+
+test('source count, bytes and time are bounded across the whole contribution with canonical URL deduplication', async () => {
+  const fixture = await sourceFixture({
+    '/shared': { body: 'alpha beta' },
+    '/excess': { body: 'gamma' },
+  });
+  let resolutions = 0;
+  try {
+    const httpResolver = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      limits: { maxBytes: 64 },
+    });
+    const resolveSourceEvidence = async request => { resolutions += 1; return httpResolver(request); };
+    const result = await createResearchAcceptance({ resolveSourceEvidence, limits: { maxSources: 1, maxBytes: 64 } }).contribute({
+      task: { id: 'task-global-source-limit' },
+      inputs: [input([
+        '仅检查以下研究要求：',
+        '论点「Claim A」必须有来源。',
+        '论点「Claim B」必须有来源。',
+        '论点「Claim C」必须有来源。',
+      ].join('\n'))],
+      artifact: artifact([
+        'Claim A. Claim B. Claim C.',
+        `研究来源：论点「Claim A」引用来源「${fixture.url('/shared#first')}」中的引文「alpha」。`,
+        `研究来源：论点「Claim B」引用来源「${fixture.url('/shared#second')}」中的引文「beta」。`,
+        `研究来源：论点「Claim C」引用来源「${fixture.url('/excess')}」中的引文「gamma」。`,
+      ].join('\n')),
+      signal: new AbortController().signal,
+    });
+    assert.equal(resolutions, 1);
+    assert.equal(result.reviewCases.filter(item => item.kind === 'claim-support').length, 2);
+    const claimC = result.requirements.find(item => item.claim === 'Claim C');
+    const limited = result.evidence.find(item => item.requirementId === claimC.id && item.aspect === 'claim-support');
+    assert.equal(limited.verdict, 'unconfirmed');
+    assert.equal(limited.reason, 'SOURCE_LIMIT_EXCEEDED');
+
+    const byteBound = createResearchAcceptance({ resolveSourceEvidence, limits: { maxSources: 2, maxBytes: 12 } });
+    const bytes = await byteBound.contribute({
+      task: { id: 'task-global-byte-limit' },
+      inputs: [input('仅检查以下研究要求：\n论点「Claim A」必须有来源。\n论点「Claim C」必须有来源。')],
+      artifact: artifact([
+        'Claim A. Claim C.',
+        `研究来源：论点「Claim A」引用来源「${fixture.url('/shared')}」中的引文「alpha」。`,
+        `研究来源：论点「Claim C」引用来源「${fixture.url('/excess')}」中的引文「gamma」。`,
+      ].join('\n')),
+      signal: new AbortController().signal,
+    });
+    const byteLimited = bytes.evidence.find(item => item.requirementId === bytes.requirements.find(item => item.claim === 'Claim C').id && item.aspect === 'claim-support');
+    assert.equal(byteLimited.verdict, 'unconfirmed');
+    assert.equal(byteLimited.reason, 'SOURCE_TOTAL_BYTES_EXCEEDED');
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a source adapter that ignores cancellation cannot hold the contribution open', async () => {
+  const research = createResearchAcceptance({ resolveSourceEvidence: async () => new Promise(() => {}), limits: { timeoutMs: 25 } });
+  const request = {
+    task: { id: 'task-adapter-deadline' },
+    inputs: [input('仅检查以下研究要求：\n论点「Bounded claim」必须有来源。')],
+    artifact: citedArtifact('Bounded claim', 'https://example.test/fact', 'bounded quote'),
+  };
+  const startedAt = Date.now();
+  const timedOut = await research.contribute({ ...request, signal: new AbortController().signal });
+  assert.equal(Date.now() - startedAt < 500, true);
+  assert.equal(timedOut.sourceSnapshots[0].reason, 'SOURCE_TIMEOUT');
+  assert.equal(timedOut.evidence.find(item => item.aspect === 'claim-support').verdict, 'unconfirmed');
+
+  const controller = new AbortController();
+  const pending = research.contribute({ ...request, task: { id: 'task-adapter-cancel' }, signal: controller.signal });
+  controller.abort();
+  const canceled = await pending;
+  assert.equal(canceled.sourceSnapshots[0].reason, 'CANCELED');
 });
 
 test('a reachable irrelevant page proves access but cannot prove claim support', async () => {
