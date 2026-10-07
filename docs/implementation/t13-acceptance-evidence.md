@@ -31,6 +31,6 @@
 
 0.6.1 在 Router Host 中安装 coordinator 和 Node checker。验收默认关闭；公开 `setAcceptancePolicy` 只接受严格的有限策略：总开关、评审开关、Host candidateId、显式跨模型许可、1—4096 的输出上限及最大 65536 的输入与输出总预留。新配置默认总预留 4096；已持久化的旧值不静默提高。每个 Task 在 `turn/start` 冻结策略，设置变更只影响新任务。review 使用唯一 Host-only `captureCandidate` 和统一 `reserveCall`/`streamReservedCall`；`exactTask`、`publishAcceptance`、candidate capture 和 runner 均未进入 RPC/Typert。
 
-真实 Controller 回归覆盖默认零验收、开启后的确定性验收、真实临时 Node 项目的 ToolRuntime 检查、跨模型零调用拒绝及显式授权后的 canonical Call。重启回归保留策略、旧 Task 证据，并证明重启后的新完整 Task 继续使用持久策略。实际 Renderer 通过 rc.2 Slots/Typert/API Gateway 保存有限设置并展示证据、覆盖和整体质量限制。目标 Desktop 安装、真实工作区检查及最终重启验收仍由集成验收方执行；完成前不能关闭 #14。
+真实 Controller 回归覆盖默认零验收、开启后的确定性验收、真实临时 Node 项目的 ToolRuntime 检查、跨模型零调用拒绝及显式授权后的 canonical Call。重启回归保留策略、旧 Task 证据，并证明重启后的新完整 Task 继续使用持久策略。实际 Renderer 通过 rc.2 Slots/Typert/API Gateway 保存有限设置并展示证据、覆盖和整体质量限制。0.6.1集成后179/179测试、check与git diff-check通过；目标Desktop安装、20项真实任务及118条完整历史重启检查已通过，见 [安装证据](t13-installed-host-evidence.md)。
 
-本模块不注入自修消息：rc.2 没有 Router self-repair 的已声明 MessageSourceKind，不能把插件提示伪装成用户来源。一次自修协调、真实来源类型和 attempts 归 T16/共享 Host coordinator；T13 只提供稳定 blocking/repairable/selfRepairAttempted 字段，避免两个模块各自重复“首次修复”。上述共享接线和验收完成前不能单独关闭 #14。
+本模块不注入自修消息。一次自修协调、producer 来源类型及 attempts 归 T16/共享 Host coordinator；T16可通过公开 merge-extensible MessageSourceMap 声明 Router notice，再在 awaited 验收边界用 agent.steer 继续同 turn。SessionController.prompt 硬编码人类来源，不能用于插件指令。T13 只提供稳定 blocking/repairable/selfRepairAttempted 字段，避免两个模块各自重复“首次修复”。
