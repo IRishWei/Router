@@ -43,11 +43,12 @@ T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
   因无关目录刷新取得更大 epoch 时仍有效，auth epoch 与配置 revision 则必须一致。
   检测结果必须是该次执行后 Router 快照中新建的 Task，不能复用历史 Task；执行
   后无关候选刷新不会因全局目录 epoch 增长而误判。无价格必须显示为 unknown。
-- 0.7.0 已将账号保存、公开目录、连接、断开和检测接入共享 Host/RPC 与
+- 0.7.1 已将账号保存、公开目录、连接、断开和检测接入共享 Host/RPC 与
   Renderer。Host 创建真实 SessionController Task，并在 Task 内固定显式候选；
   不修改自动路由、全局固定模型、默认模型或模型池。主请求和标题请求各自使用
   最终组装输入的 UTF-8 保守 token 预留与固定 32 token 输出上限。
-- 检测耗时上限由 Task 持有，跨预算等待和扩展保持有效；到期同时取消原生
+- 检测耗时上限由 Task 持有，跨预算等待保持有效；duration 扩展从原 Task
+  开始时间按最新上限重新布置 deadline，不重置已消耗时间；到期同时取消原生
   Agent 请求及仍在运行的 owned 标题流。预算不足时 Call 保持 waiting 且零派发，
   用户可以通过统一 Task 预算接口扩展或停止。
 - DeepSeek binding/connection/catalog 安全元数据随 Router state 重启恢复。新凭据

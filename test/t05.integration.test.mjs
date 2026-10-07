@@ -243,6 +243,39 @@ test('the Task deadline remains armed while budget waits and aborts a request re
   }
 });
 
+test('extending the detection duration rearms the same Task deadline without resetting elapsed time', async () => {
+  let posts = 0;
+  const endpoint = await listen(async (request, response) => {
+    if (request.method !== 'POST') return response.writeHead(404).end();
+    posts += 1;
+    for await (const _chunk of request) { /* consume */ }
+    await new Promise(resolve => setTimeout(resolve, 400));
+    response.writeHead(200, { 'content-type': 'text/event-stream' });
+    response.end(sse('DEEPSEEK_CONNECTION_OK'));
+  });
+  const home = await mkdtemp(join(tmpdir(), 'router-t05-extended-deadline-'));
+  let ctx;
+  try {
+    ({ ctx } = await connectedHost(home, endpoint));
+    const candidate = (await ctx.router.snapshot()).models.find(model => model.source === 'deepseek-official-api' && model.model === 'deepseek-flash');
+    const waiting = await ctx.router.deepSeekRunDetection({ candidateId: candidate.candidateId, budget: { tokens: 1, durationMs: 200 } });
+    const taskId = waiting.deepSeek.lastDetectionTaskId;
+    const startedAt = waiting.tasks.find(item => item.id === taskId).startedAt;
+    await ctx.router.extendTaskBudget(taskId, { tokens: 4095, durationMs: 1_000 });
+    const task = await waitForTask(ctx, taskId, item => item.lifecycle === 'completed' || item.lifecycle === 'paused');
+    assert.equal(task.lifecycle, 'completed', JSON.stringify({ pauseReason: task.pauseReason, calls: task.calls, timeline: task.timeline }));
+    assert.equal(task.startedAt, startedAt);
+    assert.deepEqual(task.budget.limits, { tokens: 4096, durationMs: 1_200, money: [] });
+    assert.equal(task.timeline.some(item => item.kind === 'detection-deadline'), false);
+    assert.equal(task.result, 'DEEPSEEK_CONNECTION_OK');
+    assert.equal(posts, 1);
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await endpoint.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
 test('the Task deadline also aborts an owned title stream after the native turn is idle', async () => {
   let posts = 0;
   let titleClosed = false;

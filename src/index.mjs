@@ -711,6 +711,37 @@ export class RouterService extends TypertRemoteService {
     for (const call of task.calls) this.#releaseUnboundCall(task, call, 'ABORTED');
     for (const call of task.calls) this.#waiters.get(call.id)?.resolve();
   }
+  #clearDeepSeekDeadline(taskId) {
+    clearTimeout(this.#deepSeekDeadlineTimers.get(taskId));
+    this.#deepSeekDeadlineTimers.delete(taskId);
+  }
+  #armDeepSeekDeadline(task) {
+    this.#clearDeepSeekDeadline(task.id);
+    if (!task.deepSeekDetection || task.budget.stopRequested) return;
+    const expire = () => {
+      const active = this.#active.get(`${task.sessionId}:${task.turn}`);
+      if (active !== task || task.budget.stopRequested) return this.#clearDeepSeekDeadline(task.id);
+      const remaining = Date.parse(task.startedAt) + task.budget.limits.durationMs - Date.now();
+      // A persisted duration extension may race the earlier timer callback. Re-read the
+      // Task-owned limit so elapsed time stays anchored to the original start.
+      if (remaining > 0) {
+        const timer = setTimeout(expire, Math.max(1, remaining));
+        this.#deepSeekDeadlineTimers.set(task.id, timer);
+        return;
+      }
+      this.#deepSeekDeadlineTimers.delete(task.id);
+      task.deepSeekDetection.deadlineExpired = true;
+      task.routingPauseReason = 'ABORTED';
+      task.timeline.push({ kind: 'detection-deadline', code: 'ABORTED' });
+      const agent = this.ctx.get('agents')?.get(task.sessionId);
+      if (agent?.status === 'running') agent.cancel({ kind: 'user' }, { keepInbox: true });
+      this.#cancelTaskCalls(task);
+      this.#persist();
+    };
+    const remaining = Date.parse(task.startedAt) + task.budget.limits.durationMs - Date.now();
+    const timer = setTimeout(expire, Math.max(1, remaining));
+    this.#deepSeekDeadlineTimers.set(task.id, timer);
+  }
   #finishTask(task) {
     if (!this.#active.has(`${task.sessionId}:${task.turn}`) || !task.nativeLifecycle || this.#ownedCalls.get(task.id)?.size || task.calls.some(call => ['waiting', 'reserved'].includes(call.reservation?.state))) return;
     task.lifecycle = this.#storageError || task.budget.stopRequested || task.routingPauseReason || task.auxiliaryPauseReason ? 'paused' : task.nativeLifecycle;
@@ -721,8 +752,7 @@ export class RouterService extends TypertRemoteService {
     task.endedAt = new Date().toISOString();
     task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: task.acceptance?.verdict ?? 'unconfirmed' });
     this.#active.delete(`${task.sessionId}:${task.turn}`);
-    clearTimeout(this.#deepSeekDeadlineTimers.get(task.id));
-    this.#deepSeekDeadlineTimers.delete(task.id);
+    this.#clearDeepSeekDeadline(task.id);
     this.#assessmentInputs.delete(task.id);
     for (const call of task.calls) this.#callSignals.delete(call.id);
     this.#persist();
@@ -950,6 +980,7 @@ export class RouterService extends TypertRemoteService {
     task.timeline.push({ kind: 'budget-extension', extension: parsed });
     this.#persist(); await this.flush();
     if (this.#storageError) throw new Error('Router storage is unavailable; budget extension was not persisted');
+    if (parsed.durationMs !== undefined && task.deepSeekDetection) this.#armDeepSeekDeadline(task);
     for (const call of task.calls) this.#waiters.get(call.id)?.resolve();
     return this.snapshot();
   }
@@ -958,6 +989,7 @@ export class RouterService extends TypertRemoteService {
     if (!task) throw new TypeError('The task is not active');
     task.budget.stopRequested = true;
     task.timeline.push({ kind: 'budget-stop', at: new Date().toISOString() });
+    this.#clearDeepSeekDeadline(task.id);
     if (!task.nativeLifecycle) this.ctx.get('agents')?.get(task.sessionId)?.cancel({ kind: 'user' }, { keepInbox: true });
     this.#cancelTaskCalls(task);
     this.#persist();
@@ -1128,24 +1160,13 @@ export class RouterService extends TypertRemoteService {
       const assessmentRequested = this.#state.semanticAssessmentRequest?.status === 'armed';
       if (assessmentRequested) this.#state.semanticAssessmentRequest = null;
       const detection = this.#deepSeekDetections.get(session.id);
-      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(detection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}) };
+      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(detection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}) };
       if (detection) {
         detection.taskId = task.id;
-        const delay = Math.max(1, detection.startedAt + detection.budget.durationMs - Date.now());
-        const timer = setTimeout(() => {
-          if (!this.#active.has(`${task.sessionId}:${task.turn}`)) return;
-          task.deepSeekDetection.deadlineExpired = true;
-          task.routingPauseReason = 'ABORTED';
-          task.timeline.push({ kind: 'detection-deadline', code: 'ABORTED' });
-          const agent = this.ctx.get('agents')?.get(task.sessionId);
-          if (agent?.status === 'running') agent.cancel({ kind: 'user' }, { keepInbox: true });
-          this.#cancelTaskCalls(task);
-          this.#persist();
-        }, delay);
-        this.#deepSeekDeadlineTimers.set(task.id, timer);
       }
       this.#active.set(`${session.id}:${event.data.turn}`, task);
       this.#state.tasks.push(task);
+      if (detection) this.#armDeepSeekDeadline(task);
       this.#persist();
       return;
     }
