@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
+import { artifactClaimMatches } from './research-artifact.mjs';
 
 const DIGEST = /^[a-f0-9]{64}$/u;
 const ID = /^(?:claim|requirement|evidence|source-reference|source-snapshot|review-case):v1:[a-f0-9]{24}$/u;
@@ -131,7 +132,7 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
       if (item.verdict === 'passed') {
         if (item.artifactQuote !== requirement.claim) fail('artifact quote');
         locator(item.artifactLocator, 'artifact locator');
-        if (typeof artifact?.text !== 'string' || [...artifact.text].slice(item.artifactLocator.start, item.artifactLocator.end).join('') !== item.artifactQuote) fail('artifact locator');
+        if (!artifactClaimMatches(artifact?.text, item.artifactQuote, item.artifactLocator)) fail('artifact locator');
       }
     } else if (item.aspect === 'source-access' || item.aspect === 'quote-binding') {
       const reference = references.get(item.sourceReferenceId);

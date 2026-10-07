@@ -75,6 +75,43 @@ test('an exact quote produces locatable evidence for bounded semantic review wit
   }
 });
 
+test('artifact claim locators address the full Unicode artifact while citation declarations remain non-evidence', async () => {
+  const claim = '🪐Claim A';
+  const citation = `研究来源：论点「${claim}」引用来源「https://example.test/fact」中的引文「support」。`;
+  const text = `${citation}\n前😀言\n${claim} appears here.\n${citation}`;
+  const target = artifact(text);
+  const result = await createResearchAcceptance({
+    resolveSourceEvidence: async () => ({
+      access: 'available', displayUrl: 'https://example.test/fact', urlHash: digest('https://example.test/fact'),
+      httpStatus: 200, contentType: 'text/plain', contentHash: digest('support'), body: 'support',
+    }),
+  }).contribute({
+    task: { id: 'task-artifact-locator' },
+    inputs: [input(`仅检查以下研究要求：\n论点「${claim}」必须有来源。`)],
+    artifact: target,
+    signal: new AbortController().signal,
+  });
+
+  const claimEvidence = result.evidence.find(item => item.aspect === 'artifact-claim');
+  const expectedStart = [...`${citation}\n前😀言\n`].length;
+  assert.deepEqual(claimEvidence.artifactLocator, {
+    kind: 'unicode-code-points', start: expectedStart, end: expectedStart + [...claim].length,
+  });
+  assert.equal([...text].slice(claimEvidence.artifactLocator.start, claimEvidence.artifactLocator.end).join(''), claim);
+  validateResearchContribution(result, { taskId: 'task-artifact-locator', artifact: target });
+
+  const forged = structuredClone(result);
+  const declaredStart = [...'研究来源：论点「'].length;
+  forged.evidence.find(item => item.aspect === 'artifact-claim').artifactLocator = {
+    kind: 'unicode-code-points', start: declaredStart, end: declaredStart + [...claim].length,
+  };
+  assert.equal([...text].slice(declaredStart, declaredStart + [...claim].length).join(''), claim);
+  assert.throws(
+    () => validateResearchContribution(forged, { taskId: 'task-artifact-locator', artifact: target }),
+    /Invalid research contribution: artifact locator/u,
+  );
+});
+
 test('missing and unavailable sources remain distinct reproducible outcomes', async () => {
   const fixture = await sourceFixture({});
   try {

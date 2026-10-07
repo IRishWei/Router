@@ -3,6 +3,7 @@ import { lookup as dnsLookup } from 'node:dns/promises';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { isIP } from 'node:net';
+import { locateArtifactClaim, parseResearchArtifact } from './research-artifact.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const id = (kind, value) => `${kind}:v1:${digest(value).slice(0, 24)}`;
@@ -150,18 +151,16 @@ const parseResearch = inputs => {
 };
 
 const parseArtifactSources = (artifact, maxSourceReferences) => {
-  if (!artifact || typeof artifact.text !== 'string') return { sources: [], body: '', referenceLimitExceeded: false };
-  const sources = [];
-  const body = [];
-  let referenceLimitExceeded = false;
-  for (const [line, raw] of artifact.text.split(/\r?\n/u).entries()) {
-    const text = raw.trim();
-    const source = text.match(/^研究来源：论点「([^」]+)」引用来源「([^」]+)」中的引文「([^」]+)」。?$/u);
-    if (!source) { body.push(raw); continue; }
-    if (sources.length < maxSourceReferences) sources.push({ claim: source[1], url: source[2], quote: source[3], origin: { kind: 'assistant-artifact', artifactId: artifact.id, revision: artifact.revision, messageId: artifact.messageId, seq: artifact.seq, line } });
-    else referenceLimitExceeded = true;
-  }
-  return { sources, body: body.join('\n'), referenceLimitExceeded };
+  const parsed = parseResearchArtifact(artifact?.text, maxSourceReferences);
+  return {
+    ...parsed,
+    sources: parsed.sources.map(source => ({
+      claim: source.claim,
+      url: source.url,
+      quote: source.quote,
+      origin: { kind: 'assistant-artifact', artifactId: artifact.id, revision: artifact.revision, messageId: artifact.messageId, seq: artifact.seq, line: source.line },
+    })),
+  };
 };
 
 const normalizeResolution = (value, maxBytes) => {
@@ -346,8 +345,8 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
         const claimId = id('claim', claim.claim);
         const requirement = { id: id('requirement', `${task.id}:${claimId}`), version: 1, kind: 'research-claim', claimId, claim: claim.claim, conflict: claim.conflict, required: true, origin: claim.origins[0] };
         requirements.push(requirement);
-        const claimStart = artifactLimitExceeded ? -1 : artifactSources.body.indexOf(claim.claim);
-        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifactLimitExceeded || !artifact?.complete ? 'unconfirmed' : claimStart >= 0 ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(artifactLimitExceeded ? { reason: 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' } : !artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : claimStart < 0 ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: claim.claim, artifactLocator: { kind: 'unicode-code-points', start: [...artifactSources.body.slice(0, claimStart)].length, end: [...artifactSources.body.slice(0, claimStart + claim.claim.length)].length } }) });
+        const artifactLocator = artifactLimitExceeded ? null : locateArtifactClaim(artifact?.text, claim.claim);
+        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifactLimitExceeded || !artifact?.complete ? 'unconfirmed' : artifactLocator ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(artifactLimitExceeded ? { reason: 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' } : !artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : !artifactLocator ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: claim.claim, artifactLocator }) });
         const resolvedSources = [];
         const sourceLimitExceeded = claim.sources.some(source => !allowedSourceKeys.has(canonicalSourceKey(source.url)));
         const sourceContractExceeded = byteLength(claim.claim) > fixed.maxClaimBytes || claim.sources.some(source => byteLength(source.quote) > fixed.maxQuoteBytes);
@@ -402,8 +401,8 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
         const premise = compiledClaims.get(inference.premise);
         const requirement = { id: id('requirement', `${task.id}:${claimId}:inference`), version: 1, kind: 'research-inference', claimId, claim: inference.inference, premiseClaimId: id('claim', inference.premise), premise: inference.premise, required: true, origin: inference.origin };
         requirements.push(requirement);
-        const claimStart = artifactLimitExceeded ? -1 : artifactSources.body.indexOf(inference.inference);
-        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifactLimitExceeded || !artifact?.complete ? 'unconfirmed' : claimStart >= 0 ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(artifactLimitExceeded ? { reason: 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' } : !artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : claimStart < 0 ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: inference.inference, artifactLocator: { kind: 'unicode-code-points', start: [...artifactSources.body.slice(0, claimStart)].length, end: [...artifactSources.body.slice(0, claimStart + inference.inference.length)].length } }) });
+        const artifactLocator = artifactLimitExceeded ? null : locateArtifactClaim(artifact?.text, inference.inference);
+        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifactLimitExceeded || !artifact?.complete ? 'unconfirmed' : artifactLocator ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(artifactLimitExceeded ? { reason: 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' } : !artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : !artifactLocator ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: inference.inference, artifactLocator }) });
         const eligible = premise?.boundedArtifact && premise.resolvedSources.length && premise.resolvedSources.every(item => item.quoteMatches) && !premise.sourceLimitExceeded;
         const supportEvidence = { id: id('evidence', `${requirement.id}:claim-support`), version: 1, requirementId: requirement.id, claimId, aspect: 'claim-support', sourceReferenceIds: premise?.resolvedSources.map(item => item.referenceId) ?? [], sourceSnapshotIds: premise?.resolvedSources.map(item => item.snapshotId) ?? [], verdict: premise && !artifactLimitExceeded && !artifactSources.referenceLimitExceeded ? 'unconfirmed' : premise ? 'unconfirmed' : 'failed', source: eligible ? { kind: 'research-review', confidence: 'unconfirmed' } : { kind: 'deterministic-rule', rule: 'research-inference-requirement', checkerVersion: 1 }, reason: artifactLimitExceeded ? 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' : artifactSources.referenceLimitExceeded ? 'SOURCE_REFERENCE_LIMIT_EXCEEDED' : !premise ? 'PREMISE_MISSING' : premise.firstFailure ? 'SOURCE_QUOTE_MISMATCH' : premise.firstUnavailable ? premise.firstUnavailable.resolved.reason ?? 'SOURCE_UNAVAILABLE' : eligible ? 'INFERENCE_UNSUPPORTED' : 'SOURCE_MISSING' };
         evidence.push(supportEvidence);

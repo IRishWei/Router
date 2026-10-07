@@ -14,7 +14,7 @@
 
 `研究来源：论点「…」引用来源「https://…」中的引文「…」。`
 
-用户预置 URL 不会冒充回答已附来源；artifact 引用也不能新增用户要求。无法解析的用户研究条款产生 `RESEARCH_REQUIREMENT_UNRESOLVED`，不会静默通过。来源引用行从正文中排除，因此只在引用元数据中重复论点不算正文已提出该结论。
+用户预置 URL 不会冒充回答已附来源；artifact 引用也不能新增用户要求。无法解析的用户研究条款产生 `RESEARCH_REQUIREMENT_UNRESOLVED`，不会静默通过。来源引用行从正文中排除，因此只在引用元数据中重复论点不算正文已提出该结论。`artifact-claim` locator 始终使用完整 artifact 的 Unicode code-point 坐标；即使引用行在正文前或夹在多段文本中，locator 也不会变成剥离引用后的虚偏移。
 
 `createResearchAcceptance({ resolveSourceEvidence, limits }).contribute({ task, inputs, artifact, signal })` 返回版本化的 `requirements`、`evidence`、`sourceReferences`、`sourceSnapshots` 与 `reviewCases`。它不返回整体 verdict。`source-access`、`quote-binding` 与 `claim-support` 是不同 evidence aspect；只有后续严格语义评审能处理 `claim-support`。review case 只含匿名论点、正文 hash、用户/产物指定的精确引文及 Unicode code-point locator，不含 URL、账号、模型、预算或外部页面的其他正文。
 
@@ -32,6 +32,6 @@
 
 ## 阶段验证与未接线项
 
-`node --test test/t14.research-acceptance.test.mjs test/t14.integration.test.mjs` 覆盖：200 无关页面、精确引文、缺失来源、404、冲突、无支持推论、页面指令隔离、query 隐私、私网与危险 redirect、大小限制、adapter 伪记录、固定来源数、持久化复用、引用闭包伪造，以及真实 Controller/AcceptanceCoordinator 的 Task/artifact identity。
+`node --test test/t14.research-acceptance.test.mjs test/t14.integration.test.mjs` 覆盖：200 无关页面、精确引文、完整 artifact Unicode locator、citation 内伪 locator 拒绝、缺失来源、404、冲突、无支持推论、页面指令隔离、query 隐私、私网与危险 redirect、大小限制、adapter 伪记录、固定来源数、持久化复用、引用闭包伪造，以及真实 Controller/AcceptanceCoordinator 的 Task/artifact identity。
 
 共享接线前仍需：由 Coordinator 校验 contributor 输出及引用闭包，把 research 字段加入 history 白名单，并在同一 `agent/turn-stopping` awaited 顺序中合并、评审、发布。之后还需真实 Controller、Renderer/RPC、重启与目标 Desktop 验收。本阶段不能关闭 #15。
