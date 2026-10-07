@@ -185,6 +185,11 @@ test('declared source conflict and inference stay unconfirmed for the single coo
       authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
       authorizeAddress: ({ address }) => address === '127.0.0.1',
     });
+    const target = artifact([
+      'The intervention improves outcomes. The intervention should be mandatory.',
+      `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/support')}」中的引文「Survey A reports the intervention improved the measured outcome」。`,
+      `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/oppose')}」中的引文「Survey B reports no measurable improvement from the intervention」。`,
+    ].join('\n'));
     const result = await createResearchAcceptance({ resolveSourceEvidence }).contribute({
       task: { id: 'task-conflict' },
       inputs: [input([
@@ -193,11 +198,7 @@ test('declared source conflict and inference stay unconfirmed for the single coo
         '论点「The intervention improves outcomes」需要检查来源冲突。',
         '推论「The intervention should be mandatory」必须由论点「The intervention improves outcomes」支持。',
       ].join('\n'))],
-      artifact: artifact([
-        'The intervention improves outcomes. The intervention should be mandatory.',
-        `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/support')}」中的引文「Survey A reports the intervention improved the measured outcome」。`,
-        `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/oppose')}」中的引文「Survey B reports no measurable improvement from the intervention」。`,
-      ].join('\n')),
+      artifact: target,
       signal: new AbortController().signal,
     });
 
@@ -210,14 +211,26 @@ test('declared source conflict and inference stay unconfirmed for the single coo
     assert(inference);
     assert.equal(inference.anonymousPayload.claims.length, 2);
     assert.equal(result.evidence.find(item => item.requirementId === inference.requirementIds[0] && item.aspect === 'claim-support').reason, 'INFERENCE_UNSUPPORTED');
+
+    const duplicateSource = structuredClone(result);
+    const duplicateConflict = duplicateSource.reviewCases.find(item => item.kind === 'source-conflict');
+    duplicateConflict.anonymousPayload.sources[1] = structuredClone(duplicateConflict.anonymousPayload.sources[0]);
+    duplicateConflict.subjectHash = digest(`${duplicateConflict.anonymousPayload.claims[0].text}\n${duplicateConflict.anonymousPayload.sources.map(source => source.excerpts[0].text).join('\n')}`);
+    assert.throws(
+      () => validateResearchContribution(duplicateSource, { taskId: 'task-conflict', artifact: target }),
+      /Invalid research contribution: review links/u,
+    );
+
+    const wrongKind = structuredClone(result);
+    wrongKind.reviewCases.find(item => item.kind === 'inference-support').kind = 'claim-support';
+    assert.throws(
+      () => validateResearchContribution(wrongKind, { taskId: 'task-conflict', artifact: target }),
+      /Invalid research contribution: review links/u,
+    );
     assert.equal('verdict' in result, false);
     assert.equal('reserveCall' in result, false);
     assert.equal('publishAcceptance' in result, false);
-    validateResearchContribution(result, { taskId: 'task-conflict', artifact: artifact([
-      'The intervention improves outcomes. The intervention should be mandatory.',
-      `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/support')}」中的引文「Survey A reports the intervention improved the measured outcome」。`,
-      `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/oppose')}」中的引文「Survey B reports no measurable improvement from the intervention」。`,
-    ].join('\n')) });
+    validateResearchContribution(result, { taskId: 'task-conflict', artifact: target });
   } finally {
     await fixture.close();
   }
@@ -241,6 +254,37 @@ test('the production reader rejects local addresses before any request and reche
     const redirected = await rebound({ sourceRef: { url: fixture.url('/redirect') }, signal: new AbortController().signal });
     assert.equal(redirected.reason, 'SOURCE_ADDRESS_NOT_AUTHORIZED');
     assert.equal(hits, 2);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('the production reader pins an authorized named host through Node all-address lookup on requests and redirects', async () => {
+  const fixture = await sourceFixture({
+    '/redirect': { status: 302, headers: { location: '/fact' } },
+    '/fact': { body: 'named host evidence' },
+  });
+  try {
+    const port = new URL(fixture.url('/')).port;
+    const namedOrigin = `http://fixture.test:${port}`;
+    let lookups = 0;
+    const resolver = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === namedOrigin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      lookup: async (hostname, options) => {
+        assert.equal(hostname, 'fixture.test');
+        assert.deepEqual(options, { all: true, verbatim: true });
+        lookups++;
+        return [{ address: '127.0.0.1', family: 4 }];
+      },
+    });
+    const result = await resolver({
+      sourceRef: { url: `${namedOrigin}/redirect` },
+      signal: new AbortController().signal,
+    });
+    assert.equal(result.access, 'available');
+    assert.equal(result.body, 'named host evidence');
+    assert.equal(lookups, 2);
   } finally {
     await fixture.close();
   }

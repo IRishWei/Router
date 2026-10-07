@@ -204,7 +204,11 @@ const readResponse = (url, address, { maxBytes, timeoutMs, signal, transferBudge
   const request = transport(url, {
     method: 'GET',
     headers: { accept: 'text/plain, text/html, application/json', 'user-agent': 'dsh-router-source-evidence/1' },
-    lookup: (_hostname, _options, callback) => callback(null, address.address, address.family),
+    lookup: (_hostname, options, callback) => {
+      const pinned = { address: address.address, family: address.family };
+      if (options && typeof options === 'object' && options.all === true) callback(null, [pinned]);
+      else callback(null, pinned.address, pinned.family);
+    },
   }, response => {
     const chunks = [];
     let bytes = 0;

@@ -194,10 +194,14 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
     unique(item.requirementIds, 'review requirements'); unique(item.evidenceIds, 'review evidence');
     const caseRequirements = item.requirementIds.map(id => requirements.get(id));
     const caseEvidence = item.evidenceIds.map(id => evidence.get(id));
-    if (caseRequirements.some(requirement => !requirement || requirement.kind === 'research-unresolved')
+    if (caseRequirements.length !== 1 || caseEvidence.length !== 1
+      || caseRequirements.some(requirement => !requirement || requirement.kind === 'research-unresolved')
       || caseEvidence.some(entry => entry?.aspect !== 'claim-support' || entry.verdict !== 'unconfirmed')
       || caseEvidence.some(entry => !item.requirementIds.includes(entry.requirementId))
       || caseRequirements.some(requirement => !caseEvidence.some(entry => entry.requirementId === requirement.id))) fail('review links');
+    const caseRequirement = caseRequirements[0];
+    const expectedKind = caseRequirement.kind === 'research-inference' ? 'inference-support' : caseRequirement.conflict ? 'source-conflict' : 'claim-support';
+    if (item.kind !== expectedKind || item.risk !== (expectedKind === 'source-conflict' ? 'high' : 'standard')) fail('review links');
     record(item.anonymousPayload, 'anonymous payload', ['claims', 'sources']);
     if (!Array.isArray(item.anonymousPayload.claims) || !item.anonymousPayload.claims.length || !Array.isArray(item.anonymousPayload.sources) || !item.anonymousPayload.sources.length) fail('anonymous payload');
     for (const claim of item.anonymousPayload.claims) {
@@ -218,9 +222,14 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
     }
     const expectedClaimIds = new Set(caseRequirements.flatMap(requirement => requirement.kind === 'research-inference' ? [requirement.premiseClaimId, requirement.claimId] : [requirement.claimId]));
     const payloadClaimIds = item.anonymousPayload.claims.map(claim => claim.id);
-    if (payloadClaimIds.length !== expectedClaimIds.size || payloadClaimIds.some(id => !expectedClaimIds.has(id))) fail('review links');
+    unique(payloadClaimIds, 'review links');
+    const expectedClaims = caseRequirement.kind === 'research-inference'
+      ? [{ id: caseRequirement.premiseClaimId, text: caseRequirement.premise }, { id: caseRequirement.claimId, text: caseRequirement.claim, premiseClaimId: caseRequirement.premiseClaimId }]
+      : [{ id: caseRequirement.claimId, text: caseRequirement.claim }];
+    if (payloadClaimIds.length !== expectedClaimIds.size || payloadClaimIds.some(id => !expectedClaimIds.has(id)) || !isDeepStrictEqual(item.anonymousPayload.claims, expectedClaims)) fail('review links');
     const expectedSnapshotIds = new Set(caseEvidence.flatMap(entry => entry.sourceSnapshotIds));
     const payloadSnapshotIds = item.anonymousPayload.sources.map(source => source.id);
+    unique(payloadSnapshotIds, 'review links');
     if (payloadSnapshotIds.length !== expectedSnapshotIds.size || payloadSnapshotIds.some(id => !expectedSnapshotIds.has(id))) fail('review links');
     const inference = item.anonymousPayload.claims.find(claim => claim.premiseClaimId);
     const expectedSubject = inference
