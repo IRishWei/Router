@@ -12,7 +12,7 @@ import { createNodeProgramChecks } from './program-checks.mjs';
 import { DeepSeekHost } from './deepseek-host.mjs';
 import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
 
-export const inject = ['llm', 'profileContext', 'tools'];
+export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
 export const CONTROLLED_MODEL = 'controlled';
 export const CONTROLLED_TOOLS_MODEL = 'controlled-tools';
