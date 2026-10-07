@@ -48,7 +48,7 @@ const policy = {
   forecast: { totalTokens: 4096 },
 };
 
-function harness({ acceptance = failedAcceptance(), coordination = null, fixed = false, advice = 'Inspect the failing boundary and correct only that requirement.', reserveError = null, onStreamFinish = null, capturedCandidate = consultant, policyValue = policy } = {}) {
+function harness({ acceptance = failedAcceptance(), coordination = null, fixed = false, advice = 'Inspect the failing boundary and correct only that requirement.', reserveError = null, onStreamFinish = null, onCapture = null, onPublish = null, onReserve = null, capturedCandidate = consultant, policyValue = policy } = {}) {
   const publications = [];
   const reservations = [];
   const requests = [];
@@ -70,16 +70,20 @@ function harness({ acceptance = failedAcceptance(), coordination = null, fixed =
       }
       task.coordination = clone(next);
       publications.push(clone(next));
+      onPublish?.(task, next, agent);
       return clone(next);
     },
     async captureCandidate(candidateId, { signal }) {
       assert.equal(candidateId, capturedCandidate.candidateId);
       assert.equal(signal, harness.signal);
+      captureCount++;
+      onCapture?.(task, captureCount, agent);
       return clone(capturedCandidate);
     },
     async reserveCall(taskId, details, signal) {
       assert.equal(taskId, task.id);
       reservations.push({ details: clone(details), signal });
+      onReserve?.(task, agent);
       if (reserveError) throw reserveError;
       return 'consultation-call-1';
     },
@@ -95,7 +99,8 @@ function harness({ acceptance = failedAcceptance(), coordination = null, fixed =
       })();
     },
   };
-  const agent = { session: { id: task.sessionId }, steer(message) { steers.push(message); } };
+  let captureCount = 0;
+  const agent = { session: { id: task.sessionId }, inbox: { nextStep: [] }, steer(message) { steers.push(message); } };
   const controller = new TaskCoordinationController({ router, policyForTask: () => clone(policyValue) });
   return { controller, router, task, agent, publications, reservations, requests, steers };
 }
@@ -130,6 +135,22 @@ test('paused automatic routing suppresses T16 even when its frozen policy is ena
   assert.equal(action.reason, 'AUTOMATIC_ROUTING_PAUSED');
   assert.equal(run.steers.length, 0);
   assert.equal(run.reservations.length, 0);
+});
+
+test('human input queued while the self-repair intent is persisted prevents the synthetic steer', async () => {
+  let injected = false;
+  const run = harness({ onPublish(_task, next, agent) {
+    if (!injected && next.selfRepair?.state === 'intent-persisted') {
+      injected = true;
+      agent.inbox.nextStep.push({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Human correction' }] });
+    }
+  } });
+  const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  assert.equal(action.kind, 'stale');
+  assert.equal(action.reason, 'HUMAN_INPUT_PENDING');
+  assert.equal(run.steers.length, 0);
+  assert.equal(run.reservations.length, 0);
+  assert.equal(run.task.coordination.selfRepair.state, 'delivery-unknown');
 });
 
 test('the first trusted repairable failure persists one Task-wide intent before a producer-owned same-turn steer', async () => {
@@ -290,6 +311,39 @@ test('advice completed against a stale acceptance revision is recorded but never
   assert.equal(run.task.coordination.episodes[0].consultation.state, 'stale');
   assert.equal(run.task.coordination.episodes[0].consultation.reason, 'ACCEPTANCE_CHANGED');
   assert.match(run.task.coordination.episodes[0].consultation.adviceHash, /^[a-f0-9]{64}$/u);
+});
+
+test('acceptance changed by the final candidate refresh prevents advice steer', async () => {
+  const run = harness({ onCapture(task, captureCount) {
+    if (captureCount === 2) task.acceptance = failedAcceptance({ revision: 3, observed: { value: 3 } });
+  } });
+  await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  run.steers.length = 0;
+  run.task.acceptance = failedAcceptance({ revision: 2, observed: { value: 2 } });
+
+  const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  assert.equal(action.kind, 'stale');
+  assert.equal(action.reason, 'ACCEPTANCE_CHANGED');
+  assert.equal(run.reservations.length, 1);
+  assert.equal(run.steers.length, 0);
+  assert.equal(run.task.coordination.episodes[0].consultation.state, 'stale');
+  assert.equal(run.task.coordination.episodes[0].consultation.reason, 'ACCEPTANCE_CHANGED');
+});
+
+test('human input queued during reservation releases the unsent consultation and sends no advice', async () => {
+  const run = harness({ onReserve(_task, agent) {
+    agent.inbox.nextStep.push({ source: { kind: 'user' }, content: [{ type: 'text', text: 'Use this new constraint' }] });
+  } });
+  await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  run.steers.length = 0;
+  run.task.acceptance = failedAcceptance({ revision: 2, observed: { value: 2 } });
+
+  const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  assert.equal(action.kind, 'stale');
+  assert.equal(action.reason, 'HUMAN_INPUT_PENDING');
+  assert.equal(run.reservations.length, 1);
+  assert.equal(run.steers.length, 0);
+  assert.equal(run.task.coordination.episodes[0].consultation.state, 'stale');
 });
 
 test('consultation reservation failure consumes the durable attempt without changing execution ownership or acceptance', async () => {

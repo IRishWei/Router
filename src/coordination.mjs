@@ -193,6 +193,11 @@ export class TaskCoordinationController {
     const missingCapability = capabilityDeficiency(unresolved);
     if (!state.selfRepair && !missingCapability && state.consultationAttempts === 0) return this.#requestRepair({ agent, signal, task, acceptance, state, episode, obstacle: unresolved });
     if (!state.selfRepair && state.consultationAttempts >= 1) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_ATTEMPT_LIMIT');
+    if (newEvidence) {
+      state = await this.#commit(task, acceptance, state, episode, 'obstacle-observed');
+      if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
+      episode = state.episodes.find(item => item.episodeId === episodeId);
+    }
     if (!newEvidence) {
       const pending = episode.consultation;
       if (pending && ['intent-persisted', 'call-reserved', 'advice-ready'].includes(pending.state)) {
@@ -223,8 +228,14 @@ export class TaskCoordinationController {
     episode.status = 'repair-requested';
     state = await this.#commit(task, acceptance, state, episode, 'self-repair-intent');
     if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
+    episode = state.episodes.find(item => item.episodeId === episode.episodeId);
+    const invalidated = this.#boundaryChange(agent, task, acceptance, state, episode, signal);
+    if (invalidated) {
+      state.selfRepair.state = 'delivery-unknown';
+      await this.#commit(this.#router.exactTask(agent.session.id, task.turn) ?? task, acceptance, state, episode, 'self-repair-delivery-unknown', { reason: invalidated });
+      return { kind: 'stale', reason: invalidated };
+    }
     try {
-      signal.throwIfAborted();
       await agent.steer(message);
     } catch (error) {
       state.selfRepair.state = 'delivery-unknown';
@@ -247,6 +258,8 @@ export class TaskCoordinationController {
     let captured;
     try { captured = await this.#router.captureCandidate(policy.candidateId, { signal }); }
     catch (error) { return this.#stall(task, acceptance, state, episode, errorCode(error, 'CONSULTATION_CANDIDATE_UNAVAILABLE')); }
+    const changedAfterCapture = this.#boundaryChange(agent, task, acceptance, state, episode, signal);
+    if (changedAfterCapture) return { kind: 'stale', reason: changedAfterCapture };
     if (!captured?.enabled || captured.capability?.text?.supported !== true || !identityKeys.every(key => typeof captured.identity?.[key] === 'string' && captured.identity[key])) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_CANDIDATE_UNAVAILABLE');
     if (sameIdentity(captured.identity, task.activeSelection)) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_REQUIRES_DIFFERENT_CANDIDATE');
     if (policy.allowCrossModel !== true) return this.#stall(task, acceptance, state, episode, 'CROSS_MODEL_CONSULTATION_NOT_AUTHORIZED');
@@ -290,6 +303,12 @@ export class TaskCoordinationController {
       return { kind: 'stale', reason: 'ACCEPTANCE_CHANGED' };
     }
     episode = state.episodes.find(item => item.episodeId === episode.episodeId);
+    const changedBeforeDispatch = this.#boundaryChange(agent, task, acceptance, state, episode, signal);
+    if (changedBeforeDispatch) {
+      await this.#release(callId, task.id, request);
+      await this.#recordStale(agent, task, acceptance, changedBeforeDispatch);
+      return { kind: 'stale', reason: changedBeforeDispatch };
+    }
 
     let advice = '';
     let finish = null;
@@ -340,7 +359,11 @@ export class TaskCoordinationController {
         await this.#recordStale(agent, task, acceptance, 'CONSULTATION_CANDIDATE_CHANGED', advice);
         return { kind: 'stale', reason: 'CONSULTATION_CANDIDATE_CHANGED' };
       }
-      signal.throwIfAborted();
+      const changedAfterFreshCapture = this.#boundaryChange(agent, task, acceptance, state, episode, signal);
+      if (changedAfterFreshCapture) {
+        await this.#recordStale(agent, task, acceptance, changedAfterFreshCapture, advice);
+        return { kind: 'stale', reason: changedAfterFreshCapture };
+      }
       await agent.steer(message);
     } catch (error) {
       episode.status = 'stalled';
@@ -384,6 +407,17 @@ export class TaskCoordinationController {
       const stream = this.#router.streamReservedCall(taskId, callId, request);
       await stream.return?.();
     } catch { /* The unified runner owns the terminal reservation state. */ }
+  }
+
+  #boundaryChange(agent, originalTask, acceptance, state, episode, signal) {
+    if (signal.aborted) return 'CANCELED';
+    if (agent.inbox?.nextStep?.some(message => message?.source?.kind === 'user')) return 'HUMAN_INPUT_PENDING';
+    const current = this.#router.exactTask(agent.session.id, originalTask.turn);
+    if (!current || current.id !== originalTask.id || current.acceptance?.revision !== acceptance.revision || current.acceptance?.requirementHash !== acceptance.requirementHash) return 'ACCEPTANCE_CHANGED';
+    if ((current.coordination?.revision ?? 0) !== state.revision) return 'COORDINATION_CHANGED';
+    const currentEpisode = current.coordination?.episodes?.find(item => item.episodeId === episode.episodeId);
+    if (!currentEpisode || currentEpisode.evidenceVersion !== episode.evidenceVersion || currentEpisode.evidenceFingerprint !== episode.evidenceFingerprint) return 'EPISODE_EVIDENCE_CHANGED';
+    return null;
   }
 
   async #recordStale(agent, originalTask, previousAcceptance, reason, advice) {

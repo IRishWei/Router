@@ -14,7 +14,7 @@
 
 咨询 payload 只有 Task/revision、当前 blocking、被引用 requirement 与相关 evidence，不含全会话、工具权限、私有 replay state 或凭据。建议长度有界，先保存 callId、candidate snapshot、文本 hash 和 notice id，再用 `router-consultation` notice 交回主 agent。建议本身不改 acceptance；只有主 agent 继续执行后的新验收证据才能 resolve episode。
 
-意图状态在外部动作前持久化。重启遇到 `intent-persisted`、`call-reserved` 或 `advice-ready` 会标记 `delivery-unknown`，不会自动重放。相同 fingerprint 不重复 steer/Call；网络、限流、认证、预算、撤销、取消和 transport 原因不升级为任务困难。咨询失败保留原执行选择、产物与 acceptance。
+意图状态在外部动作前持久化。每次持久化、candidate capture、预算预留或咨询流等长 await 之后，真正 dispatch/steer 前同步复核同一 Task、acceptance revision/hash、coordination revision、episode evidenceVersion/fingerprint、原 signal 与待处理的人类补充；任一变化都释放未发送预留或把建议标 stale，不发送旧 notice。重启遇到 `intent-persisted`、`call-reserved` 或 `advice-ready` 会标记 `delivery-unknown`，不会自动重放。相同 fingerprint 不重复 steer/Call；网络、限流、认证、预算、撤销、取消和 transport 原因不升级为任务困难。咨询失败保留原执行选择、产物与 acceptance。
 
 ## 阶段 1 测试
 
