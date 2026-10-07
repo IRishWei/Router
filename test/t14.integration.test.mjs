@@ -521,6 +521,7 @@ for (const action of ['extend', 'stop', 'revoke']) test(`a research review budge
   let mainRegistration;
   let reviewRegistration;
   let run;
+  let waitingTaskId;
   try {
     mainRegistration = await registerCandidate(ctx, `t14-budget-main-${action}`, 'artifact', 'Budget artifact fixture');
     reviewRegistration = await registerCandidate(ctx, `t14-budget-review-${action}`, 'review', 'Budget review fixture');
@@ -530,8 +531,10 @@ for (const action of ['extend', 'stop', 'revoke']) test(`a research review budge
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     run = submit(ctx, sessionId, '仅检查以下研究要求：\n论点「Claim A」必须有来源。');
     const waiting = (await waitFor(ctx, snapshot => snapshot.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
+    waitingTaskId = waiting.id;
     assert.equal(waiting.acceptance.phase, 'awaiting-review');
     assert.equal(waiting.acceptance.artifact.text, artifactText);
+    assert.equal(waiting.calls.find(call => call.purpose === 'execution').reservation.tokens.total, null);
     if (action === 'extend') await ctx.router.extendTaskBudget(waiting.id, { tokens: 8192 });
     else if (action === 'stop') await ctx.router.stopTask(waiting.id);
     else {
@@ -554,6 +557,7 @@ for (const action of ['extend', 'stop', 'revoke']) test(`a research review budge
       if (action === 'stop') assert.equal(reviewCall.reservation.state, 'released');
     }
   } finally {
+    if (run && waitingTaskId) await ctx.router.stopTask(waitingTaskId).catch(() => {});
     if (run) await run.catch(() => {});
     reviewRegistration?.dispose();
     mainRegistration?.dispose();
