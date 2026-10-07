@@ -1,6 +1,6 @@
 # T14 唯一验收协调器接线合同
 
-本文件记录 T14 独立模块接入唯一 `AcceptanceCoordinator` 的 Host-only 合同。0.8.0 已完成共享 facade、Renderer 和构建接线；来源读取、candidate capture、Task 发布和 awaited hook 均未进入 RPC。
+本文件记录 T14 独立模块接入唯一 `AcceptanceCoordinator` 的 Host-only 合同。0.8.1 已完成共享 facade、Renderer 和构建接线；来源读取、candidate capture、Task 发布和 awaited hook 均未进入 RPC。
 
 ## Contributor 信任边界
 

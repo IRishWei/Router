@@ -71,6 +71,14 @@ class SequencedArtifactFixture extends LlmAdapter {
   }
 }
 
+class IncompleteArtifactFixture extends LlmAdapter {
+  async *stream() {
+    yield { type: 'text-delta', index: 0, text: 'Claim A. Claim B.' };
+    yield { type: 'usage', usage: { inputTokens: 8, outputTokens: 8, totalTokens: 16 } };
+    yield { type: 'finish', reason: { kind: 'max-tokens' } };
+  }
+}
+
 class ResearchReviewFixture extends LlmAdapter {
   requests = [];
   #mode;
@@ -201,7 +209,7 @@ test('a real Task artifact produces a validated research contribution without pr
     unregister();
     await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -251,7 +259,7 @@ test('one bounded Task review can promote only decisive claim support from anony
     mainRegistration?.dispose();
     await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -289,7 +297,7 @@ test('research review extra fields and forged quote hashes cannot establish supp
       mainRegistration?.dispose();
       await ctx.fiber.dispose();
       server.close(); await once(server, 'close');
-      await rm(home, { recursive: true, force: true });
+      await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
     }
   }
 });
@@ -332,7 +340,7 @@ test('a high-risk source conflict uses the remaining second review and stays unc
     mainRegistration?.dispose();
     await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -373,7 +381,7 @@ test('a bounded inference review binds the conclusion quote to the cited premise
     mainRegistration?.dispose();
     await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -404,7 +412,7 @@ test('a research payload outside the configured total forecast makes no review C
     reviewRegistration?.dispose();
     mainRegistration?.dispose();
     await ctx.fiber.dispose();
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -446,7 +454,7 @@ test('a citation-only real Task fails without spending a semantic review Call', 
     mainRegistration?.dispose();
     await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -499,7 +507,7 @@ test('rubric and research reviews share the same two-Call Task limit', async () 
     mainRegistration?.dispose();
     await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -563,7 +571,97 @@ for (const action of ['extend', 'stop', 'revoke']) test(`a research review budge
     mainRegistration?.dispose();
     await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('a real steer during a research review budget wait releases the old Call before reviewing the new artifact', async () => {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
+    response.end('support');
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  const firstArtifact = `ORIGINAL. Claim A.\n研究来源：论点「Claim A」引用来源「${origin}/fact」中的引文「support」。`;
+  const secondArtifact = `CORRECTED. Claim A.\n研究来源：论点「Claim A」引用来源「${origin}/fact」中的引文「support」。`;
+  const resolver = createHttpSourceEvidenceResolver({ authorizeUrl: ({ url }) => url.origin === origin, authorizeAddress: ({ address }) => address === '127.0.0.1' });
+  const home = await mkdtemp(join(tmpdir(), 'router-t14-review-budget-steer-'));
+  const ctx = await startNative(home, { beforeRouter: current => current.provide('routerResearchSourceEvidence', resolver) });
+  const reviewer = new ResearchReviewFixture();
+  ctx.llm.registerAdapter(['t14-review-steer-main'], new SequencedArtifactFixture([firstArtifact, secondArtifact]));
+  ctx.llm.registerAdapter(['t14-review-steer-review'], reviewer);
+  let mainRegistration;
+  let reviewRegistration;
+  let run;
+  try {
+    mainRegistration = await registerCandidate(ctx, 't14-review-steer-main', 'artifact', 'Review steer artifact fixture');
+    reviewRegistration = await registerCandidate(ctx, 't14-review-steer-review', 'review', 'Review steer review fixture');
+    await ctx.router.setFixedModel(mainRegistration.candidate.candidateId);
+    await ctx.router.setBudgetDefaults({ tokens: 16, durationMs: null, money: [] });
+    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: true, candidateId: reviewRegistration.candidate.candidateId, allowCrossModel: true, maxTokens: 256, forecastTokens: 4096 } });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    run = submit(ctx, sessionId, '仅检查以下研究要求：\n论点「Claim A」必须有来源。');
+    const waiting = (await waitFor(ctx, snapshot => snapshot.tasks.at(-1)?.calls.some(call => call.purpose === 'review' && call.status === 'waiting'))).tasks.at(-1);
+    await ctx.sessionController.prompt({ sessionId, requestId: 't14-review-budget-steer', mode: 'steer', content: [{ type: 'text', text: '继续使用同一研究要求并修正正文。' }] }, new AbortController().signal);
+    await ctx.router.extendTaskBudget(waiting.id, { tokens: 8192 });
+    const task = await run;
+    const reviewCalls = task.calls.filter(call => call.purpose === 'review');
+
+    assert.equal(task.result, `${firstArtifact}${secondArtifact}`);
+    assert.equal(task.acceptance.artifact.text, secondArtifact);
+    assert.equal(task.acceptance.history.length, 1);
+    assert.equal(task.acceptance.history[0].phase, 'superseded');
+    assert.equal(reviewCalls.length, 2);
+    assert.equal(reviewCalls[0].dispatchStarted, false);
+    assert.equal(reviewCalls[0].status, 'not-dispatched');
+    assert.equal(reviewCalls[0].reservation.state, 'released');
+    assert.equal(reviewCalls[1].dispatchStarted, true);
+    assert.equal(reviewer.requests.length, 1);
+    assert.equal(JSON.parse(reviewer.requests[0].messages.find(message => message.role === 'user').content[0].text).artifactHash, digest(secondArtifact));
+  } finally {
+    if (run) await run.catch(() => {});
+    reviewRegistration?.dispose();
+    mainRegistration?.dispose();
+    await ctx.fiber.dispose();
+    server.close(); await once(server, 'close');
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('an incomplete real Task preserves claim and inference requirements as unconfirmed without review', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t14-incomplete-artifact-'));
+  const ctx = await startNative(home);
+  ctx.llm.registerAdapter(['t14-incomplete-main'], new IncompleteArtifactFixture());
+  const reviewer = new ResearchReviewFixture();
+  ctx.llm.registerAdapter(['t14-incomplete-review'], reviewer);
+  let mainRegistration;
+  let reviewRegistration;
+  try {
+    mainRegistration = await registerCandidate(ctx, 't14-incomplete-main', 'artifact', 'Incomplete artifact fixture');
+    reviewRegistration = await registerCandidate(ctx, 't14-incomplete-review', 'review', 'Incomplete review fixture');
+    await ctx.router.setFixedModel(mainRegistration.candidate.candidateId);
+    await ctx.router.setAcceptancePolicy({ enabled: true, review: { enabled: true, candidateId: reviewRegistration.candidate.candidateId, allowCrossModel: true, maxTokens: 256, forecastTokens: 4096 } });
+    const { sessionId } = await ctx.sessionController.create({ cwd: home });
+    const task = await submit(ctx, sessionId, [
+      '仅检查以下研究要求：',
+      '论点「Claim A」必须有来源。',
+      '推论「Claim B」必须由论点「Claim A」支持。',
+    ].join('\n'));
+    const research = task.acceptance;
+
+    assert.equal(research.verdict, 'unconfirmed');
+    assert.equal(research.requirements.some(requirement => requirement.kind === 'research-unresolved'), false);
+    assert.deepEqual(research.requirements.map(requirement => requirement.kind).sort(), ['research-claim', 'research-inference']);
+    assert.equal(research.evidence.filter(evidence => ['artifact-claim', 'claim-support'].includes(evidence.aspect)).length, 4);
+    assert.equal(research.evidence.filter(evidence => ['artifact-claim', 'claim-support'].includes(evidence.aspect)).every(evidence => evidence.verdict === 'unconfirmed' && evidence.reason === 'ARTIFACT_INCOMPLETE'), true);
+    assert.deepEqual(task.calls.map(call => call.purpose), ['execution']);
+    assert.equal(reviewer.requests.length, 0);
+  } finally {
+    reviewRegistration?.dispose();
+    mainRegistration?.dispose();
+    await ctx.fiber.dispose();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -611,7 +709,7 @@ test('a real steer during source resolution supersedes the old artifact and reva
     if (run) await run.catch(() => {});
     registration?.dispose();
     await ctx.fiber.dispose();
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
 
@@ -652,6 +750,6 @@ test('Host restart preserves immutable research snapshots and history without re
   } finally {
     if (ctx) await ctx.fiber.dispose();
     server.close(); await once(server, 'close');
-    await rm(home, { recursive: true, force: true });
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });

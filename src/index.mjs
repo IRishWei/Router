@@ -567,7 +567,13 @@ export class RouterService extends TypertRemoteService {
         return result;
       } catch (error) { try { await owner.close('AUXILIARY_STREAM_REJECTED'); } catch {} throw error; }
     };
-    return { [Symbol.asyncIterator]() { return this; }, next: value => advance('next', value), return: value => advance('return', value), throw: error => advance('throw', error) };
+    return {
+      [Symbol.asyncIterator]() { return this; },
+      next: value => advance('next', value),
+      return: value => advance('return', value),
+      throw: error => advance('throw', error),
+      cancel: reason => owner.close(reason, false),
+    };
   }
   #trackedDispatch(owner, next) {
     const stream = (async function* () {

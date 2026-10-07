@@ -465,6 +465,12 @@ export class AcceptanceCoordinator {
       const forecast = { inputTokens: inputTokenBudget, outputTokens: review.maxTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: review.forecast.totalTokens };
       record.callId = await this.#ctx.router.reserveCall(task.id, { purpose: 'review', selection, candidateId: selectionSnapshot.candidateId, selectionSnapshot, configVersion: task.configVersion, forecast }, signal);
       const stream = this.#ctx.router.streamReservedCall(task.id, record.callId, { provider: selection.provider, model: selection.model, maxTokens: review.maxTokens, signal, messages: [{ role: 'system', content: [{ type: 'text', text: systemPrompt }] }, { role: 'user', content: [{ type: 'text', text: serializedInput }] }] });
+      const changedAfterReservation = boundaryReason?.();
+      if (changedAfterReservation) {
+        await stream.cancel('ACCEPTANCE_SUPERSEDED');
+        record.reason = 'ACCEPTANCE_SUPERSEDED';
+        return record;
+      }
       let finish;
       let failureCode;
       let oversized = false;
