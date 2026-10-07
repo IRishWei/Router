@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
-import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema } from './protocol.mjs';
+import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema, coordinationPolicySchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
 import { runInitialAssessment, selectInitialRoute } from './routing.mjs';
@@ -13,6 +13,7 @@ import { DeepSeekHost } from './deepseek-host.mjs';
 import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
 import { createHttpSourceEvidenceResolver, createResearchAcceptance } from './research-acceptance.mjs';
 import { validateResearchContribution } from './research-contribution.mjs';
+import { coordinationSchema, TaskCoordinationController } from './coordination.mjs';
 
 export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -27,6 +28,7 @@ const ROUTING_OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'qual
 const MAX_ASSESSMENT_CONTEXT_BYTES = 16_384;
 const DEEPSEEK_DETECTION_OUTPUT_TOKENS = 32;
 const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
+const defaultCoordinationPolicy = () => ({ enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 256, maxAdviceChars: 4096, forecastTokens: 4096 });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
@@ -126,6 +128,22 @@ function routingPauseReason(decision) {
 function selectionForecast(requirements, outputTokens = 512) {
   const inputTokens = Math.max(1, requirements.contextTokens ?? 1);
   return { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: inputTokens + outputTokens };
+}
+function freezeCoordinationPolicy(config, connections) {
+  const policy = structuredClone(config.coordination);
+  const frozen = { ...policy, objective: config.routingObjective, selectionBasis: null };
+  if (!policy.candidateId) return frozen;
+  const snapshot = connections.snapshot(config);
+  const forecast = selectionForecast({ modalities: ['text'] }, policy.maxTokens);
+  const decision = selectInitialRoute({
+    task: { requirements: { modalities: ['text'] } },
+    candidateSnapshot: snapshot,
+    objective: config.routingObjective,
+    fixedCandidateId: policy.candidateId,
+    forecastsByCandidate: { [policy.candidateId]: forecast },
+  });
+  if (decision.kind !== 'execute' || decision.selected.candidateId !== policy.candidateId) return { ...frozen, candidateId: null };
+  return { ...frozen, selectionBasis: 'objective-qualified' };
 }
 function conservativeRequestForecast(messages, tools, outputTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS) {
   const inputTokens = Math.max(1, new TextEncoder().encode(JSON.stringify({ messages, tools: tools ?? [] })).length);
@@ -235,7 +253,7 @@ export class RouterService extends TypertRemoteService {
     this.#connections = connections;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'commitState', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance', 'attachDeepSeek']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'commitState', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance', 'publishCoordination', 'attachDeepSeek']) this[method] = this[method].bind(this);
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
@@ -869,6 +887,24 @@ export class RouterService extends TypertRemoteService {
     this.#persist();
     return structuredClone(detached);
   }
+  async publishCoordination(taskId, expected, nextCoordination) {
+    const task = this.#state.tasks.find(item => item.id === taskId);
+    const currentRevision = task?.coordination?.revision ?? 0;
+    if (!task || task.acceptance?.revision !== expected?.acceptanceRevision || currentRevision !== expected?.coordinationRevision) {
+      const error = new Error('Canonical Task acceptance or coordination changed');
+      error.code = 'COORDINATION_STALE';
+      throw error;
+    }
+    const detached = coordinationSchema.parse(structuredClone(nextCoordination));
+    if (detached.acceptanceRevision !== expected.acceptanceRevision || detached.revision !== currentRevision + 1) throw new TypeError('Invalid coordination revision publication');
+    JSON.stringify(detached);
+    task.coordination = detached;
+    task.timeline.push({ kind: 'coordination-published', revision: detached.revision, acceptanceRevision: detached.acceptanceRevision });
+    this.#persist();
+    await this.flush();
+    if (this.#storageError) throw new Error('Router coordination publication was not persisted');
+    return structuredClone(detached);
+  }
   async setPriceQuote(candidateId, quote, legacyQuote) {
     // Direct Host callers from 0.3.x may use the controlled provider/model pair.
     if (legacyQuote !== undefined && candidateId === CONTROLLED_PROVIDER) { candidateId = quote; quote = legacyQuote; }
@@ -1094,6 +1130,15 @@ export class RouterService extends TypertRemoteService {
     }
     return this.#change({ acceptance: parsed });
   }
+  async setCoordinationPolicy(policy) {
+    const parsed = coordinationPolicySchema().parse(policy);
+    if (parsed.candidateId) {
+      const candidate = this.#connections.resolve(parsed.candidateId);
+      const entry = this.#state.config.pool.find(item => (item.candidateId ?? item.model) === candidate.candidateId);
+      if (!entry?.enabled) throw new TypeError('The consultation candidate must be enabled in the pool');
+    }
+    return this.#change({ coordination: parsed });
+  }
   async requestSemanticAssessment() {
     if (!this.#state.config.automatic || !this.#state.config.semanticAssessment) throw new TypeError('Enable automatic routing and semantic assessment before requesting a Task assessment');
     this.#state.semanticAssessmentRequest = { status: 'armed', requestedAt: new Date().toISOString() };
@@ -1169,7 +1214,7 @@ export class RouterService extends TypertRemoteService {
       const assessmentRequested = this.#state.semanticAssessmentRequest?.status === 'armed';
       if (assessmentRequested) this.#state.semanticAssessmentRequest = null;
       const detection = this.#deepSeekDetections.get(session.id);
-      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(detection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}) };
+      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), coordinationPolicy: freezeCoordinationPolicy(this.#state.config, this.#connections), coordination: null, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(detection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}) };
       if (detection) {
         detection.taskId = task.id;
       }
@@ -1240,8 +1285,9 @@ export async function apply(ctx) {
   state.config.routingObjective ??= 'balanced';
   state.config.semanticAssessment ??= false;
   state.config.acceptance ??= defaultAcceptancePolicy();
+  state.config.coordination ??= defaultCoordinationPolicy();
   state.semanticAssessmentRequest ??= null;
-  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean' || !acceptancePolicySchema().safeParse(state.config.acceptance).success) throw new Error('Unsupported DSH Router routing configuration');
+  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean' || !acceptancePolicySchema().safeParse(state.config.acceptance).success || !coordinationPolicySchema().safeParse(state.config.coordination).success) throw new Error('Unsupported DSH Router routing configuration');
   if (state.semanticAssessmentRequest !== null && (state.semanticAssessmentRequest?.status !== 'armed' || typeof state.semanticAssessmentRequest.requestedAt !== 'string')) throw new Error('Unsupported DSH Router assessment request');
   if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
   if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
@@ -1297,6 +1343,13 @@ export async function apply(ctx) {
   await deepSeek.restore();
   const programChecks = createNodeProgramChecks(ctx);
   const researchAcceptance = createResearchAcceptance({ resolveSourceEvidence: ctx.get('routerResearchSourceEvidence') ?? createHttpSourceEvidenceResolver() });
+  const coordination = new TaskCoordinationController({
+    router: service,
+    policyForTask: task => ({
+      ...structuredClone(task.coordinationPolicy),
+      forecast: { totalTokens: task.coordinationPolicy?.forecastTokens },
+    }),
+  });
   new AcceptanceCoordinator(ctx, {
     publishAcceptance: service.publishAcceptance,
     captureCandidate: service.captureCandidate,
@@ -1315,6 +1368,7 @@ export async function apply(ctx) {
         forecast: { totalTokens: task.acceptancePolicy?.review?.forecastTokens },
       },
     }),
+    afterAssessment: payload => coordination.afterAcceptance(payload),
   });
   ctx.on('llm/adapters-updated', () => { void service.refreshConnections().catch(() => {}); });
   ctx.on('settings/document-updated', (namespace, revision) => { connections.invalidateSettings(namespace, revision); void service.refreshConnections().catch(() => {}); });

@@ -299,6 +299,17 @@ test('network evidence is recovery state rather than task difficulty', async () 
   assert.equal(run.reservations.length, 0);
 });
 
+for (const kind of ['research-review', 'model-review']) test(`${kind} failure stays excluded until Acceptance publishes a canonical trusted predicate`, async () => {
+  const acceptance = failedAcceptance({ source: { kind, reviewId: 'review-1' } });
+  const run = harness({ acceptance });
+  const action = await run.controller.afterAcceptance({ agent: run.agent, turn: 1, signal: harness.signal, acceptance: clone(run.task.acceptance) });
+  assert.equal(action.kind, 'none');
+  assert.equal(action.reason, 'NO_TRUSTED_REPAIRABLE_OBSTACLE');
+  assert.equal(run.task.coordination, null);
+  assert.equal(run.steers.length, 0);
+  assert.equal(run.reservations.length, 0);
+});
+
 test('a persisted consultation intent is marked delivery-unknown after restart and is never replayed', async () => {
   const reservationFailure = new Error('simulated interruption after intent');
   reservationFailure.code = 'TEST_INTERRUPTION';
