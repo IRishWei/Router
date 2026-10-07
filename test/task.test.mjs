@@ -20,13 +20,16 @@ import Commands from '@deepseek-ai/dsh-commands';
 import FileUploads from '@deepseek-ai/dsh-client-file-upload';
 import * as router from '../src/index.mjs';
 
-async function start(home, files) {
+async function start(home, files, { sessionControllerFixture = true, installRouter = true } = {}) {
   const ctx = new Context();
   ctx.provide('profileContext', { home, dir: join(home, 'profiles', 'test'), name: 'test' });
+  // Most tests drive AgentLoop directly; satisfy Router's required Host boundary
+  // without pretending those paths exercise SessionController behavior.
+  if (sessionControllerFixture) ctx.provide('sessionController', {});
   if (files) ctx.provide('routerFileSystem', files);
   for (const plugin of [SessionStore, SessionProjections, AgentRegistry, LlmRuntime, ToolRuntime, SystemPrompt, AgentLoop]) await ctx.plugin(plugin);
   await ctx.plugin(AgentDefaultModel, { provider: 'native-local', model: 'native-model' });
-  await ctx.plugin(router);
+  if (installRouter) await ctx.plugin(router);
   return ctx;
 }
 
@@ -107,7 +110,7 @@ test('a controlled connection fault pauses only its task and a later task still 
 
 test('the actual native controller consumes pending selection and agrees with the durable request', async () => {
   const home = await mkdtemp(join(tmpdir(), 'dsh-router-native-'));
-  const ctx = await start(home);
+  const ctx = await start(home, undefined, { sessionControllerFixture: false, installRouter: false });
   try {
     // Only the external HTTP carrier is replaced. Controller, inbox, projection,
     // prompt admission and model selection are the real target-version services.
@@ -115,6 +118,7 @@ test('the actual native controller consumes pending selection and agrees with th
     for (const plugin of [TypertRegistry, Commands, AttachmentStore, FileUploads]) await ctx.plugin(plugin);
     new SessionQueryEngine(ctx);
     new SessionController(ctx, {});
+    await ctx.plugin(router);
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     const route = { provider: 'router-controlled', model: 'controlled' };
     await ctx.sessionController.selectModel({ sessionId, ...route });

@@ -103,17 +103,40 @@ test('public DeepSeek Host flow runs one explicit finite Task without changing g
   }
 });
 
-async function connectedHost(home, endpoint) {
+async function connectedHost(home, endpoint, { sessionControllerAsPlugin = false } = {}) {
   const ctx = await startNative(home, { beforeRouter: async current => {
     await current.plugin(LocalCredentialProvider, { path: join(home, '.credentials.yaml'), watch: false });
     current.provide('routerDeepSeekEndpoint', { kind: 'controlled-test', baseURL: endpoint.baseURL });
-  } });
+  }, sessionControllerAsPlugin });
   let snapshot = await ctx.router.deepSeekSaveCredential({ apiKey: 'controlled-detection-key' });
   snapshot = await ctx.router.deepSeekConnect({ accountId: snapshot.deepSeek.bindings[0].accountId });
   const candidate = snapshot.models.find(model => model.source === 'deepseek-official-api' && model.model === 'deepseek-flash');
   await ctx.router.setModelEnabled(candidate.candidateId, true);
   return { ctx, candidate };
 }
+
+test('the Router Fiber resolves a sibling SessionController through its declared dependency', async () => {
+  let posts = 0;
+  const endpoint = await listen(async (request, response) => {
+    if (request.method === 'POST') posts += 1;
+    response.writeHead(500).end();
+  });
+  const home = await mkdtemp(join(tmpdir(), 'router-t05-session-controller-fiber-'));
+  let ctx;
+  try {
+    ({ ctx } = await connectedHost(home, endpoint, { sessionControllerAsPlugin: true }));
+    const candidate = (await ctx.router.snapshot()).models.find(model => model.source === 'deepseek-official-api' && model.model === 'deepseek-flash');
+    const snapshot = await ctx.router.deepSeekRunDetection({ candidateId: candidate.candidateId, budget: { tokens: 1, durationMs: 5_000 } });
+    const task = snapshot.tasks.find(item => item.id === snapshot.deepSeek.lastDetectionTaskId);
+    assert.equal(task.lifecycle, 'waiting-budget');
+    assert.equal(posts, 0);
+    await ctx.router.stopTask(task.id);
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await endpoint.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
 
 async function waitForTask(ctx, taskId, predicate) {
   for (let attempt = 0; attempt < 400; attempt++) {
