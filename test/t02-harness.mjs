@@ -18,7 +18,7 @@ import Commands from '@deepseek-ai/dsh-commands';
 import FileUploads from '@deepseek-ai/dsh-client-file-upload';
 import * as router from '../src/index.mjs';
 
-export async function startNative(home, { images = false, files, beforeRouter } = {}) {
+export async function startNative(home, { images = false, files, beforeRouter, routerPlugin = router } = {}) {
   const ctx = new Context();
   ctx.provide('profileContext', { home, dir: join(home, 'profiles', 'test'), name: 'test' });
   if (files) ctx.provide('routerFileSystem', files);
@@ -30,7 +30,7 @@ export async function startNative(home, { images = false, files, beforeRouter } 
   new SessionQueryEngine(ctx);
   new SessionController(ctx, {});
   if (beforeRouter) await beforeRouter(ctx);
-  try { await ctx.plugin(router); }
+  try { await ctx.plugin(routerPlugin); }
   catch (error) { await ctx.fiber.dispose(); throw error; }
   return ctx;
 }
