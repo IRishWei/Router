@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 await mkdir('lib', { recursive: true });
 await mkdir('artifacts', { recursive: true });
 await mkdir('companion/native-provider/lib', { recursive: true });
-const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'").replace("'./routing.mjs'", "'./routing.js'").replace("'./acceptance.mjs'", "'./acceptance.js'").replace("'./program-checks.mjs'", "'./program-checks.js'").replace("'./deepseek-host.mjs'", "'./deepseek-host.js'").replace("'./deepseek-deadline.mjs'", "'./deepseek-deadline.js'");
+const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'").replace("'./routing.mjs'", "'./routing.js'").replace("'./acceptance.mjs'", "'./acceptance.js'").replace("'./program-checks.mjs'", "'./program-checks.js'").replace("'./deepseek-host.mjs'", "'./deepseek-host.js'").replace("'./deepseek-deadline.mjs'", "'./deepseek-deadline.js'").replace("'./research-acceptance.mjs'", "'./research-acceptance.js'").replace("'./research-contribution.mjs'", "'./research-contribution.js'");
 await writeFile('lib/index.js', host);
 await writeFile('lib/ledger.js', await readFile('src/ledger.mjs', 'utf8'));
 await writeFile('lib/connections.js', (await readFile('src/connections.mjs', 'utf8')).replace("'./native-connections.mjs'", "'./native-connections.js'"));
@@ -16,6 +16,9 @@ await writeFile('lib/deepseek-catalog.js', await readFile('src/deepseek-catalog.
 await writeFile('lib/deepseek-router.js', (await readFile('src/deepseek-router.mjs', 'utf8')).replace("'./deepseek-connections.mjs'", "'./deepseek-connections.js'"));
 await writeFile('lib/deepseek-host.js', (await readFile('src/deepseek-host.mjs', 'utf8')).replace("'./deepseek-connections.mjs'", "'./deepseek-connections.js'").replace("'./deepseek-router.mjs'", "'./deepseek-router.js'"));
 await writeFile('lib/deepseek-deadline.js', await readFile('src/deepseek-deadline.mjs', 'utf8'));
+await writeFile('lib/research-artifact.js', await readFile('src/research-artifact.mjs', 'utf8'));
+await writeFile('lib/research-acceptance.js', (await readFile('src/research-acceptance.mjs', 'utf8')).replace("'./research-artifact.mjs'", "'./research-artifact.js'"));
+await writeFile('lib/research-contribution.js', (await readFile('src/research-contribution.mjs', 'utf8')).replace("'./research-artifact.mjs'", "'./research-artifact.js'"));
 const protocol = await readFile('src/protocol.mjs', 'utf8');
 await writeFile('lib/protocol.js', protocol);
 await writeFile('lib/typert.host.js', "export { TYPERT, TYPERT as default } from './protocol.js';\n");

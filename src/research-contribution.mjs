@@ -168,7 +168,11 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
       if (linked.length !== 1 || linked[0].aspect !== 'requirement-interpretation') fail('decisive evidence');
       continue;
     }
-    if (linked.filter(item => item.aspect === 'artifact-claim').length !== 1 || linked.filter(item => item.aspect === 'claim-support').length !== 1) fail('decisive evidence');
+    const artifactClaims = linked.filter(item => item.aspect === 'artifact-claim');
+    const claimSupports = linked.filter(item => item.aspect === 'claim-support');
+    if (artifactClaims.length !== 1 || claimSupports.length !== 1) fail('decisive evidence');
+    if (artifactClaims[0].verdict === 'failed' && (claimSupports[0].verdict !== 'failed' || claimSupports[0].reason !== 'CLAIM_NOT_IN_ARTIFACT')) fail('decisive evidence');
+    if (artifactClaims[0].verdict === 'unconfirmed' && claimSupports[0].verdict !== 'unconfirmed') fail('decisive evidence');
   }
 
   for (const reference of references.values()) {

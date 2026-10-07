@@ -1,6 +1,6 @@
 # T14 唯一验收协调器接线合同
 
-本文件固定 T14 独立模块交给唯一 `AcceptanceCoordinator` 的 Host-only 接缝。当前 checkpoint 未修改共享 facade、RPC、Renderer、构建或版本。
+本文件记录 T14 独立模块接入唯一 `AcceptanceCoordinator` 的 Host-only 合同。0.8.0 已完成共享 facade、Renderer 和构建接线；来源读取、candidate capture、Task 发布和 awaited hook 均未进入 RPC。
 
 ## Contributor 信任边界
 
@@ -31,4 +31,4 @@ research `reviewCases` 只请求评审，不授权调用。协调器把 T13 rubr
 
 RPC 继续只返回 Task 快照，不新增 fetch/review 工具。Renderer 在现有验收区显示 claim、来源安全地址、access/quote/support 三类状态、冲突/断链/限制原因、review Call 与 superseded history；不显示网页正文或 query，也不提供由外部内容触发的权限/预算操作。
 
-`test/t14.integration.test.mjs` 已用真实 SessionController、唯一 AcceptanceCoordinator、真实 Router Task/artifact 和本地 HTTP source 验证 contributor/validator 接缝，以及 `source-access: passed` 时 `claim-support` 仍为 `unconfirmed` 且没有额外 Call。共享接线后还需补：实际合并发布、严格 research review、两次总额度、预算等待/停止/撤销、steer、重启、Renderer/RPC 与目标 Desktop。
+`test/t14.integration.test.mjs` 使用真实 SessionController、唯一 AcceptanceCoordinator、真实 Router Task/artifact 和本地 HTTP source 验证合并发布、严格 research review、rubric/research 共用两次总额度、预算等待后扩展/停止/撤销、来源读取期间 steer、持久化重启，以及 citation 不能替代正文结论。`test/t14.client.test.mjs` 通过真实 Renderer 与既有公开 RPC 验证安全地址和 access/quote/support 状态，并确认没有新增 fetch/source/research RPC。目标 Desktop 安装验收仍由集成负责人执行。

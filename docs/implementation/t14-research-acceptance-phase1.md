@@ -30,8 +30,8 @@
 
 用户输入先检查 UTF-8 总字节再进入 DSL parser。artifact 另有固定字节上限，来源引用记录另有整个 contribution 的固定 `maxSourceReferences`；同 URL 重复引用也消耗引用记录额度。超限时不静默截断后继续验收，而是保留明确的 unconfirmed requirement/evidence，且不创建 review case。
 
-## 阶段验证与未接线项
+## 阶段验证与共享接线
 
 `node --test test/t14.research-acceptance.test.mjs test/t14.integration.test.mjs` 覆盖：200 无关页面、精确引文、完整 artifact Unicode locator、citation 内伪 locator 拒绝、缺失来源、404、冲突、无支持推论、页面指令隔离、query 隐私、私网与危险 redirect、大小限制、adapter 伪记录、固定来源数、持久化复用、引用闭包伪造，以及真实 Controller/AcceptanceCoordinator 的 Task/artifact identity。
 
-共享接线前仍需：由 Coordinator 校验 contributor 输出及引用闭包，把 research 字段加入 history 白名单，并在同一 `agent/turn-stopping` awaited 顺序中合并、评审、发布。之后还需真实 Controller、Renderer/RPC、重启与目标 Desktop 验收。本阶段不能关闭 #15。
+0.8.0 由唯一 Coordinator 校验 contributor 输出及引用闭包，把 research 字段加入 history 白名单，并在同一 `agent/turn-stopping` awaited 顺序中合并、评审、发布。共享验证覆盖真实 Controller、Renderer/RPC、预算、steer 和重启；目标 Desktop 安装验收及票据关闭仍由集成负责人完成。

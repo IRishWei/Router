@@ -112,6 +112,36 @@ test('artifact claim locators address the full Unicode artifact while citation d
   );
 });
 
+test('a citation declaration cannot replace the required claim in the artifact or trigger semantic review', async () => {
+  const target = artifact('研究来源：论点「Claim A」引用来源「https://example.test/fact」中的引文「support」。');
+  const result = await createResearchAcceptance({
+    resolveSourceEvidence: async () => ({
+      access: 'available', displayUrl: 'https://example.test/fact', urlHash: digest('https://example.test/fact'),
+      httpStatus: 200, contentType: 'text/plain', contentHash: digest('support'), body: 'support',
+    }),
+  }).contribute({
+    task: { id: 'task-citation-only' },
+    inputs: [input('仅检查以下研究要求：\n论点「Claim A」必须有来源。')],
+    artifact: target,
+    signal: new AbortController().signal,
+  });
+
+  assert.equal(result.evidence.find(item => item.aspect === 'artifact-claim').verdict, 'failed');
+  assert.equal(result.evidence.find(item => item.aspect === 'claim-support').verdict, 'failed');
+  assert.equal(result.evidence.find(item => item.aspect === 'claim-support').reason, 'CLAIM_NOT_IN_ARTIFACT');
+  assert.equal(result.reviewCases.length, 0);
+  validateResearchContribution(result, { taskId: 'task-citation-only', artifact: target });
+
+  const forged = structuredClone(result);
+  const support = forged.evidence.find(item => item.aspect === 'claim-support');
+  support.verdict = 'passed';
+  support.reason = 'SOURCE_SUPPORT_REVIEW_REQUIRED';
+  assert.throws(
+    () => validateResearchContribution(forged, { taskId: 'task-citation-only', artifact: target }),
+    /Invalid research contribution: decisive evidence/u,
+  );
+});
+
 test('the contribution validator rejects cross-aspect data smuggling and incomplete review closure', async () => {
   const target = artifact([
     'Claim A. Claim B.',
