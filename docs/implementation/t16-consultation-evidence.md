@@ -31,4 +31,4 @@
 
 ## 剩余验收
 
-需要在目标 Desktop 以正式 0.9.0 包和冻结 companion 完成升级、默认策略、真实 4→9→14、预算等待、撤销、失败分类、Renderer、重启及旧 123 Task/config/原生默认逐字段深比较。T14 的来源网络阻塞保持独立，且在 T14 发布 canonical 研究失败可信谓词前，T16 对 research/model-review 继续 fail-closed。
+需要在目标 Desktop 以正式 0.9.1 包和冻结 companion 完成升级、默认策略、真实 4→9→14、预算等待、撤销、失败分类、Renderer、重启及旧 123 Task/config/原生默认逐字段深比较。T14 的来源网络阻塞保持独立，且在 T14 发布 canonical 研究失败可信谓词前，T16 对 research/model-review 继续 fail-closed。
