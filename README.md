@@ -4,7 +4,7 @@
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.6.1.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.7.4.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。
@@ -13,6 +13,8 @@
 7. 发送 `[router:fail]` 验证本地连接故障与任务暂停；随后发送 `Reply RECOVERED` 可进行新任务。
 
 可控模型只产生本地 fixture 响应；不会连接模型服务或产生真实费用，token 也是固定测试数据。响应完成的验收状态保持“无法确认”。插件不读写 Codex 配置或认证。
+
+**连接与模型 → DeepSeek API**可在密码输入框中保存新凭据、连接账号、主动启用候选并运行有限预算的连接检测。凭据只进入 Router 自有 credential store；同名模型以连接、账号和计费来源区分，默认不启用。检测沿用独立真实 Task 的预算与账本，不改变全局默认、固定或自动选择。预算不足时先等待，可在任务记录中扩展或停止；实际系统输入较大时，初始4096 token上限可能不足。0.7.4 已验证连接管理、零派发预算等待和重启，真实官方 API 仍需用户凭据与授权，见 [安装证据](docs/implementation/t05-installed-host-evidence.md)。
 
 ## 明确要求验收
 
