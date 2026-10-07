@@ -112,6 +112,38 @@ test('artifact claim locators address the full Unicode artifact while citation d
   );
 });
 
+test('the contribution validator rejects cross-aspect data smuggling and incomplete review closure', async () => {
+  const target = artifact([
+    'Claim A. Claim B.',
+    '研究来源：论点「Claim A」引用来源「https://example.test/a」中的引文「quote a」。',
+    '研究来源：论点「Claim B」引用来源「https://example.test/b」中的引文「quote b」。',
+  ].join('\n'));
+  const result = await createResearchAcceptance({ resolveSourceEvidence: async ({ sourceRef }) => {
+    const quote = sourceRef.url.endsWith('/a') ? 'quote a' : 'quote b';
+    return { access: 'available', displayUrl: sourceRef.url, urlHash: digest(sourceRef.url), httpStatus: 200, contentType: 'text/plain', contentHash: digest(quote), body: quote };
+  } }).contribute({
+    task: { id: 'task-strict-closure' },
+    inputs: [input('仅检查以下研究要求：\n论点「Claim A」必须有来源。\n论点「Claim B」必须有来源。')],
+    artifact: target,
+    signal: new AbortController().signal,
+  });
+
+  const smuggled = structuredClone(result);
+  const access = smuggled.evidence.find(item => item.aspect === 'source-access');
+  access.sourceQuote = 'PAGE BODY SECRET';
+  access.sourceQuoteHash = digest(access.sourceQuote);
+  assert.throws(() => validateResearchContribution(smuggled, { taskId: 'task-strict-closure', artifact: target }), /Invalid research contribution: evidence fields/u);
+
+  const crossed = structuredClone(result);
+  crossed.reviewCases[0].requirementIds = [...result.reviewCases[1].requirementIds];
+  assert.throws(() => validateResearchContribution(crossed, { taskId: 'task-strict-closure', artifact: target }), /Invalid research contribution: review links/u);
+
+  const missing = structuredClone(result);
+  missing.evidence = missing.evidence.filter(item => item.aspect !== 'claim-support');
+  missing.reviewCases = [];
+  assert.throws(() => validateResearchContribution(missing, { taskId: 'task-strict-closure', artifact: target }), /Invalid research contribution: decisive evidence/u);
+});
+
 test('missing and unavailable sources remain distinct reproducible outcomes', async () => {
   const fixture = await sourceFixture({});
   try {

@@ -121,9 +121,14 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
 
   const evidence = new Map();
   for (const item of value.evidence) {
-    record(item, 'evidence', ['id', 'version', 'requirementId', 'aspect', 'verdict', 'source'], ['claimId', 'artifactHash', 'reason', 'artifactQuote', 'artifactLocator', 'sourceReferenceId', 'sourceSnapshotId', 'sourceQuote', 'sourceQuoteHash', 'sourceLocator', 'sourceReferenceIds', 'sourceSnapshotIds']);
     const requirement = requirements.get(item.requirementId);
     if (!ID.test(item.id) || item.version !== 1 || evidence.has(item.id) || !requirement || !['artifact-claim', 'source-access', 'quote-binding', 'claim-support', 'requirement-interpretation'].includes(item.aspect) || !['passed', 'failed', 'unconfirmed'].includes(item.verdict)) fail('evidence identity');
+    const common = ['id', 'version', 'requirementId', 'claimId', 'aspect', 'verdict', 'source'];
+    if (item.aspect === 'artifact-claim') record(item, 'evidence fields', item.verdict === 'passed' ? [...common, 'artifactHash', 'artifactQuote', 'artifactLocator'] : [...common, 'artifactHash', 'reason']);
+    else if (item.aspect === 'source-access') record(item, 'evidence fields', item.verdict === 'passed' ? [...common, 'sourceReferenceId', 'sourceSnapshotId'] : [...common, 'sourceReferenceId', 'sourceSnapshotId', 'reason']);
+    else if (item.aspect === 'quote-binding') record(item, 'evidence fields', item.verdict === 'passed' ? [...common, 'sourceReferenceId', 'sourceSnapshotId', 'sourceQuote', 'sourceQuoteHash', 'sourceLocator'] : [...common, 'sourceReferenceId', 'sourceSnapshotId', 'reason']);
+    else if (item.aspect === 'claim-support') record(item, 'evidence fields', [...common, 'sourceReferenceIds', 'sourceSnapshotIds', 'reason']);
+    else record(item, 'evidence fields', ['id', 'version', 'requirementId', 'aspect', 'verdict', 'source', 'reason']);
     if (requirement.claimId !== undefined && item.claimId !== requirement.claimId) fail('evidence claim');
     validateSource(item.source);
     if (item.reason !== undefined && !REASON.test(item.reason)) fail('evidence reason');
@@ -157,6 +162,15 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
     evidence.set(item.id, item);
   }
 
+  for (const requirement of requirements.values()) {
+    const linked = [...evidence.values()].filter(item => item.requirementId === requirement.id);
+    if (requirement.kind === 'research-unresolved') {
+      if (linked.length !== 1 || linked[0].aspect !== 'requirement-interpretation') fail('decisive evidence');
+      continue;
+    }
+    if (linked.filter(item => item.aspect === 'artifact-claim').length !== 1 || linked.filter(item => item.aspect === 'claim-support').length !== 1) fail('decisive evidence');
+  }
+
   for (const reference of references.values()) {
     const linked = [...evidence.values()].filter(item => item.sourceReferenceId === reference.id);
     if (!linked.some(item => item.aspect === 'source-access') || !linked.some(item => item.aspect === 'quote-binding')) fail('source evidence closure');
@@ -178,23 +192,36 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
     if (!ID.test(item.id) || item.version !== 1 || !['claim-support', 'source-conflict', 'inference-support'].includes(item.kind) || !['standard', 'high'].includes(item.risk) || !DIGEST.test(item.subjectHash) || !Array.isArray(item.requirementIds) || !item.requirementIds.length || !Array.isArray(item.evidenceIds) || !item.evidenceIds.length) fail('review case');
     reviewIds.push(item.id);
     unique(item.requirementIds, 'review requirements'); unique(item.evidenceIds, 'review evidence');
-    if (item.requirementIds.some(id => !requirements.has(id)) || item.evidenceIds.some(id => evidence.get(id)?.aspect !== 'claim-support' || evidence.get(id)?.verdict !== 'unconfirmed')) fail('review links');
+    const caseRequirements = item.requirementIds.map(id => requirements.get(id));
+    const caseEvidence = item.evidenceIds.map(id => evidence.get(id));
+    if (caseRequirements.some(requirement => !requirement || requirement.kind === 'research-unresolved')
+      || caseEvidence.some(entry => entry?.aspect !== 'claim-support' || entry.verdict !== 'unconfirmed')
+      || caseEvidence.some(entry => !item.requirementIds.includes(entry.requirementId))
+      || caseRequirements.some(requirement => !caseEvidence.some(entry => entry.requirementId === requirement.id))) fail('review links');
     record(item.anonymousPayload, 'anonymous payload', ['claims', 'sources']);
     if (!Array.isArray(item.anonymousPayload.claims) || !item.anonymousPayload.claims.length || !Array.isArray(item.anonymousPayload.sources) || !item.anonymousPayload.sources.length) fail('anonymous payload');
     for (const claim of item.anonymousPayload.claims) {
       record(claim, 'anonymous claim', ['id', 'text'], ['premiseClaimId']);
-      if (!ID.test(claim.id) || !string(claim.text) || ![...requirements.values()].some(requirement => requirement.claimId === claim.id && requirement.claim === claim.text)) fail('anonymous claim');
+      const ownsClaim = caseRequirements.some(requirement => (requirement.claimId === claim.id && requirement.claim === claim.text)
+        || (requirement.kind === 'research-inference' && requirement.premiseClaimId === claim.id && requirement.premise === claim.text));
+      if (!ID.test(claim.id) || !string(claim.text) || !ownsClaim) fail('anonymous claim');
     }
     for (const source of item.anonymousPayload.sources) {
       record(source, 'anonymous source', ['id', 'contentHash', 'excerpts']);
       const snapshot = snapshots.get(source.id);
-      if (!snapshot || snapshot.access !== 'available' || source.contentHash !== snapshot.contentHash || !Array.isArray(source.excerpts) || source.excerpts.length !== 1) fail('anonymous source');
+      if (!snapshot || snapshot.access !== 'available' || source.contentHash !== snapshot.contentHash || !caseEvidence.some(entry => entry.sourceSnapshotIds.includes(source.id)) || !Array.isArray(source.excerpts) || source.excerpts.length !== 1) fail('anonymous source');
       const excerpt = source.excerpts[0];
       record(excerpt, 'anonymous excerpt', ['text', 'hash', 'locator']);
       locator(excerpt.locator, 'anonymous excerpt locator');
       const binding = [...evidence.values()].find(entry => entry.aspect === 'quote-binding' && entry.sourceSnapshotId === source.id && entry.verdict === 'passed');
       if (!binding || excerpt.text !== binding.sourceQuote || excerpt.hash !== digest(excerpt.text) || !isDeepStrictEqual(excerpt.locator, binding.sourceLocator)) fail('anonymous excerpt');
     }
+    const expectedClaimIds = new Set(caseRequirements.flatMap(requirement => requirement.kind === 'research-inference' ? [requirement.premiseClaimId, requirement.claimId] : [requirement.claimId]));
+    const payloadClaimIds = item.anonymousPayload.claims.map(claim => claim.id);
+    if (payloadClaimIds.length !== expectedClaimIds.size || payloadClaimIds.some(id => !expectedClaimIds.has(id))) fail('review links');
+    const expectedSnapshotIds = new Set(caseEvidence.flatMap(entry => entry.sourceSnapshotIds));
+    const payloadSnapshotIds = item.anonymousPayload.sources.map(source => source.id);
+    if (payloadSnapshotIds.length !== expectedSnapshotIds.size || payloadSnapshotIds.some(id => !expectedSnapshotIds.has(id))) fail('review links');
     const inference = item.anonymousPayload.claims.find(claim => claim.premiseClaimId);
     const expectedSubject = inference
       ? `${item.anonymousPayload.claims.find(claim => claim.id === inference.premiseClaimId)?.text ?? ''}\n${inference.text}`
