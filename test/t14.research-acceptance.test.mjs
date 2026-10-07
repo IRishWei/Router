@@ -347,6 +347,90 @@ test('source count, bytes and time are bounded across the whole contribution wit
   }
 });
 
+test('redirect and failed-response bodies consume the one transferred-byte budget', async () => {
+  const fixture = await sourceFixture({
+    '/redirect': { status: 302, body: 'r'.repeat(50), headers: { location: '/final' } },
+    '/final': { body: 'f'.repeat(50) },
+    '/missing-a': { status: 404, body: 'a'.repeat(50) },
+    '/missing-b': { status: 404, body: 'b'.repeat(50) },
+  });
+  try {
+    const resolveSourceEvidence = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      limits: { maxBytes: 64 },
+    });
+    const research = createResearchAcceptance({ resolveSourceEvidence, limits: { maxBytes: 64 } });
+    const directRedirect = await resolveSourceEvidence({ sourceRef: { url: fixture.url('/redirect') }, signal: new AbortController().signal });
+    assert.deepEqual(directRedirect, { access: 'unavailable', reason: 'SOURCE_TOTAL_BYTES_EXCEEDED' });
+    const redirected = await research.contribute({
+      task: { id: 'task-redirect-bytes' },
+      inputs: [input('仅检查以下研究要求：\n论点「Redirect claim」必须有来源。')],
+      artifact: citedArtifact('Redirect claim', fixture.url('/redirect'), 'final quote'),
+      signal: new AbortController().signal,
+    });
+    assert.equal(redirected.sourceSnapshots[0].reason, 'SOURCE_TOTAL_BYTES_EXCEEDED');
+    assert.equal(redirected.evidence.find(item => item.aspect === 'claim-support').verdict, 'unconfirmed');
+
+    const failed = await research.contribute({
+      task: { id: 'task-failed-bytes' },
+      inputs: [input('仅检查以下研究要求：\n论点「Claim A」必须有来源。\n论点「Claim B」必须有来源。')],
+      artifact: artifact([
+        'Claim A. Claim B.',
+        `研究来源：论点「Claim A」引用来源「${fixture.url('/missing-a')}」中的引文「quote a」。`,
+        `研究来源：论点「Claim B」引用来源「${fixture.url('/missing-b')}」中的引文「quote b」。`,
+      ].join('\n')),
+      signal: new AbortController().signal,
+    });
+    assert.deepEqual(failed.sourceSnapshots.map(item => item.reason), ['SOURCE_HTTP_ERROR', 'SOURCE_TOTAL_BYTES_EXCEEDED']);
+    assert.equal(failed.evidence.filter(item => item.aspect === 'claim-support').every(item => item.verdict === 'unconfirmed'), true);
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('oversized inputs and artifacts are rejected before unbounded parsing or reference projection', async () => {
+  let resolutions = 0;
+  const resolveSourceEvidence = async () => {
+    resolutions++;
+    return { access: 'available', displayUrl: 'https://example.test/fact', urlHash: digest('https://example.test/fact'), httpStatus: 200, contentType: 'text/plain', contentHash: digest('quote'), body: 'quote' };
+  };
+  const inputLimited = await createResearchAcceptance({ resolveSourceEvidence, limits: { maxInputBytes: 32 } }).contribute({
+    task: { id: 'task-input-limit' },
+    inputs: [input(`仅检查以下研究要求：\n${'x'.repeat(100_000)}\n论点「Hidden claim」必须有来源。`)],
+    artifact: citedArtifact('Hidden claim', 'https://example.test/fact', 'quote'),
+    signal: new AbortController().signal,
+  });
+  assert.equal(inputLimited.requirements.length, 1);
+  assert.equal(inputLimited.requirements[0].kind, 'research-unresolved');
+  assert.equal(inputLimited.sourceReferences.length, 0);
+  assert.equal(resolutions, 0);
+
+  const artifactLimited = await createResearchAcceptance({ resolveSourceEvidence, limits: { maxArtifactBytes: 64 } }).contribute({
+    task: { id: 'task-artifact-limit' },
+    inputs: [input('仅检查以下研究要求：\n论点「Claim」必须有来源。')],
+    artifact: artifact(`Claim.\n${'x'.repeat(100)}\n研究来源：论点「Claim」引用来源「https://example.test/fact」中的引文「quote」。`),
+    signal: new AbortController().signal,
+  });
+  assert.equal(artifactLimited.sourceReferences.length, 0);
+  assert.equal(artifactLimited.evidence.find(item => item.aspect === 'artifact-claim').reason, 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED');
+  assert.equal(artifactLimited.evidence.find(item => item.aspect === 'claim-support').verdict, 'unconfirmed');
+  assert.equal(artifactLimited.evidence.find(item => item.aspect === 'claim-support').reason, 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED');
+
+  const repeated = await createResearchAcceptance({ resolveSourceEvidence, limits: { maxSourceReferences: 2 } }).contribute({
+    task: { id: 'task-reference-limit' },
+    inputs: [input('仅检查以下研究要求：\n论点「Claim」必须有来源。')],
+    artifact: artifact(['Claim.', ...Array.from({ length: 20 }, () => '研究来源：论点「Claim」引用来源「https://example.test/fact」中的引文「quote」。')].join('\n')),
+    signal: new AbortController().signal,
+  });
+  assert.equal(repeated.sourceReferences.length, 2);
+  assert.equal(repeated.sourceSnapshots.length, 2);
+  assert.equal(repeated.reviewCases.length, 0);
+  assert.equal(repeated.evidence.find(item => item.aspect === 'claim-support').verdict, 'unconfirmed');
+  assert.equal(repeated.evidence.find(item => item.aspect === 'claim-support').reason, 'SOURCE_REFERENCE_LIMIT_EXCEEDED');
+  assert.equal(resolutions, 1);
+});
+
 test('a source adapter that ignores cancellation cannot hold the contribution open', async () => {
   const research = createResearchAcceptance({ resolveSourceEvidence: async () => new Promise(() => {}), limits: { timeoutMs: 25 } });
   const request = {

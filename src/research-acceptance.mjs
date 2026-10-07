@@ -6,7 +6,7 @@ import { isIP } from 'node:net';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const id = (kind, value) => `${kind}:v1:${digest(value).slice(0, 24)}`;
-const DEFAULT_LIMITS = Object.freeze({ maxClaims: 16, maxSources: 8, maxInputBytes: 32_768, maxClaimBytes: 2_048, maxQuoteBytes: 4_096, maxBytes: 65_536, timeoutMs: 5_000, maxRedirects: 2 });
+const DEFAULT_LIMITS = Object.freeze({ maxClaims: 16, maxSources: 8, maxSourceReferences: 32, maxInputBytes: 32_768, maxArtifactBytes: 262_144, maxClaimBytes: 2_048, maxQuoteBytes: 4_096, maxBytes: 65_536, timeoutMs: 5_000, maxRedirects: 2 });
 const DIGEST = /^[a-f0-9]{64}$/u;
 const REASON = /^[A-Z][A-Z0-9_]+$/u;
 const CONTENT_TYPES = new Set(['text/plain', 'text/html', 'application/json']);
@@ -36,7 +36,7 @@ const boundedOperation = (start, { deadline, signal }) => new Promise((resolve, 
 });
 const finiteLimits = values => {
   const result = { ...DEFAULT_LIMITS, ...values };
-  const maxima = { maxClaims: 64, maxSources: 32, maxInputBytes: 262_144, maxClaimBytes: 16_384, maxQuoteBytes: 16_384, maxBytes: 1_048_576, timeoutMs: 30_000, maxRedirects: 5 };
+  const maxima = { maxClaims: 64, maxSources: 32, maxSourceReferences: 128, maxInputBytes: 262_144, maxArtifactBytes: 1_048_576, maxClaimBytes: 16_384, maxQuoteBytes: 16_384, maxBytes: 1_048_576, timeoutMs: 30_000, maxRedirects: 5 };
   for (const [key, maximum] of Object.entries(maxima)) {
     const minimum = key === 'maxRedirects' ? 0 : 1;
     if (!Number.isSafeInteger(result[key]) || result[key] < minimum || result[key] > maximum) throw new RangeError(`Invalid fixed source limit: ${key}`);
@@ -45,6 +45,21 @@ const finiteLimits = values => {
 };
 const artifactRecord = artifact => artifact ? Object.fromEntries(['id', 'version', 'revision', 'kind', 'sessionId', 'turn', 'step', 'messageId', 'seq', 'hash', 'complete'].filter(key => artifact[key] !== undefined).map(key => [key, structuredClone(artifact[key])])) : null;
 const sameArtifact = (left, right) => JSON.stringify(artifactRecord(left)) === JSON.stringify(artifactRecord(right));
+const transferBudgets = new WeakSet();
+const createTransferBudget = limit => {
+  let used = 0;
+  const budget = Object.freeze({
+    consume(bytes) {
+      if (!Number.isSafeInteger(bytes) || bytes < 0) throw new TypeError('Invalid transferred byte count');
+      used += bytes;
+      return used <= limit;
+    },
+    get used() { return used; },
+    get remaining() { return Math.max(0, limit - used); },
+  });
+  transferBudgets.add(budget);
+  return budget;
+};
 
 const publicIpv4 = address => {
   const octets = address.split('.').map(Number);
@@ -134,17 +149,19 @@ const parseResearch = inputs => {
   return { claims: [...claims.values()], inferences, unresolved };
 };
 
-const parseArtifactSources = artifact => {
-  if (!artifact || typeof artifact.text !== 'string') return { sources: [], body: '' };
+const parseArtifactSources = (artifact, maxSourceReferences) => {
+  if (!artifact || typeof artifact.text !== 'string') return { sources: [], body: '', referenceLimitExceeded: false };
   const sources = [];
   const body = [];
+  let referenceLimitExceeded = false;
   for (const [line, raw] of artifact.text.split(/\r?\n/u).entries()) {
     const text = raw.trim();
     const source = text.match(/^研究来源：论点「([^」]+)」引用来源「([^」]+)」中的引文「([^」]+)」。?$/u);
     if (!source) { body.push(raw); continue; }
-    sources.push({ claim: source[1], url: source[2], quote: source[3], origin: { kind: 'assistant-artifact', artifactId: artifact.id, revision: artifact.revision, messageId: artifact.messageId, seq: artifact.seq, line } });
+    if (sources.length < maxSourceReferences) sources.push({ claim: source[1], url: source[2], quote: source[3], origin: { kind: 'assistant-artifact', artifactId: artifact.id, revision: artifact.revision, messageId: artifact.messageId, seq: artifact.seq, line } });
+    else referenceLimitExceeded = true;
   }
-  return { sources, body: body.join('\n') };
+  return { sources, body: body.join('\n'), referenceLimitExceeded };
 };
 
 const normalizeResolution = (value, maxBytes) => {
@@ -172,10 +189,11 @@ const safeUrl = (value, authorizeUrl) => {
   return url;
 };
 
-const readResponse = (url, address, { maxBytes, timeoutMs, signal }) => new Promise(resolve => {
+const readResponse = (url, address, { maxBytes, timeoutMs, signal, transferBudget }) => new Promise(resolve => {
   const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
   let settled = false;
   let timer;
+  const startingTransferredBytes = transferBudget.used;
   const abort = () => request.destroy(codedError('CANCELED'));
   const finish = value => {
     if (settled) return;
@@ -193,8 +211,10 @@ const readResponse = (url, address, { maxBytes, timeoutMs, signal }) => new Prom
     let bytes = 0;
     response.on('data', chunk => {
       bytes += chunk.length;
-      if (bytes > maxBytes) {
-        finish({ error: Object.assign(new Error('Source exceeds byte limit'), { code: 'SOURCE_TOO_LARGE' }) });
+      const withinTotal = transferBudget.consume(chunk.length);
+      if (!withinTotal || bytes > maxBytes) {
+        const code = startingTransferredBytes > 0 || !withinTotal && bytes <= maxBytes ? 'SOURCE_TOTAL_BYTES_EXCEEDED' : 'SOURCE_TOO_LARGE';
+        finish({ error: codedError(code) });
         response.destroy();
         request.destroy();
       }
@@ -215,9 +235,10 @@ const readResponse = (url, address, { maxBytes, timeoutMs, signal }) => new Prom
 
 export function createHttpSourceEvidenceResolver({ authorizeUrl, authorizeAddress, lookup = dnsLookup, limits = {} } = {}) {
   const fixed = finiteLimits(limits);
-  return async ({ sourceRef, signal, limits: requestLimits }) => {
+  return async ({ sourceRef, signal, limits: requestLimits, transferBudget: suppliedTransferBudget }) => {
     const timeoutMs = Number.isSafeInteger(requestLimits?.timeoutMs) && requestLimits.timeoutMs > 0 ? Math.min(fixed.timeoutMs, requestLimits.timeoutMs) : fixed.timeoutMs;
     const maxBytes = Number.isSafeInteger(requestLimits?.maxBytes) && requestLimits.maxBytes > 0 ? Math.min(fixed.maxBytes, requestLimits.maxBytes) : fixed.maxBytes;
+    const transferBudget = transferBudgets.has(suppliedTransferBudget) ? suppliedTransferBudget : createTransferBudget(maxBytes);
     const deadline = Date.now() + timeoutMs;
     let current = safeUrl(sourceRef.url, authorizeUrl);
     if (!current) return { access: 'invalid', reason: 'SOURCE_REFERENCE_INVALID' };
@@ -233,7 +254,7 @@ export function createHttpSourceEvidenceResolver({ authorizeUrl, authorizeAddres
       if (!address) return { access: 'unavailable', reason: 'SOURCE_ADDRESS_NOT_AUTHORIZED' };
       const remaining = deadline - Date.now();
       if (remaining <= 0) return { access: 'unavailable', reason: 'SOURCE_TIMEOUT' };
-      const outcome = await readResponse(current, address, { maxBytes, timeoutMs: remaining, signal });
+      const outcome = await readResponse(current, address, { maxBytes, timeoutMs: remaining, signal, transferBudget });
       if (outcome.error) return { access: 'unavailable', reason: outcome.error.code ?? 'SOURCE_UNAVAILABLE' };
       const { response, body } = outcome;
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
@@ -260,14 +281,17 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
   const fixed = finiteLimits(limits);
   return {
     async contribute({ task, inputs, artifact, signal }) {
-      let parsed = parseResearch(Array.isArray(inputs) ? inputs : []);
-      const artifactSources = parseArtifactSources(artifact);
-      for (const source of artifactSources.sources) {
+      const safeInputs = Array.isArray(inputs) ? inputs : [];
+      const inputBytes = safeInputs.reduce((sum, item) => sum + (typeof item?.text === 'string' ? byteLength(item.text) : 0), 0);
+      const inputLimitExceeded = inputBytes > fixed.maxInputBytes;
+      let parsed = inputLimitExceeded ? { claims: [], inferences: [], unresolved: [] } : parseResearch(safeInputs);
+      const artifactLimitExceeded = typeof artifact?.text === 'string' && byteLength(artifact.text) > fixed.maxArtifactBytes;
+      const artifactSources = artifactLimitExceeded ? { sources: [], body: '', referenceLimitExceeded: false } : parseArtifactSources(artifact, fixed.maxSourceReferences);
+      if (!inputLimitExceeded) for (const source of artifactSources.sources) {
         const claim = parsed.claims.find(item => item.claim === source.claim);
         if (claim) claim.sources.push({ url: source.url, quote: source.quote, origin: source.origin });
       }
-      const inputBytes = (Array.isArray(inputs) ? inputs : []).reduce((sum, item) => sum + (typeof item?.text === 'string' ? byteLength(item.text) : 0), 0);
-      if (inputBytes > fixed.maxInputBytes || parsed.claims.length + parsed.inferences.length > fixed.maxClaims) {
+      if (inputLimitExceeded || parsed.claims.length + parsed.inferences.length > fixed.maxClaims) {
         parsed = { claims: [], inferences: [], unresolved: [{ description: 'Research acceptance input exceeds its fixed limit.', reason: 'RESEARCH_INPUT_LIMIT_EXCEEDED', origin: { kind: 'host-limit' } }] };
       }
       const requirementHash = digest(JSON.stringify({
@@ -292,7 +316,7 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
       }
       const contributionDeadline = Date.now() + fixed.timeoutMs;
       const freshResolutions = new Map();
-      let remainingBytes = fixed.maxBytes;
+      const transferBudget = createTransferBudget(fixed.maxBytes);
       const resolveFresh = source => {
         const sourceKey = canonicalSourceKey(source.url);
         if (!allowedSourceKeys.has(sourceKey)) return Promise.resolve({ access: 'unavailable', reason: 'SOURCE_LIMIT_EXCEEDED' });
@@ -300,18 +324,19 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
         const resolution = (async () => {
           const timeoutMs = contributionDeadline - Date.now();
           if (timeoutMs <= 0) return { access: 'unavailable', reason: 'SOURCE_TIMEOUT' };
-          const byteLimit = remainingBytes;
+          const byteLimit = transferBudget.remaining;
           if (byteLimit <= 0) return { access: 'unavailable', reason: 'SOURCE_TOTAL_BYTES_EXCEEDED' };
           let raw;
           try {
-            raw = await boundedOperation(() => resolveSourceEvidence({ taskId: task.id, sourceRef: structuredClone(source), signal, limits: { ...structuredClone(fixed), maxBytes: byteLimit, timeoutMs } }), { deadline: contributionDeadline, signal });
+            const transferredBefore = transferBudget.used;
+            raw = await boundedOperation(() => resolveSourceEvidence({ taskId: task.id, sourceRef: structuredClone(source), signal, limits: { ...structuredClone(fixed), maxBytes: byteLimit, timeoutMs }, transferBudget }), { deadline: contributionDeadline, signal });
+            if (transferBudget.used === transferredBefore && raw?.access === 'available' && typeof raw.body === 'string' && !transferBudget.consume(byteLength(raw.body))) return { access: 'unavailable', reason: 'SOURCE_TOTAL_BYTES_EXCEEDED' };
           } catch (error) {
             return { access: 'unavailable', reason: ['SOURCE_TIMEOUT', 'CANCELED'].includes(error?.code) ? error.code : 'SOURCE_UNAVAILABLE' };
           }
           if (raw?.access === 'available' && typeof raw.body === 'string' && byteLength(raw.body) > byteLimit) return { access: 'unavailable', reason: 'SOURCE_TOTAL_BYTES_EXCEEDED' };
           if (raw?.reason === 'SOURCE_TOO_LARGE' && byteLimit < fixed.maxBytes) return { access: 'unavailable', reason: 'SOURCE_TOTAL_BYTES_EXCEEDED' };
           const normalized = normalizeResolution(raw, byteLimit);
-          if (normalized.access === 'available') remainingBytes -= byteLength(normalized.body);
           return normalized;
         })();
         freshResolutions.set(sourceKey, resolution);
@@ -319,10 +344,10 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
       };
       for (const claim of parsed.claims) {
         const claimId = id('claim', claim.claim);
-        const requirement = { id: id('requirement', `${task.id}:${claimId}`), version: 1, kind: 'research-claim', claimId, claim: claim.claim, required: true, origin: claim.origins[0] };
+        const requirement = { id: id('requirement', `${task.id}:${claimId}`), version: 1, kind: 'research-claim', claimId, claim: claim.claim, conflict: claim.conflict, required: true, origin: claim.origins[0] };
         requirements.push(requirement);
-        const claimStart = artifactSources.body.indexOf(claim.claim);
-        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifact?.complete && claimStart >= 0 ? 'passed' : artifact?.complete ? 'failed' : 'unconfirmed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(!artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : claimStart < 0 ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: claim.claim, artifactLocator: { kind: 'unicode-code-points', start: [...artifactSources.body.slice(0, claimStart)].length, end: [...artifactSources.body.slice(0, claimStart + claim.claim.length)].length } }) });
+        const claimStart = artifactLimitExceeded ? -1 : artifactSources.body.indexOf(claim.claim);
+        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifactLimitExceeded || !artifact?.complete ? 'unconfirmed' : claimStart >= 0 ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(artifactLimitExceeded ? { reason: 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' } : !artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : claimStart < 0 ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: claim.claim, artifactLocator: { kind: 'unicode-code-points', start: [...artifactSources.body.slice(0, claimStart)].length, end: [...artifactSources.body.slice(0, claimStart + claim.claim.length)].length } }) });
         const resolvedSources = [];
         const sourceLimitExceeded = claim.sources.some(source => !allowedSourceKeys.has(canonicalSourceKey(source.url)));
         const sourceContractExceeded = byteLength(claim.claim) > fixed.maxClaimBytes || claim.sources.some(source => byteLength(source.quote) > fixed.maxQuoteBytes);
@@ -357,11 +382,12 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
         }
         const firstFailure = resolvedSources.find(item => item.resolved.access === 'available' && !item.quoteMatches);
         const firstUnavailable = resolvedSources.find(item => item.resolved.access !== 'available');
-        const supportVerdict = !claim.sources.length || firstFailure ? 'failed' : 'unconfirmed';
-        const supportReason = !claim.sources.length ? 'SOURCE_MISSING' : firstFailure ? 'SOURCE_QUOTE_MISMATCH' : sourceLimitExceeded ? 'SOURCE_LIMIT_EXCEEDED' : sourceContractExceeded ? 'RESEARCH_INPUT_LIMIT_EXCEEDED' : firstUnavailable ? firstUnavailable.resolved.reason ?? 'SOURCE_UNAVAILABLE' : claim.conflict ? 'SOURCE_CONFLICT' : 'SOURCE_SUPPORT_REVIEW_REQUIRED';
+        const boundedArtifact = !artifactLimitExceeded && !artifactSources.referenceLimitExceeded;
+        const supportVerdict = boundedArtifact && (!claim.sources.length || firstFailure) ? 'failed' : 'unconfirmed';
+        const supportReason = artifactLimitExceeded ? 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' : artifactSources.referenceLimitExceeded ? 'SOURCE_REFERENCE_LIMIT_EXCEEDED' : !claim.sources.length ? 'SOURCE_MISSING' : firstFailure ? 'SOURCE_QUOTE_MISMATCH' : sourceLimitExceeded ? 'SOURCE_LIMIT_EXCEEDED' : sourceContractExceeded ? 'RESEARCH_INPUT_LIMIT_EXCEEDED' : firstUnavailable ? firstUnavailable.resolved.reason ?? 'SOURCE_UNAVAILABLE' : claim.conflict ? 'SOURCE_CONFLICT' : 'SOURCE_SUPPORT_REVIEW_REQUIRED';
         const supportEvidence = { id: id('evidence', `${requirement.id}:claim-support`), version: 1, requirementId: requirement.id, claimId, aspect: 'claim-support', sourceReferenceIds: resolvedSources.map(item => item.referenceId), sourceSnapshotIds: resolvedSources.map(item => item.snapshotId), verdict: supportVerdict, source: resolvedSources.length ? { kind: 'research-review', confidence: 'unconfirmed' } : { kind: 'deterministic-rule', rule: 'research-source-requirement', checkerVersion: 1 }, reason: supportReason };
         evidence.push(supportEvidence);
-        if (resolvedSources.length && resolvedSources.every(item => item.quoteMatches) && !sourceLimitExceeded && !sourceContractExceeded) {
+        if (boundedArtifact && resolvedSources.length && resolvedSources.every(item => item.quoteMatches) && !sourceLimitExceeded && !sourceContractExceeded) {
           reviewCases.push({
             id: id('review-case', `${requirement.id}:${claim.conflict ? 'source-conflict' : 'claim-support'}`), version: 1,
             kind: claim.conflict ? 'source-conflict' : 'claim-support', requirementIds: [requirement.id], evidenceIds: [supportEvidence.id], risk: claim.conflict ? 'high' : 'standard',
@@ -369,17 +395,17 @@ export function createResearchAcceptance({ resolveSourceEvidence, limits = {} } 
             anonymousPayload: { claims: [{ id: claimId, text: claim.claim }], sources: resolvedSources.map(item => ({ id: item.snapshotId, contentHash: item.resolved.contentHash, excerpts: [{ text: item.quote, hash: digest(item.quote), locator: item.sourceLocator }] })) },
           });
         }
-        compiledClaims.set(claim.claim, { claim, claimId, requirement, resolvedSources, sourceLimitExceeded, firstFailure, firstUnavailable });
+        compiledClaims.set(claim.claim, { claim, claimId, requirement, resolvedSources, sourceLimitExceeded, firstFailure, firstUnavailable, boundedArtifact });
       }
       for (const inference of parsed.inferences) {
         const claimId = id('claim', inference.inference);
         const premise = compiledClaims.get(inference.premise);
         const requirement = { id: id('requirement', `${task.id}:${claimId}:inference`), version: 1, kind: 'research-inference', claimId, claim: inference.inference, premiseClaimId: id('claim', inference.premise), premise: inference.premise, required: true, origin: inference.origin };
         requirements.push(requirement);
-        const claimStart = artifactSources.body.indexOf(inference.inference);
-        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifact?.complete && claimStart >= 0 ? 'passed' : artifact?.complete ? 'failed' : 'unconfirmed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(!artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : claimStart < 0 ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: inference.inference, artifactLocator: { kind: 'unicode-code-points', start: [...artifactSources.body.slice(0, claimStart)].length, end: [...artifactSources.body.slice(0, claimStart + inference.inference.length)].length } }) });
-        const eligible = premise && premise.resolvedSources.length && premise.resolvedSources.every(item => item.quoteMatches) && !premise.sourceLimitExceeded;
-        const supportEvidence = { id: id('evidence', `${requirement.id}:claim-support`), version: 1, requirementId: requirement.id, claimId, aspect: 'claim-support', sourceReferenceIds: premise?.resolvedSources.map(item => item.referenceId) ?? [], sourceSnapshotIds: premise?.resolvedSources.map(item => item.snapshotId) ?? [], verdict: premise ? 'unconfirmed' : 'failed', source: eligible ? { kind: 'research-review', confidence: 'unconfirmed' } : { kind: 'deterministic-rule', rule: 'research-inference-requirement', checkerVersion: 1 }, reason: !premise ? 'PREMISE_MISSING' : premise.firstFailure ? 'SOURCE_QUOTE_MISMATCH' : premise.firstUnavailable ? premise.firstUnavailable.resolved.reason ?? 'SOURCE_UNAVAILABLE' : eligible ? 'INFERENCE_UNSUPPORTED' : 'SOURCE_MISSING' };
+        const claimStart = artifactLimitExceeded ? -1 : artifactSources.body.indexOf(inference.inference);
+        evidence.push({ id: id('evidence', `${requirement.id}:artifact-claim:${artifact?.id ?? 'missing'}`), version: 1, requirementId: requirement.id, claimId, artifactHash: artifact?.hash ?? null, aspect: 'artifact-claim', verdict: artifactLimitExceeded || !artifact?.complete ? 'unconfirmed' : claimStart >= 0 ? 'passed' : 'failed', source: { kind: 'deterministic-rule', rule: 'exact-claim-presence', checkerVersion: 1 }, ...(artifactLimitExceeded ? { reason: 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' } : !artifact?.complete ? { reason: 'ARTIFACT_INCOMPLETE' } : claimStart < 0 ? { reason: 'CLAIM_NOT_IN_ARTIFACT' } : { artifactQuote: inference.inference, artifactLocator: { kind: 'unicode-code-points', start: [...artifactSources.body.slice(0, claimStart)].length, end: [...artifactSources.body.slice(0, claimStart + inference.inference.length)].length } }) });
+        const eligible = premise?.boundedArtifact && premise.resolvedSources.length && premise.resolvedSources.every(item => item.quoteMatches) && !premise.sourceLimitExceeded;
+        const supportEvidence = { id: id('evidence', `${requirement.id}:claim-support`), version: 1, requirementId: requirement.id, claimId, aspect: 'claim-support', sourceReferenceIds: premise?.resolvedSources.map(item => item.referenceId) ?? [], sourceSnapshotIds: premise?.resolvedSources.map(item => item.snapshotId) ?? [], verdict: premise && !artifactLimitExceeded && !artifactSources.referenceLimitExceeded ? 'unconfirmed' : premise ? 'unconfirmed' : 'failed', source: eligible ? { kind: 'research-review', confidence: 'unconfirmed' } : { kind: 'deterministic-rule', rule: 'research-inference-requirement', checkerVersion: 1 }, reason: artifactLimitExceeded ? 'RESEARCH_ARTIFACT_LIMIT_EXCEEDED' : artifactSources.referenceLimitExceeded ? 'SOURCE_REFERENCE_LIMIT_EXCEEDED' : !premise ? 'PREMISE_MISSING' : premise.firstFailure ? 'SOURCE_QUOTE_MISMATCH' : premise.firstUnavailable ? premise.firstUnavailable.resolved.reason ?? 'SOURCE_UNAVAILABLE' : eligible ? 'INFERENCE_UNSUPPORTED' : 'SOURCE_MISSING' };
         evidence.push(supportEvidence);
         if (eligible) reviewCases.push({ id: id('review-case', `${requirement.id}:inference-support`), version: 1, kind: 'inference-support', requirementIds: [requirement.id], evidenceIds: [supportEvidence.id], risk: 'standard', subjectHash: digest(`${inference.premise}\n${inference.inference}`), anonymousPayload: { claims: [{ id: premise.claimId, text: inference.premise }, { id: claimId, text: inference.inference, premiseClaimId: premise.claimId }], sources: premise.resolvedSources.map(item => ({ id: item.snapshotId, contentHash: item.resolved.contentHash, excerpts: [{ text: item.quote, hash: digest(item.quote), locator: item.sourceLocator }] })) } });
       }

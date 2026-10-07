@@ -82,14 +82,14 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
   const requirements = new Map();
   for (const item of value.requirements) {
     const common = ['id', 'version', 'kind', 'required', 'origin'];
-    const fields = item?.kind === 'research-claim' ? ['claimId', 'claim']
+    const fields = item?.kind === 'research-claim' ? ['claimId', 'claim', 'conflict']
       : item?.kind === 'research-inference' ? ['claimId', 'claim', 'premiseClaimId', 'premise']
         : item?.kind === 'research-unresolved' ? ['description'] : fail('requirement kind');
     record(item, 'requirement', [...common, ...fields]);
     if (!ID.test(item.id) || item.version !== 1 || item.required !== true || requirements.has(item.id)) fail('requirement identity');
     if (item.kind === 'research-unresolved') {
       if (!string(item.description)) fail('unresolved requirement');
-    } else if (!ID.test(item.claimId) || !string(item.claim) || (item.kind === 'research-inference' && (!ID.test(item.premiseClaimId) || !string(item.premise)))) fail('claim requirement');
+    } else if (!ID.test(item.claimId) || !string(item.claim) || (item.kind === 'research-claim' && typeof item.conflict !== 'boolean') || (item.kind === 'research-inference' && (!ID.test(item.premiseClaimId) || !string(item.premise)))) fail('claim requirement');
     validateOrigin(item.origin, value.artifact);
     requirements.set(item.id, item);
   }
@@ -131,6 +131,7 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
       if (item.verdict === 'passed') {
         if (item.artifactQuote !== requirement.claim) fail('artifact quote');
         locator(item.artifactLocator, 'artifact locator');
+        if (typeof artifact?.text !== 'string' || [...artifact.text].slice(item.artifactLocator.start, item.artifactLocator.end).join('') !== item.artifactQuote) fail('artifact locator');
       }
     } else if (item.aspect === 'source-access' || item.aspect === 'quote-binding') {
       const reference = references.get(item.sourceReferenceId);
@@ -160,6 +161,15 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
     if (!linked.some(item => item.aspect === 'source-access') || !linked.some(item => item.aspect === 'quote-binding')) fail('source evidence closure');
   }
   for (const snapshot of snapshots.values()) if (![...evidence.values()].some(item => item.sourceSnapshotId === snapshot.id || item.sourceSnapshotIds?.includes(snapshot.id))) fail('snapshot evidence closure');
+  const expectedRequirementHash = digest(JSON.stringify({
+    claims: [...requirements.values()].filter(item => item.kind === 'research-claim').map(item => ({ claim: item.claim, conflict: item.conflict })),
+    inferences: [...requirements.values()].filter(item => item.kind === 'research-inference').map(item => ({ inference: item.claim, premise: item.premise })),
+    unresolved: [...requirements.values()].filter(item => item.kind === 'research-unresolved').map(item => ({
+      descriptionHash: digest(item.description),
+      reason: [...evidence.values()].find(entry => entry.requirementId === item.id && entry.aspect === 'requirement-interpretation')?.reason,
+    })),
+  }));
+  if (value.requirementHash !== expectedRequirementHash) fail('requirement hash');
 
   const reviewIds = [];
   for (const item of value.reviewCases) {
@@ -184,6 +194,11 @@ export function validateResearchContribution(value, { taskId, artifact } = {}) {
       const binding = [...evidence.values()].find(entry => entry.aspect === 'quote-binding' && entry.sourceSnapshotId === source.id && entry.verdict === 'passed');
       if (!binding || excerpt.text !== binding.sourceQuote || excerpt.hash !== digest(excerpt.text) || !isDeepStrictEqual(excerpt.locator, binding.sourceLocator)) fail('anonymous excerpt');
     }
+    const inference = item.anonymousPayload.claims.find(claim => claim.premiseClaimId);
+    const expectedSubject = inference
+      ? `${item.anonymousPayload.claims.find(claim => claim.id === inference.premiseClaimId)?.text ?? ''}\n${inference.text}`
+      : `${item.anonymousPayload.claims[0].text}\n${item.anonymousPayload.sources.map(source => source.excerpts[0].text).join('\n')}`;
+    if (item.subjectHash !== digest(expectedSubject) || (item.kind === 'source-conflict') !== (item.risk === 'high')) fail('review subject');
   }
   unique(reviewIds, 'review ids');
   return freeze(structuredClone(value));
