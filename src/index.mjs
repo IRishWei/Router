@@ -10,6 +10,7 @@ import { runInitialAssessment, selectInitialRoute } from './routing.mjs';
 import { AcceptanceCoordinator } from './acceptance.mjs';
 import { createNodeProgramChecks } from './program-checks.mjs';
 import { DeepSeekHost } from './deepseek-host.mjs';
+import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
 
 export const inject = ['llm', 'profileContext', 'tools'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -725,7 +726,7 @@ export class RouterService extends TypertRemoteService {
       // A persisted duration extension may race the earlier timer callback. Re-read the
       // Task-owned limit so elapsed time stays anchored to the original start.
       if (remaining > 0) {
-        const timer = setTimeout(expire, Math.max(1, remaining));
+        const timer = scheduleDeepSeekDeadline(expire, remaining);
         this.#deepSeekDeadlineTimers.set(task.id, timer);
         return;
       }
@@ -739,7 +740,7 @@ export class RouterService extends TypertRemoteService {
       this.#persist();
     };
     const remaining = Date.parse(task.startedAt) + task.budget.limits.durationMs - Date.now();
-    const timer = setTimeout(expire, Math.max(1, remaining));
+    const timer = scheduleDeepSeekDeadline(expire, remaining);
     this.#deepSeekDeadlineTimers.set(task.id, timer);
   }
   #finishTask(task) {

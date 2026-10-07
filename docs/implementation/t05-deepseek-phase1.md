@@ -43,7 +43,7 @@ T08 integration `1ab2ab1`，继续使用与目标 Host 匹配的正式
   因无关目录刷新取得更大 epoch 时仍有效，auth epoch 与配置 revision 则必须一致。
   检测结果必须是该次执行后 Router 快照中新建的 Task，不能复用历史 Task；执行
   后无关候选刷新不会因全局目录 epoch 增长而误判。无价格必须显示为 unknown。
-- 0.7.1 已将账号保存、公开目录、连接、断开和检测接入共享 Host/RPC 与
+- 0.7.2 已将账号保存、公开目录、连接、断开和检测接入共享 Host/RPC 与
   Renderer。Host 创建真实 SessionController Task，并在 Task 内固定显式候选；
   不修改自动路由、全局固定模型、默认模型或模型池。主请求和标题请求各自使用
   最终组装输入的 UTF-8 保守 token 预留与固定 32 token 输出上限。
