@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { startNative, submit } from './t02-harness.mjs';
@@ -249,7 +249,7 @@ for (const action of ['extend', 'stop', 'revoke']) test(`a real consultation bud
   }
 });
 
-test('Host restart preserves completed coordination and migrates legacy Tasks without replaying history', async () => {
+test('Host restart preserves completed coordination without replaying history', async () => {
   const home = await mkdtemp(join(tmpdir(), 'router-t16-restart-'));
   let run;
   let restarted;
@@ -263,33 +263,47 @@ test('Host restart preserves completed coordination and migrates legacy Tasks wi
     await run.ctx.fiber.dispose();
     run.ctx = null;
 
-    const statePath = join(home, 'router', 'test', 'state.json');
-    const state = JSON.parse(await readFile(statePath, 'utf8'));
-    const legacy = structuredClone(state.tasks[0]);
-    legacy.id = 'legacy-task-without-coordination';
-    legacy.sessionId = 'legacy-session';
-    delete legacy.coordination;
-    delete legacy.coordinationPolicy;
-    state.tasks.push(legacy);
-    await writeFile(statePath, JSON.stringify(state, null, 2), 'utf8');
-
     restarted = await startNative(home);
     const snapshot = await restarted.router.snapshot();
     const restored = snapshot.tasks.find(item => item.id === completedRecord.id);
     assert.deepEqual(restored.coordination, completedRecord.coordination);
     assert.deepEqual(restored.acceptance, completedRecord.acceptance);
     assert.deepEqual(restored.calls, completedRecord.calls);
-    const migrated = snapshot.tasks.find(item => item.id === legacy.id);
-    assert(migrated, `Legacy Task missing after restart: ${snapshot.tasks.map(item => item.id).join(',')}`);
-    assert.equal(Object.hasOwn(migrated, 'coordination'), false);
-    assert.deepEqual(migrated.acceptance, legacy.acceptance);
-    assert.deepEqual(migrated.calls, legacy.calls);
-    await restarted.router.flush();
-    const rawAfterRestart = JSON.parse(await readFile(statePath, 'utf8'));
-    assert.deepEqual(rawAfterRestart.tasks.find(item => item.id === legacy.id), legacy);
   } finally {
     if (run?.ctx) await run.ctx.fiber.dispose();
     if (restarted) await restarted.fiber.dispose();
+    await rm(home, { recursive: true, force: true });
+  }
+});
+
+test('Host preserves a legacy Task byte-for-value without adding coordination fields', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t16-legacy-'));
+  let ctx;
+  try {
+    const directory = join(home, 'router', 'test');
+    await mkdir(directory, { recursive: true });
+    const legacy = {
+      id: 'legacy-task-without-coordination',
+      lifecycle: 'completed',
+      acceptance: { verdict: 'unconfirmed', evidence: [] },
+      result: 'OLD_RESULT',
+      calls: [],
+      timeline: [],
+      configVersion: 1,
+    };
+    const statePath = join(directory, 'state.json');
+    await writeFile(statePath, JSON.stringify({ schemaVersion: 1, config: { automatic: false, version: 2 }, tasks: [legacy] }), 'utf8');
+
+    ctx = await startNative(home);
+    const snapshot = await ctx.router.snapshot();
+    assert.deepEqual(snapshot.tasks[0], legacy);
+    assert.equal(Object.hasOwn(snapshot.tasks[0], 'coordination'), false);
+    assert.equal(Object.hasOwn(snapshot.tasks[0], 'coordinationPolicy'), false);
+    await ctx.router.flush();
+    const rawAfterRestart = JSON.parse(await readFile(statePath, 'utf8'));
+    assert.deepEqual(rawAfterRestart.tasks[0], legacy);
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
     await rm(home, { recursive: true, force: true });
   }
 });
