@@ -1,6 +1,6 @@
 # Ticket 衔接与执行边界
 
-2026-10-07 核对 GitHub #2—#25：24张票的原始正文与本地发布快照一致，36条原生阻塞关系一致且无环。T01/#2、T02/#3、T04/#5已关闭；T03/#4以0.3.7、T08/#9以0.4.2、T12/#13以0.5.1、T13/#14以0.6.1、T16/#17以0.9.1通过双轴复审和最终安装验收，累计8/24关闭。当前独立前沿为T05/#6、T06/#7、T14/#15；ready-for-agent不替代前置和凭据门槛。T05/T06仍为needs-info，等待真实凭据及调用授权，T06的既有OpenAI API Key使用/创建选择仍未获答复。用户新增“安装后无需更改DNS即可使用”的产品要求，T14已在0.9.3完成来源网络兼容修复和完整19项实际安装验收，最终独立Standards/Spec均PASS，闭票待最终文档增量复审后同步。合同与安装证据见 `t14-no-dns-contract.md`、`t14-no-dns-installed-evidence.md`；原失败记录保留，真实账号及T24门槛不受影响。
+2026-10-07 核对 GitHub #2—#25：24张票的原始正文与本地发布快照一致，36条原生阻塞关系一致且无环。T01/#2、T02/#3、T04/#5已关闭；T03/#4以0.3.7、T08/#9以0.4.2、T12/#13以0.5.1、T13/#14以0.6.1、T16/#17以0.9.1、T14/#15以0.9.3通过双轴复审和最终安装验收，累计9/24关闭。当前独立前沿仅为T05/#6、T06/#7；ready-for-agent不替代前置和凭据门槛。T05/T06仍为needs-info，等待真实凭据及调用授权，T06的既有OpenAI API Key使用/创建选择仍未获答复。用户新增“安装后无需更改DNS即可使用”的产品要求，T14已在0.9.3完成来源网络兼容修复和完整19项实际安装验收，最终独立Standards/Spec及修正文档增量均PASS，[#15已按completed关闭](https://github.com/IRishWei/Router/issues/15#issuecomment-6039780325)。合同与安装证据见 `t14-no-dns-contract.md`、`t14-no-dns-installed-evidence.md`；原失败记录保留，真实账号及T24门槛不受影响。
 
 ## 共享契约
 
@@ -84,4 +84,4 @@ T16 0.9.0 共享接线固定为唯一 awaited acceptance→coordination 顺序�
 
 T16 0.9.1 修复独立复审阻塞项：Host 启动在服务可用前原子持久化全部未确认协调 intent 为 delivery-unknown/stalled；最终 candidate capture 失败与 steer 后交付异常分别记为 stale 和 delivery-unknown；显式咨询候选以 current preference 进入完整 objective ranking，真实 winner 不同则冻结 objective-mismatch、显示原因并零咨询，固定主模型许可继续独立。0.9.0 包身份保留，仅 0.9.1 进入后续安装验收。
 
-T16 0.9.1最终完成17项实际Task验证、已安装Renderer、配置恢复、重启、移除夹具及再次重启，159条完整历史与配置值保留；最终独立Standards/Spec均PASS。#17已按completed关闭，证据见 `t16-installed-host-evidence.md`；T14 的旧失败证据保留，当前0.9.3已通过实际验收与双轴复审、具备#15关闭资格；真实凭据门槛不变，T17仍被T15阻塞，未启动依赖未满足的后续票。
+T16 0.9.1最终完成17项实际Task验证、已安装Renderer、配置恢复、重启、移除夹具及再次重启，159条完整历史与配置值保留；最终独立Standards/Spec均PASS。#17已按completed关闭，证据见 `t16-installed-host-evidence.md`；T14 的旧失败证据保留，当前0.9.3已通过实际验收与双轴复审、#15已按completed关闭；真实凭据门槛不变，T17仍被T15阻塞，未启动依赖未满足的后续票。

@@ -1,6 +1,6 @@
 # T14 安装后无需修改 DNS：实际验收
 
-2026-10-07，Router 0.9.3 在目标 Windows DSH Desktop 0.2.0-rc.2 的独立 home 完成自动网络兼容验证。默认生产来源读取、完整 19 项实际 Task、已安装 Renderer、配置恢复、重启、公开移除测试夹具和再次重启均通过。最终独立 Standards/Spec 均 PASS，无阻断 finding；已具备 T14 关闭资格，待最终文档增量复审后同步 #15。
+2026-10-07，Router 0.9.3 在目标 Windows DSH Desktop 0.2.0-rc.2 的独立 home 完成自动网络兼容验证。默认生产来源读取、完整 19 项实际 Task、已安装 Renderer、配置恢复、重启、公开移除测试夹具和再次重启均通过。最终独立 Standards/Spec 均 PASS，无阻断 finding；最终文档增量复审亦通过，[#15 已按 completed 关闭](https://github.com/IRishWei/Router/issues/15#issuecomment-6039780325)。
 
 ## 实现与固定包
 
@@ -62,6 +62,6 @@ v093c 的 17 项已验证，第 18 个实际 Task 撤销行为正确，但 helpe
 
 验证根目录为 `C:/Users/a1500/AppData/Local/Temp/router-implementation`，最终前缀 `t14-v093e-`：before-upgrade、installed-hashes、installed-default-source、bundle-enable、execution-evidence、restored-state、renderer-evidence、restart-evidence、bundle-remove、companion-removed-evidence、network-before/after JSON。
 
-Core 两轴、非作者合并、fixture 0.3.4 和 e helper 两轴报告原文排他逐字节归档至仓库 VERIFY。最终实际安装 Spec 原文已排他归档至 `VERIFY/t14-v093e-spec-installed-final.md`，SHA-256 `716EA0BFE5349484E4A40EC2ACB303F14C1C60EB94842F2F69908380982CD11D`，PASS。最终 Standards 原文亦排他归档至 `VERIFY/t14-v093e-standards-installed-final.md`，5449B，SHA-256 `8AC3C2C2F23974B63EDD8F6C175289075DAB1E04842EEFB09F9FF9FB90641B46`，PASS。两轴无阻断 finding，具备 T14 关闭资格；#15 此时仍 OPEN，最终文档增量复审后再同步闭票记录。
+Core 两轴、非作者合并、fixture 0.3.4 和 e helper 两轴报告原文排他逐字节归档至仓库 VERIFY。最终实际安装 Spec 原文已排他归档至 `VERIFY/t14-v093e-spec-installed-final.md`，SHA-256 `716EA0BFE5349484E4A40EC2ACB303F14C1C60EB94842F2F69908380982CD11D`，PASS。最终 Standards 原文亦排他归档至 `VERIFY/t14-v093e-standards-installed-final.md`，5449B，SHA-256 `8AC3C2C2F23974B63EDD8F6C175289075DAB1E04842EEFB09F9FF9FB90641B46`，PASS。两轴无阻断 finding。文档时态 P2 已在 e44a905 修正，原 BLOCK 原样归档；修正后两轴 PASS 报告见 [Standards](../../VERIFY/t14-v093e-standards-final-doc-corrected.md) 与 [Spec](../../VERIFY/t14-v093e-spec-final-doc-corrected.md)。#15 已按 completed 关闭，父规格 [Decisions 更新](https://github.com/IRishWei/Router/issues/1#issuecomment-6039807829)；累计9/24，剩余独立前沿仅T05/T06，均needs-info。
 
 本结果解除 T14 的来源读取兼容缺陷。安装后无需改 DNS 的正式要求继续约束后续目录/连接请求和 T24 完整交付；目前的实际证据覆盖目标宿主与已有网络。真实 T05/T06 凭据、调用授权、其他网络环境及全部插件最终交付保留独立门槛。GitHub 24 张票原文和 36 条原生依赖保持；父 #1 不因本票通过而关闭。
