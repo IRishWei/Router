@@ -18,6 +18,8 @@
 
 `createResearchAcceptance({ resolveSourceEvidence, limits }).contribute({ task, inputs, artifact, signal })` 返回版本化的 `requirements`、`evidence`、`sourceReferences`、`sourceSnapshots` 与 `reviewCases`。它不返回整体 verdict。`source-access`、`quote-binding` 与 `claim-support` 是不同 evidence aspect；只有后续严格语义评审能处理 `claim-support`。review case 只含匿名论点、正文 hash、用户/产物指定的精确引文及 Unicode code-point locator，不含 URL、账号、模型、预算或外部页面的其他正文。
 
+共享协调器必须用 `validateResearchContribution(contribution, { taskId, artifact })` 接收结果。该边界严格校验字段白名单、Task/artifact 身份和完整引用闭包，并返回 detached、递归冻结的数据；伪造 snapshot content hash、quote locator、review case 引用或额外权限字段都会被拒绝。具体合并、history、统一两次 review 与公开观察面见 `t14-coordinator-wiring.md`。
+
 ## 来源读取与记录
 
 `createHttpSourceEvidenceResolver` 只执行 GET；不发送 Cookie、Authorization 或环境认证，不读取文件，不执行页面内容或递归发现链接。默认仅允许 HTTP(S) 标准端口和公开单播地址；每个 redirect 重新解析并绑定已核验 DNS 地址，跨主机或未授权地址失败。测试用 loopback 必须由构造时 Host callback 明确授权，任务、模型和 RPC 不能提供该回调。
@@ -28,6 +30,6 @@
 
 ## 阶段验证与未接线项
 
-`node --test test/t14.research-acceptance.test.mjs` 覆盖：200 无关页面、精确引文、缺失来源、404、冲突、无支持推论、页面指令隔离、query 隐私、私网与危险 redirect、大小限制、adapter 伪记录、固定来源数和持久化复用。
+`node --test test/t14.research-acceptance.test.mjs test/t14.integration.test.mjs` 覆盖：200 无关页面、精确引文、缺失来源、404、冲突、无支持推论、页面指令隔离、query 隐私、私网与危险 redirect、大小限制、adapter 伪记录、固定来源数、持久化复用、引用闭包伪造，以及真实 Controller/AcceptanceCoordinator 的 Task/artifact identity。
 
 共享接线前仍需：由 Coordinator 校验 contributor 输出及引用闭包，把 research 字段加入 history 白名单，并在同一 `agent/turn-stopping` awaited 顺序中合并、评审、发布。之后还需真实 Controller、Renderer/RPC、重启与目标 Desktop 验收。本阶段不能关闭 #15。

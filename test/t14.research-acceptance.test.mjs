@@ -7,6 +7,7 @@ import {
   createHttpSourceEvidenceResolver,
   createResearchAcceptance,
 } from '../src/research-acceptance.mjs';
+import { validateResearchContribution } from '../src/research-contribution.mjs';
 
 async function sourceFixture(routes) {
   const server = createServer(async (request, response) => {
@@ -60,6 +61,12 @@ test('an exact quote produces locatable evidence for bounded semantic review wit
     assert.deepEqual(result.reviewCases[0].anonymousPayload.sources[0].excerpts[0].text, 'Mars has Phobos and Deimos');
     assert.deepEqual(result.reviewCases[0].anonymousPayload.sources[0].excerpts[0].locator, { kind: 'unicode-code-points', start: 0, end: 26 });
     assert.equal('verdict' in result, false);
+    const validated = validateResearchContribution(result, { taskId: 'task-fact', artifact: citedArtifact('Mars has two moons', fixture.url(`/fact?access_token=${secret}`), 'Mars has Phobos and Deimos') });
+    assert.equal(Object.isFrozen(validated), true);
+    assert.equal(Object.isFrozen(validated.sourceSnapshots[0]), true);
+    const forged = structuredClone(result);
+    forged.reviewCases[0].anonymousPayload.sources[0].contentHash = 'f'.repeat(64);
+    assert.throws(() => validateResearchContribution(forged, { taskId: 'task-fact', artifact: citedArtifact('Mars has two moons', fixture.url(`/fact?access_token=${secret}`), 'Mars has Phobos and Deimos') }), /Invalid research contribution/u);
     const ordinaryRecord = JSON.stringify(result);
     assert.doesNotMatch(ordinaryRecord, /extendBudget|delete-all|IGNORE PRIOR|token-must-not-enter-records/u);
     assert.doesNotMatch(ordinaryRecord, /[?&]access_token=/u);
@@ -82,6 +89,7 @@ test('missing and unavailable sources remain distinct reproducible outcomes', as
     });
     assert.equal(missing.evidence.find(item => item.aspect === 'claim-support').verdict, 'failed');
     assert.equal(missing.evidence.find(item => item.aspect === 'claim-support').reason, 'SOURCE_MISSING');
+    validateResearchContribution(missing, { taskId: 'task-missing', artifact: artifact('A sourced claim.') });
 
     const broken = await research.contribute({
       task: { id: 'task-broken' },
@@ -92,6 +100,7 @@ test('missing and unavailable sources remain distinct reproducible outcomes', as
     assert.equal(broken.evidence.find(item => item.aspect === 'source-access').reason, 'SOURCE_HTTP_ERROR');
     assert.equal(broken.evidence.find(item => item.aspect === 'claim-support').verdict, 'unconfirmed');
     assert.equal(broken.reviewCases.length, 0);
+    validateResearchContribution(broken, { taskId: 'task-broken', artifact: citedArtifact('A sourced claim', fixture.url('/broken'), 'supporting text') });
   } finally {
     await fixture.close();
   }
@@ -135,6 +144,11 @@ test('declared source conflict and inference stay unconfirmed for the single coo
     assert.equal('verdict' in result, false);
     assert.equal('reserveCall' in result, false);
     assert.equal('publishAcceptance' in result, false);
+    validateResearchContribution(result, { taskId: 'task-conflict', artifact: artifact([
+      'The intervention improves outcomes. The intervention should be mandatory.',
+      `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/support')}」中的引文「Survey A reports the intervention improved the measured outcome」。`,
+      `研究来源：论点「The intervention improves outcomes」引用来源「${fixture.url('/oppose')}」中的引文「Survey B reports no measurable improvement from the intervention」。`,
+    ].join('\n')) });
   } finally {
     await fixture.close();
   }
