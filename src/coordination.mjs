@@ -173,6 +173,7 @@ export class TaskCoordinationController {
     const fingerprint = evidenceFingerprint(unresolved);
     const episodeId = `coordination-episode:v1:${hash(`${task.id}:${unresolved.blocking.id}`).slice(0, 24)}`;
     let episode = state.episodes.find(item => item.episodeId === episodeId);
+    const resumedSelfRepairIntent = state.selfRepair?.episodeId === episodeId && state.selfRepair.state === 'intent-persisted';
     const newEvidence = !episode || episode.evidenceFingerprint !== fingerprint;
     if (!episode) {
       episode = {
@@ -186,8 +187,17 @@ export class TaskCoordinationController {
       episode.latestAcceptanceRevision = acceptance.revision;
       episode.evidenceVersion++;
       episode.evidenceFingerprint = fingerprint;
-      if (state.selfRepair?.episodeId === episodeId) state.selfRepair.state = 'artifact-observed';
+      if (state.selfRepair?.episodeId === episodeId && !resumedSelfRepairIntent) state.selfRepair.state = 'artifact-observed';
       if (episode.status === 'repair-requested') episode.status = 'repair-observed';
+    }
+
+    if (resumedSelfRepairIntent) {
+      state.selfRepair.state = 'delivery-unknown';
+      episode.status = 'stalled';
+      const reason = 'RESTART_WITH_UNCONFIRMED_DELIVERY';
+      state = await this.#commit(task, acceptance, state, episode, 'self-repair-delivery-unknown', { reason });
+      if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
+      return { kind: 'none', reason: 'SELF_REPAIR_DELIVERY_UNKNOWN' };
     }
 
     const missingCapability = capabilityDeficiency(unresolved);
@@ -266,14 +276,19 @@ export class TaskCoordinationController {
 
     const payload = consultationPayload(task, acceptance, obstacle);
     const serialized = JSON.stringify(payload);
-    const inputUpperBound = utf8Bytes(SYSTEM_PROMPT) + utf8Bytes(serialized);
-    const inputBudget = policy.forecast.totalTokens - policy.maxTokens;
+    const messages = [
+      { role: 'system', content: [{ type: 'text', text: SYSTEM_PROMPT }] },
+      createUserMessage({ content: [{ type: 'text', text: serialized }] }),
+    ];
+    const inputUpperBound = utf8Bytes(JSON.stringify(messages));
+    const totalUpperBound = inputUpperBound + policy.maxTokens;
+    const configuredTotalLimit = policy.forecast.totalTokens;
     const contextWindow = captured.capabilities?.contextWindow?.value ?? captured.maxContextTokens ?? null;
-    if (inputUpperBound > inputBudget) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_INPUT_FORECAST_EXCEEDED');
+    if (totalUpperBound > configuredTotalLimit) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_INPUT_FORECAST_EXCEEDED');
     if (!positiveInteger(contextWindow)) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_CONTEXT_CAPACITY_UNKNOWN');
-    if (policy.forecast.totalTokens > contextWindow) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_CONTEXT_CAPACITY_EXCEEDED');
+    if (totalUpperBound > contextWindow) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_CONTEXT_CAPACITY_EXCEEDED');
 
-    const forecast = { inputTokens: inputBudget, outputTokens: policy.maxTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: policy.forecast.totalTokens };
+    const forecast = { inputTokens: inputUpperBound, outputTokens: policy.maxTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: totalUpperBound };
     episode.status = 'consulting';
     episode.consultation = { evidenceVersion: episode.evidenceVersion, candidateId: captured.candidateId, selectionSnapshot: clone(captured), callId: null, trigger, state: 'intent-persisted', adviceHash: null, adviceText: null, noticeMessageId: null, reason: null };
     state.consultationAttempts++;
@@ -292,10 +307,7 @@ export class TaskCoordinationController {
     state = await this.#commit(this.#router.exactTask(agent.session.id, task.turn) ?? task, acceptance, state, episode, 'consultation-call-reserved', { callId });
     const request = {
       provider: captured.identity.provider, model: captured.identity.model, maxTokens: policy.maxTokens, signal,
-      messages: [
-        { role: 'system', content: [{ type: 'text', text: SYSTEM_PROMPT }] },
-        createUserMessage({ content: [{ type: 'text', text: serialized }] }),
-      ],
+      messages,
     };
     if (!state) {
       await this.#release(callId, task.id, request);

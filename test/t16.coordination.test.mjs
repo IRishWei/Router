@@ -191,10 +191,13 @@ test('new evidence for the repaired episode makes one bounded consultation Call 
   assert.equal(run.reservations[0].details.candidateId, consultant.candidateId);
   assert.deepEqual(run.reservations[0].details.selectionSnapshot, consultant);
   assert.deepEqual(run.reservations[0].details.selection, consultant.identity);
-  assert.equal(run.reservations[0].details.forecast.totalTokens, 4096);
   assert.equal(run.requests.length, 1);
   assert.equal(run.requests[0].signal, harness.signal);
   assert.equal(run.requests[0].maxTokens, 128);
+  const serializedMessageBytes = new TextEncoder().encode(JSON.stringify(run.requests[0].messages)).length;
+  assert.equal(run.reservations[0].details.forecast.inputTokens, serializedMessageBytes);
+  assert.equal(run.reservations[0].details.forecast.totalTokens, serializedMessageBytes + 128);
+  assert.equal(run.reservations[0].details.forecast.totalTokens <= policy.forecast.totalTokens, true);
   const payload = JSON.parse(run.requests[0].messages[1].content[0].text);
   assert.deepEqual(Object.keys(payload).sort(), ['blocking', 'evidence', 'requirement', 'task'].sort());
   assert.equal(JSON.stringify(payload).includes('expert-account'), false);
@@ -296,6 +299,44 @@ test('a persisted consultation intent is marked delivery-unknown after restart a
   assert.equal(first.task.coordination.episodes[0].consultation.state, 'delivery-unknown');
   assert.equal(first.reservations.length, reservationsBeforeRestart);
   assert.equal(first.steers.length, 1);
+});
+
+test('a persisted self-repair intent is marked delivery-unknown after restart and is never replayed', async () => {
+  const first = harness();
+  await first.controller.afterAcceptance({ agent: first.agent, turn: 1, signal: harness.signal, acceptance: clone(first.task.acceptance) });
+  first.task.coordination = clone(first.publications.find(item => item.selfRepair?.state === 'intent-persisted'));
+  first.steers.length = 0;
+
+  const restarted = new TaskCoordinationController({ router: first.router, policyForTask: () => clone(policy) });
+  const action = await restarted.afterAcceptance({ agent: first.agent, turn: 1, signal: harness.signal, acceptance: clone(first.task.acceptance) });
+
+  assert.equal(action.kind, 'none');
+  assert.equal(action.reason, 'SELF_REPAIR_DELIVERY_UNKNOWN');
+  assert.equal(first.task.coordination.selfRepair.state, 'delivery-unknown');
+  assert.equal(first.task.coordination.episodes[0].status, 'stalled');
+  assert.equal(first.task.coordination.timeline.at(-1).kind, 'self-repair-delivery-unknown');
+  assert.equal(first.steers.length, 0);
+  assert.equal(first.reservations.length, 0);
+});
+
+test('consultation capacity accounts for the complete serialized message envelope before reservation', async () => {
+  const broad = harness();
+  await broad.controller.afterAcceptance({ agent: broad.agent, turn: 1, signal: harness.signal, acceptance: clone(broad.task.acceptance) });
+  broad.task.acceptance = failedAcceptance({ revision: 2, observed: { value: 2 } });
+  await broad.controller.afterAcceptance({ agent: broad.agent, turn: 1, signal: harness.signal, acceptance: clone(broad.task.acceptance) });
+  const actualMessageBytes = new TextEncoder().encode(JSON.stringify(broad.requests[0].messages)).length;
+
+  const tightPolicy = clone(policy);
+  tightPolicy.forecast.totalTokens = actualMessageBytes + tightPolicy.maxTokens - 1;
+  const tight = harness({ policyValue: tightPolicy });
+  await tight.controller.afterAcceptance({ agent: tight.agent, turn: 1, signal: harness.signal, acceptance: clone(tight.task.acceptance) });
+  tight.task.acceptance = failedAcceptance({ revision: 2, observed: { value: 2 } });
+  const action = await tight.controller.afterAcceptance({ agent: tight.agent, turn: 1, signal: harness.signal, acceptance: clone(tight.task.acceptance) });
+
+  assert.equal(action.kind, 'stalled');
+  assert.equal(action.reason, 'CONSULTATION_INPUT_FORECAST_EXCEEDED');
+  assert.equal(tight.reservations.length, 0);
+  assert.equal(tight.requests.length, 0);
 });
 
 test('advice completed against a stale acceptance revision is recorded but never steered', async () => {
