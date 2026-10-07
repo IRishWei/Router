@@ -93,7 +93,7 @@ async function mountDeepSeekSettings(service, routerApi) {
     const binding = { hooks: {}, keyedHooks: {}, props: {}, ctx };
     ctx.slots.installScope('session', { current: { getSnapshot: () => binding, subscribe: () => () => {} } });
     ctx.slots.register({ name: 'root', children: { 'settings.section': { kind: 'list', scope: 'root' } } }, ({ renderSlot }) => React.createElement('main', null, renderSlot('settings.section', {}, { only: 'router-deepseek' })));
-    await ctx.plugin(createDeepSeekSettingsPlugin(service, routerApi));
+    await ctx.plugin(createDeepSeekSettingsPlugin(React, service, routerApi));
     await act(async () => { page = renderer.create(ctx.slots.renderSlot('root', {})); });
     return { page, async dispose() { await act(async () => { page.unmount(); }); await ctx.fiber.dispose(); } };
   } catch (error) {

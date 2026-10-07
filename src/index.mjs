@@ -9,6 +9,7 @@ import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './conne
 import { runInitialAssessment, selectInitialRoute } from './routing.mjs';
 import { AcceptanceCoordinator } from './acceptance.mjs';
 import { createNodeProgramChecks } from './program-checks.mjs';
+import { DeepSeekHost } from './deepseek-host.mjs';
 
 export const inject = ['llm', 'profileContext', 'tools'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -21,6 +22,7 @@ const catalog = [
 const defaultPool = () => catalog.map(model => ({ candidateId: model.model, ...selection({ provider: CONTROLLED_PROVIDER, model: model.model }), enabled: true }));
 const ROUTING_OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'quality']);
 const MAX_ASSESSMENT_CONTEXT_BYTES = 16_384;
+const DEEPSEEK_DETECTION_OUTPUT_TOKENS = 32;
 const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
@@ -122,6 +124,15 @@ function selectionForecast(requirements, outputTokens = 512) {
   const inputTokens = Math.max(1, requirements.contextTokens ?? 1);
   return { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: inputTokens + outputTokens };
 }
+function conservativeRequestForecast(messages, tools, outputTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS) {
+  const inputTokens = Math.max(1, new TextEncoder().encode(JSON.stringify({ messages, tools: tools ?? [] })).length);
+  return { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: inputTokens + outputTokens };
+}
+function withOutputLimit(request, maxTokens) {
+  const descriptors = Object.getOwnPropertyDescriptors(request);
+  descriptors.maxTokens = { value: maxTokens, enumerable: true, configurable: true, writable: false };
+  return Object.create(Object.getPrototypeOf(request), descriptors);
+}
 function routingObservations(tasks, candidateSnapshot, comparisonKey) {
   const candidates = new Map(candidateSnapshot.candidates.map(candidate => [candidate.candidateId, candidate]));
   const samples = new Map();
@@ -210,6 +221,9 @@ export class RouterService extends TypertRemoteService {
   #assessmentInputs = new Map();
   #stableRouterSnapshots = new WeakSet();
   #connections;
+  #deepSeek;
+  #deepSeekDetections = new Map();
+  #deepSeekDeadlineTimers = new Map();
   constructor(ctx, state, path, connections, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
@@ -218,7 +232,7 @@ export class RouterService extends TypertRemoteService {
     this.#connections = connections;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'commitState', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance', 'attachDeepSeek']) this[method] = this[method].bind(this);
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
@@ -274,8 +288,27 @@ export class RouterService extends TypertRemoteService {
       const step = { config, pending: pending?.pending ? { ...pending.pending } : null, route: null };
       this.#steps.set(agent, step);
       const assembled = await next();
+      step.assembled = assembled;
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
-      if (task && pending !== undefined && config.automatic && task.routing?.status === 'selected' && !step.blocked) {
+      const detection = task?.deepSeekDetection;
+      if (task && detection && !step.blocked) {
+        const captured = await this.captureCandidate(detection.capture.candidateId, { config, signal });
+        if (!sameIdentity(captured.identity, detection.capture.identity)
+          || captured.authEpoch !== detection.capture.authEpoch
+          || captured.connectionConfigRevision !== detection.capture.connectionConfigRevision
+          || captured.registryEpoch < detection.capture.registryEpoch
+          || !captured.enabled) step.blocked = 'CONNECTION_CHANGED';
+        else {
+          step.route = { candidateId: captured.candidateId, ...captured.identity };
+          step.selectionSnapshot = captured;
+          step.enforceCandidate = true;
+          task.activeSelection = captured.identity;
+          task.configVersion = config.version;
+          task.routing = { status: 'selected', objective: 'explicit-detection', snapshotEpoch: captured.registryEpoch, selected: structuredClone(captured), reasonCodes: ['EXPLICIT_DEEPSEEK_DETECTION'], excluded: [], requirements: { modalities: ['text'] } };
+          task.timeline.push({ kind: 'routing-decision', candidateId: captured.candidateId, reasons: ['EXPLICIT_DEEPSEEK_DETECTION'], excluded: [], snapshotEpoch: captured.registryEpoch });
+          this.#persist();
+        }
+      } else if (task && pending !== undefined && config.automatic && task.routing?.status === 'selected' && !step.blocked) {
         const fixedId = config.fixedCandidateId ?? config.fixedModel;
         const fixed = config.pool.find(candidate => (candidate.candidateId ?? candidate.model) === fixedId && candidate.enabled);
         if (fixedId && !fixed) step.blocked = 'FIXED_MODEL_UNAVAILABLE';
@@ -380,6 +413,10 @@ export class RouterService extends TypertRemoteService {
       const decision = await next();
       const step = this.#steps.get(agent);
       if (!step || decision.kind === 'reject' || signal.aborted) return decision;
+      const detectionTask = this.#active.get(`${agent.session.id}:${turn}`);
+      if (detectionTask?.deepSeekDetection) {
+        step.detectionForecast = conservativeRequestForecast([...agent.session.deriveMessages(), ...decision.messages], step.assembled?.tools);
+      }
       const hasImage = [...agent.session.deriveMessages(), ...messages].some(message => message.content.some(part => part.type === 'image'));
       const capability = step.selectionSnapshot?.capability;
       const incompatible = step.enforceCandidate && hasImage && capability?.image.supported !== true;
@@ -417,6 +454,7 @@ export class RouterService extends TypertRemoteService {
       const config = stepSnapshot?.route ? { ...resolved, provider: stepSnapshot.route.provider, model: stepSnapshot.route.model } : resolved;
       if (stepSnapshot?.route && !sameRoute(resolved, stepSnapshot.route)) delete config.reasoningEffort;
       const task = this.#active.get(`${agent.session.id}:${turn}`);
+      if (task?.deepSeekDetection) config.maxTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS;
       const blocked = stepSnapshot && manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : this.#restriction(config);
       if (blocked) {
         if (task) task.routingPauseReason = blocked;
@@ -426,12 +464,13 @@ export class RouterService extends TypertRemoteService {
         const candidate = stepSnapshot?.selectionSnapshot ?? (() => { const found = this.#connections.candidateForRoute(config); return found ? this.#connections.capture(found.candidateId, stepSnapshot?.config ?? this.#state.config) : null; })();
         task.activeSelection = candidate?.identity ?? selection(config);
         task.configVersion = stepSnapshot?.config.version ?? this.#state.config.version;
-        const forecast = config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
-        const reason = stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? (stepSnapshot.config.fixedCandidateId ?? stepSnapshot.config.fixedModel) ? 'fixed-model' : 'enabled-pool' : 'native-routing';
+        const forecast = task.deepSeekDetection ? stepSnapshot?.detectionForecast : config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
+        const reason = task.deepSeekDetection ? 'explicit-detection' : stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? (stepSnapshot.config.fixedCandidateId ?? stepSnapshot.config.fixedModel) ? 'fixed-model' : 'enabled-pool' : 'native-routing';
         task.timeline.push({ kind: 'selection', reason, provider: config.provider, model: config.model, configVersion: task.configVersion });
         const previous = this.#nativeReservations.get(agent);
         const before = task.calls.length;
-        const reservation = this.reserveCall(task.id, { purpose: previous?.taskId === task.id && previous.turn === turn && previous.step === step ? 'retry' : 'execution', step, selection: task.activeSelection, candidateId: candidate?.candidateId, selectionSnapshot: candidate, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
+        const purpose = task.deepSeekDetection ? 'detection' : previous?.taskId === task.id && previous.turn === turn && previous.step === step ? 'retry' : 'execution';
+        const reservation = this.reserveCall(task.id, { purpose, step, selection: task.activeSelection, candidateId: candidate?.candidateId, selectionSnapshot: candidate, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
         this.#bindCall(task.calls[before]);
         this.#nativeReservations.set(agent, { taskId: task.id, turn, step, callId: task.calls[before].id });
         await reservation;
@@ -481,6 +520,9 @@ export class RouterService extends TypertRemoteService {
       })();
     });
     ctx.effect(() => () => {
+      for (const timer of this.#deepSeekDeadlineTimers.values()) clearTimeout(timer);
+      this.#deepSeekDeadlineTimers.clear();
+      this.#deepSeekDetections.clear();
       for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router disabled during budget wait', 'MODEL_NOT_FOUND'));
       for (const task of this.#active.values()) for (const call of task.calls) this.#releaseUnboundCall(task, call, 'ROUTER_DISABLED', true);
       return this.flush();
@@ -553,6 +595,7 @@ export class RouterService extends TypertRemoteService {
     return this.#ownedCallStream(task, request, call);
   }
   #ownedCallStream(task, request, existingCall = null, source = null) {
+    if (task.deepSeekDetection) request = withOutputLimit(request, DEEPSEEK_DETECTION_OUTPUT_TOKENS);
     const service = this, controller = new AbortController();
     const originalSignal = existingCall ? this.#callSignals.get(existingCall.id) : request.signal ?? new AbortController().signal;
     const owner = { task, call: existingCall, controller, started: false, iterators: new Set(), usage: null, finish: null, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
@@ -606,7 +649,10 @@ export class RouterService extends TypertRemoteService {
           const candidate = service.#connections.candidateForRoute(request);
           const captured = candidate ? service.#connections.capture(candidate.candidateId, owner.config) : null;
           const before = task.calls.length;
-          const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: captured?.identity ?? selection(request), ...(captured ? { candidateId: captured.candidateId, selectionSnapshot: captured } : {}), configVersion: owner.config.version, routerSnapshot: owner.config, forecast: request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null }, originalSignal);
+          const forecast = task.deepSeekDetection
+            ? conservativeRequestForecast(request.messages, request.tools)
+            : request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
+          const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: captured?.identity ?? selection(request), ...(captured ? { candidateId: captured.candidateId, selectionSnapshot: captured } : {}), configVersion: owner.config.version, routerSnapshot: owner.config, forecast }, originalSignal);
           owner.call = task.calls[before];
           owner.call.sourceEventSeq = source.sourceEventSeq;
           owner.call.sourceMessageSeqs = source.messageSeqs;
@@ -675,6 +721,8 @@ export class RouterService extends TypertRemoteService {
     task.endedAt = new Date().toISOString();
     task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: task.acceptance?.verdict ?? 'unconfirmed' });
     this.#active.delete(`${task.sessionId}:${task.turn}`);
+    clearTimeout(this.#deepSeekDeadlineTimers.get(task.id));
+    this.#deepSeekDeadlineTimers.delete(task.id);
     this.#assessmentInputs.delete(task.id);
     for (const call of task.calls) this.#callSignals.delete(call.id);
     this.#persist();
@@ -684,7 +732,56 @@ export class RouterService extends TypertRemoteService {
     const active = [...this.#active.values()].map(task => ({ taskId: task.id, sessionId: task.sessionId, appliedVersion: task.configVersion, desiredVersion: this.#state.config.version }));
     const application = { status: active.some(task => task.appliedVersion !== task.desiredVersion) ? 'pending' : 'applied', desiredVersion: this.#state.config.version, active };
     const candidateSnapshot = this.#connections.snapshot(this.#state.config);
-    return structuredClone({ ...this.#state, tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, candidateSnapshot, unsupportedProviders: candidateSnapshot.unsupported, storageError: this.#storageError ?? null, models: candidateSnapshot.candidates });
+    const deepSeek = this.#deepSeek ? await this.#deepSeek.snapshot() : undefined;
+    return structuredClone({ ...this.#state, ...(deepSeek ? { deepSeek } : {}), tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, candidateSnapshot, unsupportedProviders: candidateSnapshot.unsupported, storageError: this.#storageError ?? null, models: candidateSnapshot.candidates });
+  }
+  attachDeepSeek(host) { this.#deepSeek = host; }
+  async deepSeekSaveCredential(request) {
+    await this.#deepSeek.saveCredential(request);
+    return this.snapshot();
+  }
+  async deepSeekDiscoverCatalog() {
+    await this.#deepSeek.discoverCatalog();
+    return this.snapshot();
+  }
+  async deepSeekConnect(request) {
+    await this.#deepSeek.connect(request);
+    await this.#connections.refresh();
+    this.#persist(); await this.flush();
+    return this.snapshot();
+  }
+  async deepSeekDisconnect(request) {
+    await this.#deepSeek.disconnect(request);
+    await this.#connections.refresh();
+    this.#persist(); await this.flush();
+    return this.snapshot();
+  }
+  async deepSeekRunDetection(request) {
+    const capture = await this.captureCandidate(request.candidateId);
+    if (!capture.enabled || capture.identity.provider === CONTROLLED_PROVIDER) throw new TypeError('DeepSeek detection requires an enabled owned candidate');
+    const candidate = this.#connections.resolve(capture.candidateId, { allowLegacyControlled: false });
+    if (candidate.ownership !== 'router-owned' || candidate.source !== 'deepseek-official-api') throw new TypeError('DeepSeek detection requires a DeepSeek owned candidate');
+    const { sessionId } = await this.ctx.sessionController.create({ cwd: this.ctx.profileContext.home });
+    const pending = { capture, budget: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] }, taskId: null, startedAt: Date.now() };
+    this.#deepSeekDetections.set(sessionId, pending);
+    try {
+      await this.ctx.sessionController.prompt({ sessionId, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: 'Reply exactly DEEPSEEK_CONNECTION_OK' }] }, new AbortController().signal);
+    } catch (error) {
+      this.#deepSeekDetections.delete(sessionId);
+      throw error;
+    }
+    const agent = this.ctx.get('agents')?.get(sessionId);
+    while (true) {
+      const task = pending.taskId && this.#state.tasks.find(item => item.id === pending.taskId);
+      if (task && (task.lifecycle === 'waiting-budget' || ['completed', 'paused'].includes(task.lifecycle))) break;
+      if (task?.deepSeekDetection?.deadlineExpired && agent?.status !== 'running' && !this.#ownedCalls.get(task.id)?.size) break;
+      await new Promise(resolve => setTimeout(resolve, 5));
+    }
+    this.#deepSeekDetections.delete(sessionId);
+    if (!pending.taskId) throw new Error('DeepSeek detection Task was not created');
+    this.#deepSeek.setLastDetectionTask(pending.taskId);
+    this.#persist(); await this.flush();
+    return this.snapshot();
   }
   async refreshConnections() {
     await this.#connections.refresh();
@@ -751,7 +848,7 @@ export class RouterService extends TypertRemoteService {
   /** Host-only accounting seam. Future collaborators use this same gate; it grants no model authorization. */
   async reserveCall(taskId, details, signal) {
     const task = [...this.#active.values()].find(task => task.id === taskId);
-    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary'].includes(details?.purpose) || !signal) throw new TypeError('Invalid task call reservation');
+    if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary', 'detection'].includes(details?.purpose) || !signal) throw new TypeError('Invalid task call reservation');
     const identity = identityOf(details.selection);
     if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
     if (details.candidateId !== undefined) {
@@ -877,7 +974,9 @@ export class RouterService extends TypertRemoteService {
         this.#assertCallEligibility(task, call);
       }
       const decision = budgetCheck(task, call);
-      task.budget.unenforceableLimits = decision.unenforceable;
+      task.budget.unenforceableLimits = task.deepSeekDetection
+        ? decision.unenforceable.filter(item => item.resource !== 'durationMs')
+        : decision.unenforceable;
       if (!decision.blocked.length) {
         call.status = 'prepared'; call.reservation.state = 'reserved';
         task.lifecycle = 'running'; delete task.budget.waiting;
@@ -997,6 +1096,10 @@ export class RouterService extends TypertRemoteService {
     return this.snapshot();
   }
   async flush() { await this.#writes; }
+  async commitState() {
+    this.#persist(); await this.flush();
+    if (this.#storageError) throw new Error('Router storage is unavailable; the DeepSeek change was not persisted');
+  }
   #persist() {
     if (this.#storageError) return;
     const serialized = JSON.stringify(this.#state, null, 2);
@@ -1024,7 +1127,23 @@ export class RouterService extends TypertRemoteService {
     if (event.type === 'turn/start') {
       const assessmentRequested = this.#state.semanticAssessmentRequest?.status === 'armed';
       if (assessmentRequested) this.#state.semanticAssessmentRequest = null;
-      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(this.#state.config.budget), extensions: [], unenforceableLimits: [] } };
+      const detection = this.#deepSeekDetections.get(session.id);
+      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date().toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(detection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}) };
+      if (detection) {
+        detection.taskId = task.id;
+        const delay = Math.max(1, detection.startedAt + detection.budget.durationMs - Date.now());
+        const timer = setTimeout(() => {
+          if (!this.#active.has(`${task.sessionId}:${task.turn}`)) return;
+          task.deepSeekDetection.deadlineExpired = true;
+          task.routingPauseReason = 'ABORTED';
+          task.timeline.push({ kind: 'detection-deadline', code: 'ABORTED' });
+          const agent = this.ctx.get('agents')?.get(task.sessionId);
+          if (agent?.status === 'running') agent.cancel({ kind: 'user' }, { keepInbox: true });
+          this.#cancelTaskCalls(task);
+          this.#persist();
+        }, delay);
+        this.#deepSeekDeadlineTimers.set(task.id, timer);
+      }
       this.#active.set(`${session.id}:${event.data.turn}`, task);
       this.#state.tasks.push(task);
       this.#persist();
@@ -1039,7 +1158,8 @@ export class RouterService extends TypertRemoteService {
       this.#confirm(task, session.requestHeader().config, call);
       if (event.type === 'assistant/message') task.result += event.data.message.content.filter(item => item.type === 'text').map(item => item.text).join('');
       const finish = lastAssistantStreamChunk(event.data.stream ?? [], 'finish')?.reason;
-      this.settleCall(task.id, call.id, { status: event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed', usage: event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null, seq: event.seq, finishReason: finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop'), failureCode: finish?.failure?.code });
+      const deadlineExpired = task.deepSeekDetection?.deadlineExpired === true;
+      this.settleCall(task.id, call.id, { status: deadlineExpired || event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' || finish?.failure?.code === 'ABORTED' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed', usage: event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null, seq: event.seq, finishReason: deadlineExpired ? 'aborted' : finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop'), failureCode: deadlineExpired ? 'ABORTED' : finish?.failure?.code });
     }
     if (event.type === 'turn/end') {
       const reason = event.data.reason;
@@ -1142,6 +1262,9 @@ export async function apply(ctx) {
   const validEntry = entry => entry && typeof entry.enabled === 'boolean' && (() => { try { const candidate = connections.resolve(entry.candidateId, { allowLegacyControlled: false }); return sameIdentity(entry, candidate); } catch { return false; } })();
   if (!Array.isArray(pool) || !pool.every(validEntry) || new Set(pool.map(entry => entry.candidateId)).size !== pool.length || (state.config.fixedCandidateId !== null && (() => { try { connections.resolve(state.config.fixedCandidateId); return true; } catch { return false; } })() === false)) throw new Error('Unsupported DSH Router pool configuration');
   const service = new RouterService(ctx, state, path, connections, ctx.get('routerFileSystem'));
+  const deepSeek = new DeepSeekHost(ctx, state, service.commitState);
+  service.attachDeepSeek(deepSeek);
+  await deepSeek.restore();
   const programChecks = createNodeProgramChecks(ctx);
   new AcceptanceCoordinator(ctx, {
     publishAcceptance: service.publishAcceptance,
@@ -1163,6 +1286,7 @@ export async function apply(ctx) {
   ctx.on('credentials/reference-updated', () => { connections.invalidateCredentials(); void service.refreshConnections().catch(() => {}); });
   ctx.on('credentials/record-updated', () => { connections.invalidateCredentials(); void service.refreshConnections().catch(() => {}); });
   ctx.effect(() => disposeControlled, 'router: owned connection registration');
+  ctx.effect(() => () => deepSeek.dispose(), 'router: DeepSeek connection lifecycle');
   ctx.effect(() => () => programChecks.dispose(), 'router: acceptance program checks');
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.
 }

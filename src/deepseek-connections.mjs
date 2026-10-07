@@ -210,6 +210,7 @@ function providerPlugin(spec, state) {
         try {
           for await (const chunk of next()) yield sanitizeProviderChunk(chunk);
         } catch (error) {
+          if (request.signal?.aborted) throw new LlmError('DeepSeek provider request was aborted', 'ABORTED');
           throw sanitizeProviderError(error);
         }
       });
@@ -236,7 +237,9 @@ function providerPlugin(spec, state) {
 }
 
 export async function mountDeepSeekOwnedProvider(ctx, spec) {
-  const credential = await describeDeepSeekCredential(ctx.credentials, spec.accountId);
+  const credentials = ctx.get('credentials');
+  if (!credentials) throw new TypeError('DeepSeek credentials are unavailable');
+  const credential = await describeDeepSeekCredential(credentials, spec.accountId);
   const metadata = createDeepSeekConnectionMetadata({ ...spec, credential });
   const state = { active: true, revoked: false };
   let fiber;
@@ -256,7 +259,7 @@ export async function mountDeepSeekOwnedProvider(ctx, spec) {
       disposal ??= fiber.dispose();
       await disposal;
       if (!deleteCredential || credentialDeleted) return;
-      deletion ??= deleteDeepSeekCredential(ctx.credentials, spec.accountId)
+      deletion ??= deleteDeepSeekCredential(credentials, spec.accountId)
         .then(() => { credentialDeleted = true; })
         .finally(() => { deletion = undefined; });
       await deletion;

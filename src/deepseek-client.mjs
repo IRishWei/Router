@@ -1,18 +1,16 @@
-import React from 'react';
-
-const h = React.createElement;
-
 function candidateLabel(candidate) {
   return `${candidate.name ?? candidate.model} (${candidate.model}) · 连接 ${candidate.connectionId} · 账号 ${candidate.accountId} · 计费 ${candidate.billingPath}`;
 }
 
-export function DeepSeekSettings({ service, routerApi }) {
+export function createDeepSeekSettingsComponent(React) {
+  const h = React.createElement;
+  return function DeepSeekSettings({ service, routerApi }) {
   const [state, setState] = React.useState(null);
   const [router, setRouter] = React.useState(null);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState('');
   const [candidateId, setCandidateId] = React.useState('');
-  const [tokens, setTokens] = React.useState('256');
+  const [tokens, setTokens] = React.useState('4096');
   const [durationMs, setDurationMs] = React.useState('30000');
   const [detection, setDetection] = React.useState(null);
   const apiKey = React.useRef('');
@@ -120,13 +118,14 @@ export function DeepSeekSettings({ service, routerApi }) {
       }, '运行有限预算检测'),
       detection ? h('article', null,
         h('strong', null, `检测记录 ${detection.taskId}`),
-        h('p', null, `${detection.lifecycle === 'completed' ? '已完成' : '已暂停'} · ${detection.result}`),
+        h('p', null, `${detection.lifecycle === 'completed' ? '已完成' : detection.lifecycle === 'waiting-budget' ? '等待增加预算；请求尚未发送' : '已暂停'} · ${detection.result}`),
         h('p', null, `请求 ${detection.ledger.callCount} 次 · token ${detection.ledger.tokens.total ?? '未知'}`),
         detection.ledger.unknownPriceCalls ? h('p', null, `费用未知：${detection.ledger.unknownPriceCalls} 个调用缺少价格。`) : null) : null));
+  };
 }
 
-/** Independent slot entry; the shared facade supplies callbacks during final wiring. */
-export function createDeepSeekSettingsPlugin(service, routerApi) {
+export function createDeepSeekSettingsPlugin(React, service, routerApi) {
+  const DeepSeekSettings = createDeepSeekSettingsComponent(React);
   return {
     inject: ['slots'],
     apply(ctx) {
