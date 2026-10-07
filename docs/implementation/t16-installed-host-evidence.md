@@ -1,6 +1,6 @@
 # T16 目标 Desktop 安装验收
 
-2026-10-07，Router 0.9.1 与 controlled companion 0.4.3 在独立 DSH home 完成 `v091c` 的 17 项实际验证、已安装客户端的 Renderer 验证、重启、移除夹具和再次重启。实际安装验收 PASS；#17 的关闭另以最终独立 Standards/Spec 证据审查为门槛。
+2026-10-07，Router 0.9.1 与 controlled companion 0.4.3 在独立 DSH home 完成 `v091c` 的 17 项实际验证、已安装客户端的 Renderer 验证、重启、移除夹具和再次重启。实际安装验收及最终独立 Standards/Spec 证据审查均 PASS，#17 已具备关闭资格。
 
 ## 固定代码与包
 
@@ -59,6 +59,7 @@ DOM mount 使用 `react-test-renderer`，没有截图或视觉外观验收声明
 - `t16-v091c-renderer-evidence.json`、`t16-v091c-restart-evidence.json`
 - `t16-v091c-bundle-remove.json`、`t16-v091c-companion-removed-evidence.json`
 - `t16-v091c-{standards,spec}-preinstall-review.md`、`t16-v091c-renderer-wait-{standards,spec}-delta.md`
+- 最终独立审查原文已排他复制至仓库 `VERIFY/t16-v091c-standards-installed-final.md`（SHA-256 `6190198031112AB341EA061FD2BF5AA8B7D3E6A07AB93EF034FBC528C33824E5`）与 `VERIFY/t16-v091c-spec-installed-final.md`（SHA-256 `FD8B127375BDEA90ADA776EC95B76293BD5E6590A665FA4936B40A7BF6C63EE3`），两轴均 PASS，无阻断 finding。
 - `t16-v091{,b}-partial-evidence.json`、对应 failed-run restart 记录及固定保护 manifest
 
 DNS、代理、hosts、路由器和 Codex 配置/认证保持原样。T14/#15 的来源读取阻塞仍未解除，不能借 T16 通过认定 T14 已完成。Research/model-review 继续 fail-closed，直到上游发布可信失败谓词。T05/T06 的真实凭据及付费授权问题仍未获答复，原生 36 条依赖关系不变。
