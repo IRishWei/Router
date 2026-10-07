@@ -1,9 +1,7 @@
 import { createHash } from 'node:crypto';
 import { lookup as dnsLookup } from 'node:dns/promises';
-import { request as httpRequest } from 'node:http';
-import { request as httpsRequest } from 'node:https';
-import { isIP } from 'node:net';
 import { locateArtifactClaim, parseResearchArtifact } from './research-artifact.mjs';
+import { createSourceNetworkReader } from './source-network.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const id = (kind, value) => `${kind}:v1:${digest(value).slice(0, 24)}`;
@@ -61,45 +59,6 @@ const createTransferBudget = limit => {
   transferBudgets.add(budget);
   return budget;
 };
-
-const publicIpv4 = address => {
-  const octets = address.split('.').map(Number);
-  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return false;
-  const [a, b, c] = octets;
-  return !(a === 0 || a === 10 || a === 127 || a >= 224
-    || (a === 100 && b >= 64 && b <= 127)
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && (b === 0 || (b === 168) || (b === 0 && c === 2)))
-    || (a === 198 && (b === 18 || b === 19 || (b === 51 && c === 100)))
-    || (a === 203 && b === 0 && c === 113));
-};
-
-const ipv6Value = address => {
-  const [headText, tailText] = address.toLowerCase().split('::');
-  const expand = part => part ? part.split(':').flatMap(piece => {
-    if (!piece.includes('.')) return [piece];
-    const octets = piece.split('.').map(Number);
-    if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) return ['invalid'];
-    return [((octets[0] << 8) | octets[1]).toString(16), ((octets[2] << 8) | octets[3]).toString(16)];
-  }) : [];
-  const head = expand(headText);
-  const tail = expand(tailText);
-  if (head.includes('invalid') || tail.includes('invalid')) return null;
-  const omitted = address.includes('::') ? 8 - head.length - tail.length : 0;
-  const parts = [...head, ...Array(Math.max(0, omitted)).fill('0'), ...tail];
-  if (parts.length !== 8 || parts.some(part => !/^[0-9a-f]{1,4}$/u.test(part))) return null;
-  return parts.reduce((value, part) => (value << 16n) | BigInt(`0x${part}`), 0n);
-};
-
-const publicIpv6 = address => {
-  const value = ipv6Value(address);
-  if (value === null) return false;
-  const prefix = (bits, expected) => value >> BigInt(128 - bits) === expected;
-  return prefix(3, 1n) && !prefix(32, 0x20010db8n);
-};
-
-const publicAddress = address => isIP(address) === 4 ? publicIpv4(address) : isIP(address) === 6 ? publicIpv6(address) : false;
 
 const displayUrl = value => {
   const url = new URL(value);
@@ -190,56 +149,9 @@ const safeUrl = (value, authorizeUrl) => {
   return url;
 };
 
-const readResponse = (url, address, { maxBytes, timeoutMs, signal, transferBudget }) => new Promise(resolve => {
-  const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
-  let settled = false;
-  let timer;
-  const startingTransferredBytes = transferBudget.used;
-  const abort = () => request.destroy(codedError('CANCELED'));
-  const finish = value => {
-    if (settled) return;
-    settled = true;
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', abort);
-    resolve(value);
-  };
-  const request = transport(url, {
-    method: 'GET',
-    headers: { accept: 'text/plain, text/html, application/json', 'user-agent': 'dsh-router-source-evidence/1' },
-    lookup: (_hostname, options, callback) => {
-      const pinned = { address: address.address, family: address.family };
-      if (options && typeof options === 'object' && options.all === true) callback(null, [pinned]);
-      else callback(null, pinned.address, pinned.family);
-    },
-  }, response => {
-    const chunks = [];
-    let bytes = 0;
-    response.on('data', chunk => {
-      bytes += chunk.length;
-      const withinTotal = transferBudget.consume(chunk.length);
-      if (!withinTotal || bytes > maxBytes) {
-        const code = startingTransferredBytes > 0 || !withinTotal && bytes <= maxBytes ? 'SOURCE_TOTAL_BYTES_EXCEEDED' : 'SOURCE_TOO_LARGE';
-        finish({ error: codedError(code) });
-        response.destroy();
-        request.destroy();
-      }
-      else chunks.push(chunk);
-    });
-    response.on('error', error => finish({ error }));
-    response.on('end', () => finish({ response, body: Buffer.concat(chunks).toString('utf8') }));
-  });
-  timer = setTimeout(() => request.destroy(codedError('SOURCE_TIMEOUT')), timeoutMs);
-  timer.unref?.();
-  request.on('error', error => finish({ error }));
-  if (signal) {
-    if (signal.aborted) abort();
-    else signal.addEventListener('abort', abort, { once: true });
-  }
-  request.end();
-});
-
-export function createHttpSourceEvidenceResolver({ authorizeUrl, authorizeAddress, lookup = dnsLookup, limits = {} } = {}) {
+export function createHttpSourceEvidenceResolver({ authorizeUrl, authorizeAddress, lookup = dnsLookup, discoverProxy, resolveProxyAddresses, platform, tlsOptions, limits = {} } = {}) {
   const fixed = finiteLimits(limits);
+  const readSource = createSourceNetworkReader({ lookup, discoverProxy, resolveProxyAddresses, platform, tlsOptions, directOnly: lookup !== dnsLookup && !discoverProxy });
   return async ({ sourceRef, signal, limits: requestLimits, transferBudget: suppliedTransferBudget }) => {
     const timeoutMs = Number.isSafeInteger(requestLimits?.timeoutMs) && requestLimits.timeoutMs > 0 ? Math.min(fixed.timeoutMs, requestLimits.timeoutMs) : fixed.timeoutMs;
     const maxBytes = Number.isSafeInteger(requestLimits?.maxBytes) && requestLimits.maxBytes > 0 ? Math.min(fixed.maxBytes, requestLimits.maxBytes) : fixed.maxBytes;
@@ -249,17 +161,9 @@ export function createHttpSourceEvidenceResolver({ authorizeUrl, authorizeAddres
     if (!current) return { access: 'invalid', reason: 'SOURCE_REFERENCE_INVALID' };
     const initialHost = current.hostname;
     for (let redirect = 0; redirect <= fixed.maxRedirects; redirect++) {
-      let addresses;
-      try {
-        addresses = isIP(current.hostname)
-          ? [{ address: current.hostname, family: isIP(current.hostname) }]
-          : await boundedOperation(() => lookup(current.hostname, { all: true, verbatim: true }), { deadline, signal });
-      } catch (error) { return { access: 'unavailable', reason: ['SOURCE_TIMEOUT', 'CANCELED'].includes(error?.code) ? error.code : 'SOURCE_DNS_UNAVAILABLE' }; }
-      const address = addresses.find(item => (authorizeAddress ? authorizeAddress({ url: new URL(current), address: item.address, family: item.family }) === true : publicAddress(item.address)));
-      if (!address) return { access: 'unavailable', reason: 'SOURCE_ADDRESS_NOT_AUTHORIZED' };
       const remaining = deadline - Date.now();
       if (remaining <= 0) return { access: 'unavailable', reason: 'SOURCE_TIMEOUT' };
-      const outcome = await readResponse(current, address, { maxBytes, timeoutMs: remaining, signal, transferBudget });
+      const outcome = await readSource(current, { authorizeAddress, deadline, signal, maxBytes, transferBudget });
       if (outcome.error) return { access: 'unavailable', reason: outcome.error.code ?? 'SOURCE_UNAVAILABLE' };
       const { response, body } = outcome;
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {

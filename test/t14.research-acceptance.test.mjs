@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
+import { connect, createServer as createNetServer } from 'node:net';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import {
@@ -14,6 +15,20 @@ async function sourceFixture(routes) {
     const route = routes[new URL(request.url, 'http://fixture.local').pathname] ?? { status: 404, body: 'missing' };
     if (route.delayMs) await new Promise(resolve => setTimeout(resolve, route.delayMs));
     response.writeHead(route.status ?? 200, { 'content-type': route.type ?? 'text/plain; charset=utf-8', ...(route.headers ?? {}) });
+    if (route.drip) {
+      response.once('close', () => {
+        route.drip.stats.closed = true;
+        route.drip.stats.resolveClosed();
+      });
+      for (const chunk of route.drip.chunks) {
+        if (response.destroyed) break;
+        response.write(chunk);
+        route.drip.stats.writes += 1;
+        await new Promise(resolve => setTimeout(resolve, route.drip.intervalMs));
+      }
+      if (!response.destroyed) response.end();
+      return;
+    }
     response.end(route.body ?? '');
   });
   server.listen(0, '127.0.0.1');
@@ -22,6 +37,52 @@ async function sourceFixture(routes) {
   return {
     url: path => `http://127.0.0.1:${port}${path}`,
     close: async () => { server.close(); await once(server, 'close'); },
+  };
+}
+
+async function connectProxyFixture({ connectStatus = 200 } = {}) {
+  const targets = [];
+  const sockets = new Set();
+  const server = createNetServer(socket => {
+    sockets.add(socket);
+    socket.once('close', () => sockets.delete(socket));
+    let request = Buffer.alloc(0);
+    const receive = chunk => {
+      request = Buffer.concat([request, chunk]);
+      const boundary = request.indexOf('\r\n\r\n');
+      if (boundary < 0) return;
+      socket.off('data', receive);
+      const [line] = request.subarray(0, boundary).toString('ascii').split('\r\n');
+      const match = line.match(/^CONNECT ([^:]+):(\d+) HTTP\/1\.[01]$/u);
+      if (!match) return socket.destroy();
+      targets.push(`${match[1]}:${match[2]}`);
+      if (connectStatus !== 200) {
+        socket.end(`HTTP/1.1 ${connectStatus} Proxy Failure\r\n\r\n`);
+        return;
+      }
+      const upstream = connect(Number(match[2]), match[1], () => {
+        socket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+        const rest = request.subarray(boundary + 4);
+        if (rest.length) upstream.write(rest);
+        socket.pipe(upstream);
+        upstream.pipe(socket);
+      });
+      sockets.add(upstream);
+      upstream.once('close', () => sockets.delete(upstream));
+      upstream.on('error', () => socket.destroy());
+    };
+    socket.on('data', receive);
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    targets,
+    close: async () => {
+      for (const socket of sockets) socket.destroy();
+      server.close();
+      await once(server, 'close');
+    },
   };
 }
 
@@ -320,6 +381,70 @@ test('the production reader pins an authorized named host through Node all-addre
   }
 });
 
+test('the production reader inherits an existing proxy and replaces virtual DNS with an authorized pinned target', async () => {
+  const fixture = await sourceFixture({ '/fact': { body: 'proxy-compatible evidence' } });
+  const proxy = await connectProxyFixture();
+  const port = new URL(fixture.url('/')).port;
+  const publicUrl = `http://fixture.test:${port}/fact`;
+  const resolutionQueries = [];
+  try {
+    const resolver = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(publicUrl).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      lookup: async () => [{ address: '198.18.2.36', family: 4 }],
+      discoverProxy: async () => ({ kind: 'proxy', url: new URL(proxy.url) }),
+      resolveProxyAddresses: async ({ hostname }) => {
+        resolutionQueries.push(hostname);
+        return [{ address: '127.0.0.1', family: 4 }];
+      },
+    });
+    const result = await resolver({ sourceRef: { url: publicUrl }, signal: new AbortController().signal });
+
+    assert.equal(result.access, 'available');
+    assert.equal(result.body, 'proxy-compatible evidence');
+    assert.deepEqual(resolutionQueries, ['fixture.test']);
+    assert.deepEqual(proxy.targets, [`127.0.0.1:${port}`]);
+  } finally {
+    await proxy.close();
+    await fixture.close();
+  }
+});
+
+test('a selected proxy cannot bypass public-address or proxy-failure guards', async () => {
+  const proxy = await connectProxyFixture({ connectStatus: 502 });
+  try {
+    const virtualAddress = createHttpSourceEvidenceResolver({
+      lookup: async () => [{ address: '198.18.2.36', family: 4 }],
+      discoverProxy: async () => ({ kind: 'proxy', url: proxy.url }),
+      resolveProxyAddresses: async () => [{ address: '198.18.2.37', family: 4 }],
+    });
+    assert.deepEqual(await virtualAddress({ sourceRef: { url: 'https://example.test/fact?secret=redacted' }, signal: new AbortController().signal }), {
+      access: 'unavailable', reason: 'SOURCE_ADDRESS_NOT_AUTHORIZED',
+    });
+    assert.deepEqual(proxy.targets, []);
+
+    const failedProxy = createHttpSourceEvidenceResolver({
+      lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+      discoverProxy: async () => ({ kind: 'proxy', url: proxy.url }),
+    });
+    assert.deepEqual(await failedProxy({ sourceRef: { url: 'https://example.test/fact' }, signal: new AbortController().signal }), {
+      access: 'unavailable', reason: 'SOURCE_PROXY_UNAVAILABLE',
+    });
+    assert.deepEqual(proxy.targets, ['93.184.216.34:443']);
+
+    const unavailablePolicy = createHttpSourceEvidenceResolver({
+      lookup: async () => [{ address: '93.184.216.34', family: 4 }],
+      discoverProxy: async () => new Promise(() => {}),
+      limits: { timeoutMs: 25 },
+    });
+    assert.deepEqual(await unavailablePolicy({ sourceRef: { url: 'https://example.test/fact' }, signal: new AbortController().signal }), {
+      access: 'unavailable', reason: 'SOURCE_TIMEOUT',
+    });
+  } finally {
+    await proxy.close();
+  }
+});
+
 test('DNS, redirects and cancellation share one bounded source deadline', async () => {
   let lookupCalls = 0;
   const neverDns = createHttpSourceEvidenceResolver({
@@ -349,6 +474,52 @@ test('DNS, redirects and cancellation share one bounded source deadline', async 
     });
     const result = await redirectChain({ sourceRef: { url: fixture.url('/first') }, signal: new AbortController().signal });
     assert.deepEqual(result, { access: 'unavailable', reason: 'SOURCE_TIMEOUT' });
+  } finally {
+    await fixture.close();
+  }
+});
+
+test('a source that continuously drips bytes cannot extend the absolute source deadline', async () => {
+  let resolveClosed;
+  const stats = { writes: 0, closed: false, resolveClosed: () => resolveClosed() };
+  const closed = new Promise(resolve => { resolveClosed = resolve; });
+  let resolveCanceledClosed;
+  const canceledStats = { writes: 0, closed: false, resolveClosed: () => resolveCanceledClosed() };
+  const canceledClosed = new Promise(resolve => { resolveCanceledClosed = resolve; });
+  const fixture = await sourceFixture({
+    '/slow-drip': { drip: { chunks: Array(20).fill('x'), intervalMs: 10, stats } },
+    '/canceled-drip': { drip: { chunks: Array(20).fill('y'), intervalMs: 10, stats: canceledStats } },
+  });
+  try {
+    const resolver = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      limits: { timeoutMs: 35 },
+    });
+    const result = await resolver({ sourceRef: { url: fixture.url('/slow-drip') }, signal: new AbortController().signal });
+    assert.deepEqual(result, { access: 'unavailable', reason: 'SOURCE_TIMEOUT' });
+    await Promise.race([closed, new Promise((_, reject) => setTimeout(() => reject(new Error('source connection remained open')), 100))]);
+    const writesAtClose = stats.writes;
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(stats.closed, true);
+    assert.equal(writesAtClose < 20, true);
+    assert.equal(stats.writes, writesAtClose);
+
+    const cancelResolver = createHttpSourceEvidenceResolver({
+      authorizeUrl: ({ url }) => url.origin === new URL(fixture.url('/')).origin,
+      authorizeAddress: ({ address }) => address === '127.0.0.1',
+      limits: { timeoutMs: 200 },
+    });
+    const controller = new AbortController();
+    const pending = cancelResolver({ sourceRef: { url: fixture.url('/canceled-drip') }, signal: controller.signal });
+    setTimeout(() => controller.abort(), 25);
+    assert.deepEqual(await pending, { access: 'unavailable', reason: 'CANCELED' });
+    await Promise.race([canceledClosed, new Promise((_, reject) => setTimeout(() => reject(new Error('canceled source connection remained open')), 100))]);
+    const canceledWritesAtClose = canceledStats.writes;
+    await new Promise(resolve => setTimeout(resolve, 30));
+    assert.equal(canceledStats.closed, true);
+    assert.equal(canceledWritesAtClose < 20, true);
+    assert.equal(canceledStats.writes, canceledWritesAtClose);
   } finally {
     await fixture.close();
   }
