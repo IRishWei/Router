@@ -157,13 +157,15 @@ export class TaskCoordinationController {
     if (signal.aborted) return { kind: 'none', reason: 'CANCELED' };
     let task = this.#router.exactTask(agent.session.id, turn);
     if (!task || task.acceptance?.revision !== acceptance?.revision || task.acceptance?.requirementHash !== acceptance?.requirementHash) return { kind: 'stale', reason: 'ACCEPTANCE_CHANGED' };
+    let state = parsedCoordination(task.coordination);
+    const recovered = await this.#recoverUnconfirmedDelivery(task, acceptance, state);
+    if (recovered) return recovered;
     let policy;
     try { policy = typeof this.#policyForTask === 'function' ? await this.#policyForTask(clone(task)) : null; }
     catch { return { kind: 'none', reason: 'COORDINATION_POLICY_UNAVAILABLE' }; }
     if (policy?.enabled !== true) return { kind: 'none', reason: 'COORDINATION_DISABLED' };
     if (!taskAutomatic(task)) return { kind: 'none', reason: 'AUTOMATIC_ROUTING_PAUSED' };
 
-    let state = parsedCoordination(task.coordination);
     const unresolved = trustedObstacle(acceptance);
     if (!unresolved) {
       if (acceptance?.phase === 'checked' && acceptance.verdict === 'passed') state = await this.#resolve(task, acceptance, state);
@@ -173,7 +175,6 @@ export class TaskCoordinationController {
     const fingerprint = evidenceFingerprint(unresolved);
     const episodeId = `coordination-episode:v1:${hash(`${task.id}:${unresolved.blocking.id}`).slice(0, 24)}`;
     let episode = state.episodes.find(item => item.episodeId === episodeId);
-    const resumedSelfRepairIntent = state.selfRepair?.episodeId === episodeId && state.selfRepair.state === 'intent-persisted';
     const newEvidence = !episode || episode.evidenceFingerprint !== fingerprint;
     if (!episode) {
       episode = {
@@ -187,17 +188,8 @@ export class TaskCoordinationController {
       episode.latestAcceptanceRevision = acceptance.revision;
       episode.evidenceVersion++;
       episode.evidenceFingerprint = fingerprint;
-      if (state.selfRepair?.episodeId === episodeId && !resumedSelfRepairIntent) state.selfRepair.state = 'artifact-observed';
+      if (state.selfRepair?.episodeId === episodeId) state.selfRepair.state = 'artifact-observed';
       if (episode.status === 'repair-requested') episode.status = 'repair-observed';
-    }
-
-    if (resumedSelfRepairIntent) {
-      state.selfRepair.state = 'delivery-unknown';
-      episode.status = 'stalled';
-      const reason = 'RESTART_WITH_UNCONFIRMED_DELIVERY';
-      state = await this.#commit(task, acceptance, state, episode, 'self-repair-delivery-unknown', { reason });
-      if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
-      return { kind: 'none', reason: 'SELF_REPAIR_DELIVERY_UNKNOWN' };
     }
 
     const missingCapability = capabilityDeficiency(unresolved);
@@ -209,14 +201,6 @@ export class TaskCoordinationController {
       episode = state.episodes.find(item => item.episodeId === episodeId);
     }
     if (!newEvidence) {
-      const pending = episode.consultation;
-      if (pending && ['intent-persisted', 'call-reserved', 'advice-ready'].includes(pending.state)) {
-        pending.state = 'delivery-unknown';
-        pending.reason = 'RESTART_WITH_UNCONFIRMED_DELIVERY';
-        episode.status = 'stalled';
-        state = await this.#commit(task, acceptance, state, episode, 'consultation-delivery-unknown', { reason: pending.reason }) ?? state;
-        return { kind: 'none', reason: 'CONSULTATION_DELIVERY_UNKNOWN' };
-      }
       return { kind: 'none', reason: 'NO_NEW_EVIDENCE' };
     }
 
@@ -398,6 +382,35 @@ export class TaskCoordinationController {
       task = { ...task, coordination: state };
     }
     return state;
+  }
+
+  async #recoverUnconfirmedDelivery(task, acceptance, state) {
+    let recoveredSelfRepair = false;
+    let recoveredConsultation = false;
+    const reason = 'RESTART_WITH_UNCONFIRMED_DELIVERY';
+    if (state.selfRepair?.state === 'intent-persisted') {
+      const episode = state.episodes.find(item => item.episodeId === state.selfRepair.episodeId);
+      if (!episode) throw new TypeError('Self-repair intent has no durable coordination episode');
+      state.selfRepair.state = 'delivery-unknown';
+      episode.status = 'stalled';
+      state = await this.#commit(task, acceptance, state, episode, 'self-repair-delivery-unknown', { reason });
+      if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
+      recoveredSelfRepair = true;
+    }
+    for (const candidate of [...state.episodes]) {
+      const episode = state.episodes.find(item => item.episodeId === candidate.episodeId);
+      const pending = episode?.consultation;
+      if (!pending || !['intent-persisted', 'call-reserved', 'advice-ready'].includes(pending.state)) continue;
+      pending.state = 'delivery-unknown';
+      pending.reason = reason;
+      episode.status = 'stalled';
+      state = await this.#commit(task, acceptance, state, episode, 'consultation-delivery-unknown', { callId: pending.callId, reason });
+      if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
+      recoveredConsultation = true;
+    }
+    if (recoveredSelfRepair) return { kind: 'none', reason: 'SELF_REPAIR_DELIVERY_UNKNOWN' };
+    if (recoveredConsultation) return { kind: 'none', reason: 'CONSULTATION_DELIVERY_UNKNOWN' };
+    return null;
   }
 
   async #stall(task, acceptance, state, episode, reason) {

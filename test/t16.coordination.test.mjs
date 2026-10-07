@@ -24,6 +24,23 @@ const failedAcceptance = ({ revision = 1, observed = { value: 1 }, reason, sourc
   phase: 'checked',
 });
 
+function acceptanceAfterRestart(kind) {
+  const next = failedAcceptance({ revision: 2, observed: { value: 2 } });
+  if (kind === 'passed' || kind === 'unconfirmed') {
+    next.verdict = kind;
+    next.evidence = [];
+    next.blocking = [];
+    next.coverage = { required: 1, requiredIds: ['requirement-1'], covered: kind === 'passed' ? 1 : 0, coveredIds: kind === 'passed' ? ['requirement-1'] : [], failedIds: [], uncovered: kind === 'passed' ? [] : ['requirement-1'], uncoveredIds: kind === 'passed' ? [] : ['requirement-1'] };
+    return next;
+  }
+  next.requirements[0].id = 'requirement-2';
+  next.evidence[0].id = 'evidence-2-new-blocking';
+  next.evidence[0].requirementId = 'requirement-2';
+  next.blocking[0] = { ...next.blocking[0], id: 'blocking-2', key: 'new-blocking:failed:evidence', requirementIds: ['requirement-2'], evidenceIds: ['evidence-2-new-blocking'] };
+  next.coverage = { required: 1, requiredIds: ['requirement-2'], covered: 1, coveredIds: ['requirement-2'], failedIds: ['requirement-2'], uncovered: [], uncoveredIds: [] };
+  return next;
+}
+
 const consultant = {
   candidateId: 'candidate-expert',
   identity: { connectionId: 'expert-connection', accountId: 'expert-account', billingPath: 'expert-billing', provider: 'expert-provider', model: 'expert-model' },
@@ -317,6 +334,27 @@ test('a persisted self-repair intent is marked delivery-unknown after restart an
   assert.equal(first.task.coordination.timeline.at(-1).kind, 'self-repair-delivery-unknown');
   assert.equal(first.steers.length, 0);
   assert.equal(first.reservations.length, 0);
+});
+
+for (const changedAcceptance of ['passed', 'unconfirmed', 'new-blocking']) test(`a persisted self-repair intent is closed before ${changedAcceptance} acceptance advances`, async () => {
+  const first = harness();
+  await first.controller.afterAcceptance({ agent: first.agent, turn: 1, signal: harness.signal, acceptance: clone(first.task.acceptance) });
+  first.task.coordination = clone(first.publications.find(item => item.selfRepair?.state === 'intent-persisted'));
+  first.task.acceptance = acceptanceAfterRestart(changedAcceptance);
+  first.steers.length = 0;
+
+  const restarted = new TaskCoordinationController({ router: first.router, policyForTask: () => clone(policy) });
+  const action = await restarted.afterAcceptance({ agent: first.agent, turn: 1, signal: harness.signal, acceptance: clone(first.task.acceptance) });
+
+  assert.equal(action.kind, 'none');
+  assert.equal(action.reason, 'SELF_REPAIR_DELIVERY_UNKNOWN');
+  assert.equal(first.task.coordination.selfRepair.state, 'delivery-unknown');
+  assert.equal(first.task.coordination.episodes[0].status, 'stalled');
+  assert.equal(first.task.coordination.timeline.at(-1).kind, 'self-repair-delivery-unknown');
+  assert.equal(first.task.coordination.acceptanceRevision, 2);
+  assert.equal(first.steers.length, 0);
+  assert.equal(first.reservations.length, 0);
+  assert.equal(first.task.coordination.episodes.length, 1);
 });
 
 test('consultation capacity accounts for the complete serialized message envelope before reservation', async () => {

@@ -14,11 +14,11 @@
 
 咨询 payload 只有 Task/revision、当前 blocking、被引用 requirement 与相关 evidence，不含全会话、工具权限、私有 replay state 或凭据。建议长度有界，先保存 callId、candidate snapshot、文本 hash 和 notice id，再用 `router-consultation` notice 交回主 agent。建议本身不改 acceptance；只有主 agent 继续执行后的新验收证据才能 resolve episode。
 
-意图状态在外部动作前持久化。每次持久化、candidate capture、预算预留或咨询流等长 await 之后，真正 dispatch/steer 前同步复核同一 Task、acceptance revision/hash、coordination revision、episode evidenceVersion/fingerprint、原 signal 与待处理的人类补充；任一变化都释放未发送预留或把建议标 stale，不发送旧 notice。重启遇到 self-repair `intent-persisted`，或 consultation 的 `intent-persisted`、`call-reserved`、`advice-ready`，都会持久化为 `delivery-unknown` 且不会自动重放。相同 fingerprint 不重复 steer/Call；网络、限流、认证、预算、撤销、取消和 transport 原因不升级为任务困难。咨询失败保留原执行选择、产物与 acceptance。
+意图状态在外部动作前持久化。每次持久化、candidate capture、预算预留或咨询流等长 await 之后，真正 dispatch/steer 前同步复核同一 Task、acceptance revision/hash、coordination revision、episode evidenceVersion/fingerprint、原 signal 与待处理的人类补充；任一变化都释放未发送预留或把建议标 stale，不发送旧 notice。恢复入口在读取当前 obstacle 或推进 passed/unconfirmed acceptance 前，先遍历持久 episode：self-repair `intent-persisted`，以及 consultation 的 `intent-persisted`、`call-reserved`、`advice-ready`，都会 CAS 持久化为 `delivery-unknown/stalled` 且不会自动重放；即使当前 acceptance 已通过、无法确认或换了 blocking 也不遗留 intent。相同 fingerprint 不重复 steer/Call；网络、限流、认证、预算、撤销、取消和 transport 原因不升级为任务困难。咨询失败保留原执行选择、产物与 acceptance。
 
 ## 阶段 1 测试
 
-`test/t16.coordination.test.mjs` 覆盖总开关、自动路由暂停、首次自修、相关/无关证据版本、能力不足、未知容量、固定保护、网络分类、self-repair/consultation 重启未知派发、完整消息封装容量、stale acceptance、咨询失败及去重。`test/t16.controller.test.mjs` 使用真实 rc.2 SessionController/AgentLoop/Router owned runner 和 controlled acceptance/CAS protocol fixture：一个 Task、一个 turn 内完成 `BAD1 -> self-repair -> BAD2 -> consultation Call -> advice -> FIXED`，保留两个自有 source notice、四个同 Task Call 和一次咨询计数。第二次失败的 receipt 是协议夹具输入，不是 T13/ToolRuntime 已接线的真实检查证据；正式接线仍须用 canonical T13 结果和真实 Host check 回归。
+`test/t16.coordination.test.mjs` 覆盖总开关、自动路由暂停、首次自修、相关/无关证据版本、能力不足、未知容量、固定保护、网络分类、self-repair/consultation 重启未知派发、恢复时 passed/unconfirmed/new-blocking 三种 acceptance、完整消息封装容量、stale acceptance、咨询失败及去重。`test/t16.controller.test.mjs` 使用真实 rc.2 SessionController/AgentLoop/Router owned runner 和 controlled acceptance/CAS protocol fixture：一个 Task、一个 turn 内完成 `BAD1 -> self-repair -> BAD2 -> consultation Call -> advice -> FIXED`，保留两个自有 source notice、四个同 Task Call 和一次咨询计数。第二次失败的 receipt 是协议夹具输入，不是 T13/ToolRuntime 已接线的真实检查证据；正式接线仍须用 canonical T13 结果和真实 Host check 回归。
 
 ## 待共享接线
 
