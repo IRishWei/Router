@@ -8,6 +8,9 @@ import { join } from 'node:path';
 import test from 'node:test';
 import AuthorizationService from '@deepseek-ai/dsh-authorization';
 import LocalCredentialProvider from '@deepseek-ai/dsh-credentials-local';
+import * as LlmRetry from '@deepseek-ai/dsh-llm-retry';
+import SessionTitle from '@deepseek-ai/dsh-session-title';
+import * as FirstPromptTitle from '@deepseek-ai/dsh-session-title-first-prompt-llm';
 import { CHATGPT_CREDENTIAL_KEY, CHATGPT_DIRECT_SCOPE } from '../src/chatgpt-oauth.mjs';
 import { createSourceNetworkTransport } from '../src/source-network.mjs';
 import { startNative } from './t02-harness.mjs';
@@ -15,15 +18,15 @@ import { startNative } from './t02-harness.mjs';
 const sse = events => events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('');
 const accountIdOf = (clientId, subject) => `account-${createHash('sha256').update(`${clientId}\0${subject}`).digest('hex').slice(0, 24)}`;
 
-async function endpoint(respond) {
+async function endpoint(respond, { statusCode = 200, contentType = 'text/event-stream', encode = sse } = {}) {
   const requests = [];
   const server = createServer(async (request, response) => {
     if (request.url !== '/responses') return response.writeHead(404).end();
     const body = [];
     for await (const chunk of request) body.push(chunk);
     requests.push({ headers: request.headers, body: JSON.parse(Buffer.concat(body).toString('utf8')) });
-    response.writeHead(200, { 'content-type': 'text/event-stream', 'x-request-id': `req-${requests.length}` });
-    response.end(sse(respond(requests.length)));
+    response.writeHead(statusCode, { 'content-type': contentType, 'x-request-id': `req-${requests.length}` });
+    response.end(encode(respond(requests.length)));
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const origin = `http://127.0.0.1:${server.address().port}`;
@@ -97,6 +100,88 @@ test('one bounded ChatGPT validation Task completes a native tool round trip in 
     assert.match(JSON.stringify(remote.requests[1].body), /TOOL_OK/u);
     assert.equal(remote.requests.every(item => item.body.store === false && item.body.stream === true && item.body.max_output_tokens === undefined), true);
     assert.equal(JSON.stringify(snapshot).includes('access-sensitive'), false);
+    assert.equal(task.ledger.callCount, 2);
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await remote.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('a native ChatGPT validation preserves an HTTP 200 non-SSE INVALID_RESPONSE without retrying or inventing usage', async () => {
+  const remote = await endpoint(
+    () => ({ error: { message: 'controlled non-event-stream response' } }),
+    { contentType: 'application/json', encode: JSON.stringify },
+  );
+  const home = await mkdtemp(join(tmpdir(), 'router-t09-invalid-response-'));
+  let ctx;
+  try {
+    const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
+    ctx = connectedHost.ctx;
+    await ctx.plugin(LlmRetry);
+    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(remote.requests.length, 1);
+    assert.equal(task.calls.length, 1);
+    assert.equal(task.calls[0].failureCode, 'INVALID_RESPONSE');
+    assert.equal(task.calls[0].usage, null);
+    assert.equal(task.ledger.tokens.total, null);
+    assert.equal(task.ledger.unknownTokenCalls.total, 1);
+    assert.equal(task.pauseReason, 'INVALID_RESPONSE');
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await remote.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('the native retry plugin honors the ChatGPT zero-retry policy for a retryable SERVER failure', async () => {
+  const remote = await endpoint(
+    () => ({ error: { message: 'controlled server failure' } }),
+    { statusCode: 503, contentType: 'application/json', encode: JSON.stringify },
+  );
+  const home = await mkdtemp(join(tmpdir(), 'router-t09-server-failure-'));
+  let ctx;
+  try {
+    const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
+    ctx = connectedHost.ctx;
+    await ctx.plugin(LlmRetry);
+    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(remote.requests.length, 1);
+    assert.equal(task.calls.length, 1);
+    assert.equal(task.calls[0].failureCode, 'SERVER');
+    assert.equal(task.calls[0].usage, null);
+    assert.equal(task.ledger.tokens.total, null);
+    assert.equal(task.pauseReason, 'SERVER');
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await remote.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('a native session-title call consumes the second authorized request without being recorded as a retry', async () => {
+  const remote = await endpoint(() => finalEvents());
+  const home = await mkdtemp(join(tmpdir(), 'router-t09-title-'));
+  let ctx;
+  try {
+    const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
+    ctx = connectedHost.ctx;
+    if (!ctx.get('logger')) ctx.provide('logger', { warn() {}, info() {}, error() {} });
+    await ctx.plugin(LlmRetry);
+    await ctx.plugin(SessionTitle, { fallbackMaxWords: 8, fallbackMaxBytes: 120, maxTitleBytes: 120 });
+    await ctx.plugin(FirstPromptTitle, { targetWords: 8, targetCjkCharacters: 16, maxInputBytes: 4096, maxOutputTokens: 64, timeoutMs: 5_000 });
+    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+    assert.equal(task.lifecycle, 'completed', JSON.stringify({ pauseReason: task.pauseReason, calls: task.calls, timeline: task.timeline }));
+    assert.equal(remote.requests.length, 2);
+    assert.equal(task.calls.length, 2);
+    assert.deepEqual(task.calls.map(call => call.nativePurpose ?? call.purpose).sort(), ['detection', 'session-title']);
+    assert.equal(task.calls.some(call => call.purpose === 'retry'), false);
+    assert.equal(task.calls.every(call => call.status === 'completed' && call.usage?.totalTokens === 18), true);
     assert.equal(task.ledger.callCount, 2);
   } finally {
     if (ctx) await ctx.fiber.dispose();

@@ -1,10 +1,11 @@
-import { attributionHeaders, LlmAdapter, LlmError } from '@deepseek-ai/dsh-llm';
+import { attributionHeaders, LlmAdapter, LlmError, resolveRetryPolicy } from '@deepseek-ai/dsh-llm';
 
 const DEFAULT_RESPONSES_URL = 'https://api.openai.com/v1/responses';
 const DIRECT_SCOPE = 'chatgpt.tokens.use.direct';
 const REQUEST_TIMEOUT_MS = 120_000;
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 16 * 1024 * 1024;
+const NO_RETRY_POLICY = resolveRetryPolicy({ mode: 'normal', maxRetries: 0 }, 'ChatGPT Responses retry policy');
 
 function requiredString(value, name) {
   if (typeof value !== 'string' || value.length === 0) throw new TypeError(`${name} must be a non-empty string`);
@@ -201,6 +202,13 @@ function headerValue(headers, name) {
 function requestIdOf(headers) {
   const value = headerValue(headers, 'x-request-id');
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function contentTypeClass(value) {
+  if (typeof value !== 'string' || value.trim().length === 0) return 'missing';
+  const mediaType = value.split(';', 1)[0].trim().toLowerCase();
+  if (mediaType === 'application/json' || mediaType === 'text/html') return mediaType;
+  return 'other';
 }
 
 async function readBody(body, signal) {
@@ -511,7 +519,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
 
   providerRetryPolicy(provider) {
     this.#assertProvider(provider);
-    return Object.freeze({ mode: 'normal', maxRetries: 0 });
+    return NO_RETRY_POLICY;
   }
 
   async #current(signal) {
@@ -591,7 +599,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
       }
       const contentType = headerValue(response.headers, 'content-type');
       if (typeof contentType !== 'string' || !contentType.toLowerCase().includes('text/event-stream')) {
-        throw new LlmError('Responses endpoint did not return an event stream', 'INVALID_RESPONSE', { status: response.statusCode, ...(requestId === undefined ? {} : { requestId }) });
+        throw new LlmError(`Responses endpoint did not return an event stream (content type: ${contentTypeClass(contentType)})`, 'INVALID_RESPONSE', { status: response.statusCode, ...(requestId === undefined ? {} : { requestId }) });
       }
       const onCompleted = async usage => {
         if (!this.#spec.onInferenceCompleted) return;
