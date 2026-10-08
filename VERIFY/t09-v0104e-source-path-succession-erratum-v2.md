@@ -1,0 +1,5 @@
+# v0.10.4e source-path succession v2 erratum
+
+The original 100-entry e preparation manifest and original checker remain frozen. Their five development paths cannot remain future immutable paths as source versions advance. This v2 continuation preserves the same five raw snapshots from v1 and binds them to literal expected bytes/SHA and newline-normalized blobs at archive commit `0f849acaeb237f7c669e3f3429aa1a059df395a0`.
+
+The v2 checker literal-pins its manifest bytes/SHA, the original manifest SHA, the original checker SHA, the exact five `relativePath`/`originalPath` mappings, and the exact remaining 95-entry set. It exports the production validator for injected read-only fixtures. Its guard executes a real positive check plus rejection tests for modified snapshots, modified original manifest bytes, non-five mappings, and duplicate remaining entries. Future source-path continuity must use this v2 checker; the original e path checker is retained as historical evidence and is not represented as a future working-source constraint.
