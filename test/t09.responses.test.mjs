@@ -379,6 +379,62 @@ test('unlabelled empty, JSON, HTML, malformed and incomplete bodies cannot confi
   }
 });
 
+test('contradictory completed output preserves reported usage and exposes only bounded comparison metadata', async () => {
+  const streamedText = 'private-streamed-text';
+  const message = text => ({ type: 'message', role: 'assistant', content: [{ type: 'output_text', text }] });
+  for (const scenario of [
+    { output: [], counts: [1, 0] },
+    { output: [message('private-completed-text')], counts: [1, 1] },
+    { output: [message(streamedText), message('private-extra-text')], counts: [1, 2] },
+    { output: [{ type: 'function_call', call_id: 'private-call-id', name: 'private-tool-name', arguments: 'private-arguments' }], counts: [1, 1] },
+  ]) {
+    const completions = [];
+    const { adapter, requests } = fixture({ headers: {}, events: [
+      { type: 'response.output_text.delta', item_id: 'msg-private', content_index: 0, delta: streamedText },
+      { type: 'response.output_text.done', item_id: 'msg-private', content_index: 0, text: streamedText },
+      { type: 'response.completed', response: { status: 'completed', output: scenario.output, usage: { input_tokens: 12, output_tokens: 4, total_tokens: 16 } } },
+    ], onInferenceCompleted: value => completions.push(value) });
+    const chunks = [];
+    await assert.rejects(async () => {
+      for await (const chunk of adapter.stream({ provider: 'router-chatgpt-account-1', model: 'gpt-test', messages: [createUserMessage({ content: [{ type: 'text', text: 'controlled comparison' }] })] })) chunks.push(chunk);
+    }, error => {
+      assert.equal(error.failure.code, 'MALFORMED_RESPONSE');
+      const prefix = 'Completed Responses output disagrees with streamed output; comparison: ';
+      assert.equal(error.failure.message.startsWith(prefix), true);
+      const detail = JSON.parse(error.failure.message.slice(prefix.length));
+      assert.deepEqual([detail.streamedBlocks, detail.completedBlocks], scenario.counts);
+      assert.equal(Number.isSafeInteger(detail.firstMismatch), true);
+      assert.equal(error.failure.message.length < 600, true);
+      assert.doesNotMatch(error.failure.message, /private-|oauth-test-token/u);
+      return true;
+    });
+    assert.deepEqual(chunks.filter(chunk => chunk.type === 'usage'), [{ type: 'usage', usage: { inputTokens: 12, outputTokens: 4, totalTokens: 16 } }]);
+    assert.equal(chunks.some(chunk => chunk.type === 'finish'), false);
+    assert.equal(completions.length, 0);
+    assert.equal(requests.length, 1);
+  }
+});
+
+test('invalid completed output preserves valid reported usage while absent usage stays unknown', async () => {
+  for (const [output, usage, code] of [
+    [[], undefined, 'MALFORMED_RESPONSE'],
+    [[{ type: 'message', role: 'assistant', content: [{ type: 'refusal', refusal: 'private-refusal' }] }], { input_tokens: 8, output_tokens: 2, total_tokens: 10 }, 'UNSUPPORTED_CONTENT'],
+  ]) {
+    let completions = 0;
+    const { adapter } = fixture({ events: [
+      { type: 'response.output_text.done', item_id: 'msg-invalid', text: 'PARTIAL' },
+      { type: 'response.completed', response: { status: 'completed', output, usage } },
+    ], onInferenceCompleted: () => { completions += 1; } });
+    const chunks = [];
+    await assert.rejects(async () => {
+      for await (const chunk of adapter.stream({ provider: 'router-chatgpt-account-1', model: 'gpt-test', messages: [createUserMessage({ content: [{ type: 'text', text: 'fail closed' }] })] })) chunks.push(chunk);
+    }, error => error.failure.code === code);
+    assert.equal(chunks.filter(chunk => chunk.type === 'usage').length, usage ? 1 : 0);
+    assert.equal(chunks.some(chunk => chunk.type === 'finish'), false);
+    assert.equal(completions, 0);
+  }
+});
+
 test('an in-stream failure emits known usage before preserving its exact error', async () => {
   const { adapter } = fixture({ events: [
     { type: 'response.failed', response: {

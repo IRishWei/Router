@@ -447,6 +447,30 @@ function visibleBlocks(items) {
   return result;
 }
 
+function comparisonDetails(streamed, authoritative) {
+  let index = 0;
+  while (index < Math.min(streamed.length, authoritative.length)
+    && JSON.stringify(streamed[index]) === JSON.stringify(authoritative[index])) index += 1;
+  const left = streamed[index];
+  const right = authoritative[index];
+  const summarize = value => !value ? null : value.type === 'text'
+    ? { type: 'text', textBytes: Buffer.byteLength(value.text) }
+    : { type: 'tool-call', argumentBytes: Buffer.byteLength(value.arguments) };
+  return {
+    streamedBlocks: streamed.length,
+    completedBlocks: authoritative.length,
+    firstMismatch: index,
+    streamed: summarize(left),
+    completed: summarize(right),
+    ...(left?.type === 'text' && right?.type === 'text' ? { textMatches: left.text === right.text } : {}),
+    ...(left?.type === 'tool-call' && right?.type === 'tool-call' ? {
+      callIdMatches: left.id === right.id,
+      toolNameMatches: left.name === right.name,
+      argumentsMatch: left.arguments === right.arguments,
+    } : {}),
+  };
+}
+
 async function* translateEvents(events, { model, requestId, onCompleted }) {
   const blocks = new Map();
   let nextIndex = 0;
@@ -534,28 +558,34 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
     if (event.type === 'response.completed') {
       if (completed) throw new LlmError('Responses stream repeated response.completed', 'MALFORMED_RESPONSE');
       if (event.response?.status !== 'completed') throw new LlmError('response.completed carried a non-completed response', 'MALFORMED_RESPONSE');
-      for (const current of blocks.values()) if (!current.closed) throw new LlmError('response.completed arrived with unfinished output blocks', 'MALFORMED_RESPONSE');
-      completed = event.response;
-      const replay = safeReplayItems(completed.output);
-      const authoritative = visibleBlocks(replay);
-      const streamed = [...blocks.values()].sort((a, b) => a.index - b.index).map(current => current.type === 'text'
-        ? { type: 'text', text: current.text }
-        : { type: 'tool-call', id: current.id, name: current.name, arguments: current.text });
-      if (streamed.length === 0 && authoritative.length > 0) {
-        for (const value of authoritative) {
-          const current = block(`completed:${nextIndex}`, value.type, value.type === 'tool-call' ? { id: value.id, name: value.name } : {});
-          current.text = value.type === 'text' ? value.text : value.arguments;
-          current.started = true;
-          current.closed = true;
-          yield { type: 'block-start', index: current.index, blockType: value.type };
-          if (value.type === 'text') yield { type: 'text-delta', index: current.index, text: value.text };
-          else yield { type: 'tool-call-delta', index: current.index, id: value.id, name: value.name, argumentsDelta: value.arguments };
-          yield { type: 'block-end', index: current.index, block: value };
+      const usage = usageOf(event.response.usage);
+      let replay;
+      try {
+        for (const current of blocks.values()) if (!current.closed) throw new LlmError('response.completed arrived with unfinished output blocks', 'MALFORMED_RESPONSE');
+        completed = event.response;
+        replay = safeReplayItems(completed.output);
+        const authoritative = visibleBlocks(replay);
+        const streamed = [...blocks.values()].sort((a, b) => a.index - b.index).map(current => current.type === 'text'
+          ? { type: 'text', text: current.text }
+          : { type: 'tool-call', id: current.id, name: current.name, arguments: current.text });
+        if (streamed.length === 0 && authoritative.length > 0) {
+          for (const value of authoritative) {
+            const current = block(`completed:${nextIndex}`, value.type, value.type === 'tool-call' ? { id: value.id, name: value.name } : {});
+            current.text = value.type === 'text' ? value.text : value.arguments;
+            current.started = true;
+            current.closed = true;
+            yield { type: 'block-start', index: current.index, blockType: value.type };
+            if (value.type === 'text') yield { type: 'text-delta', index: current.index, text: value.text };
+            else yield { type: 'tool-call-delta', index: current.index, id: value.id, name: value.name, argumentsDelta: value.arguments };
+            yield { type: 'block-end', index: current.index, block: value };
+          }
+        } else if (JSON.stringify(streamed) !== JSON.stringify(authoritative)) {
+          throw new LlmError(`Completed Responses output disagrees with streamed output; comparison: ${JSON.stringify(comparisonDetails(streamed, authoritative))}`, 'MALFORMED_RESPONSE');
         }
-      } else if (JSON.stringify(streamed) !== JSON.stringify(authoritative)) {
-        throw new LlmError('Completed Responses output disagrees with streamed output', 'MALFORMED_RESPONSE');
+      } catch (error) {
+        if (usage) yield { type: 'usage', usage };
+        throw error;
       }
-      const usage = usageOf(completed.usage);
       await onCompleted(usage);
       if (usage) yield { type: 'usage', usage };
       yield {
