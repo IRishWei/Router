@@ -219,9 +219,88 @@ test('structured admission errors preserve exact code, status, request id, and z
   });
 });
 
-test('HTTP 200 non-SSE failures expose only a bounded content-type classification', async () => {
+test('HTTP 200 JSON non-SSE failures expose only bounded body diagnostics and always close', async () => {
+  const secrets = ['private-code', 'private-param', 'private-message', 'private-detail', 'private-response'];
+  const knownCodes = [
+    'subscription_sharing_user_not_eligible',
+    'subscription_sharing_usage_limit_exceeded',
+    'subscription_sharing_usage_unavailable',
+    'subscription_sharing_unsupported_capability',
+    'subscription_sharing_route_not_supported',
+    'subscription_sharing_invalid_user',
+    'chatpass_v2_scope_not_authorized',
+    'chatpass_v2_invalid_authorization_context',
+    'subscription_sharing_user_unavailable',
+  ];
+  const scenarios = [
+    ...knownCodes.map(code => ({
+      body: JSON.stringify({ error: { code, param: 'tools', message: secrets[2] } }),
+      diagnostic: `body shape: error-object; code: ${code}; param: tools`,
+    })),
+    {
+      body: JSON.stringify({ error: { code: secrets[0], param: secrets[1], message: secrets[2] } }),
+      diagnostic: 'body shape: error-object; code: unknown; param: unknown',
+    },
+    { body: JSON.stringify({ detail: secrets[3] }), diagnostic: 'body shape: detail-object' },
+    { body: JSON.stringify({ response: { text: secrets[4] } }), diagnostic: 'body shape: response-object' },
+    { body: JSON.stringify({ message: secrets[2] }), diagnostic: 'body shape: other' },
+    { body: '{invalid-json', diagnostic: 'body shape: invalid-json' },
+    { body: JSON.stringify({ detail: 'x'.repeat(65_536) }), diagnostic: 'body shape: too-large' },
+  ];
+  for (const scenario of scenarios) {
+    let closes = 0;
+    const adapter = createChatGptResponsesAdapter({
+      provider: 'router-chatgpt-account-1', accountId: 'account-1',
+      getAuthorizedCredential: async () => ({ access_token: 'token', client_id: 'client-1', subject: 'subject-1', scopes: DIRECT_SCOPES }),
+      getCatalog: async () => ({ identity: { client_id: 'client-1', subject: 'subject-1' }, models: [{ slug: 'gpt-test', display_name: 'GPT Test' }] }),
+      transport: async () => ({
+        statusCode: 200,
+        headers: { 'content-type': 'application/json; note=text/event-stream', 'x-request-id': 'req-json' },
+        body: streamBody(scenario.body, [1, 3, 8, 13, 21]),
+        close: async () => { closes += 1; },
+      }),
+    });
+    await assert.rejects(async () => collect(adapter.stream({
+      provider: 'router-chatgpt-account-1', model: 'gpt-test', messages: [createUserMessage({ content: [{ type: 'text', text: 'one attempt' }] })],
+    })), error => {
+      assert.equal(error.failure.code, 'INVALID_RESPONSE');
+      assert.equal(error.failure.status, 200);
+      assert.equal(error.failure.requestId, 'req-json');
+      assert.equal(error.failure.message, `Responses endpoint did not return an event stream (content type: application/json; ${scenario.diagnostic})`);
+      for (const secret of secrets) assert.equal(JSON.stringify(error).includes(secret), false);
+      return true;
+    });
+    assert.equal(closes, 1);
+  }
+});
+
+test('an aborted HTTP 200 JSON diagnostic remains aborted and closes the response', async () => {
+  const controller = new AbortController();
+  let closes = 0;
+  const adapter = createChatGptResponsesAdapter({
+    provider: 'router-chatgpt-account-1', accountId: 'account-1',
+    getAuthorizedCredential: async () => ({ access_token: 'token', client_id: 'client-1', subject: 'subject-1', scopes: DIRECT_SCOPES }),
+    getCatalog: async () => ({ identity: { client_id: 'client-1', subject: 'subject-1' }, models: [{ slug: 'gpt-test', display_name: 'GPT Test' }] }),
+    transport: async () => ({
+      statusCode: 200,
+      headers: { 'content-type': 'application/json' },
+      body: (async function* () {
+        yield encoder.encode('{"error":');
+        controller.abort(new Error('controlled abort'));
+        yield encoder.encode('{}}');
+      })(),
+      close: async () => { closes += 1; },
+    }),
+  });
+  await assert.rejects(async () => collect(adapter.stream({
+    provider: 'router-chatgpt-account-1', model: 'gpt-test', signal: controller.signal,
+    messages: [createUserMessage({ content: [{ type: 'text', text: 'one attempt' }] })],
+  })), error => error?.failure?.code === 'ABORTED');
+  assert.equal(closes, 1);
+});
+
+test('HTTP 200 non-JSON non-SSE failures expose only a bounded content-type classification without reading the body', async () => {
   for (const scenario of [
-    { header: 'application/json; charset=utf-8', classification: 'application/json' },
     { header: 'text/html', classification: 'text/html' },
     { header: undefined, classification: 'missing' },
     { header: 'image/png; private=secret-value', classification: 'other' },

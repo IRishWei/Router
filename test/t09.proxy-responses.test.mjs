@@ -48,7 +48,7 @@ test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled
     requests.push({ method: request.method, url: request.url, body: JSON.parse(Buffer.concat(body).toString('utf8')) });
     if (mode === 'non-sse') {
       response.writeHead(200, { 'content-type': 'application/json' });
-      response.end(JSON.stringify({ status: 'controlled-non-sse' }));
+      response.end(JSON.stringify({ error: { code: 'chatpass_v2_scope_not_authorized', param: 'model', message: 'controlled-secret-message' } }));
       return;
     }
     response.writeHead(200, { 'content-type': 'text/event-stream', 'x-request-id': 'controlled-request-id' });
@@ -126,7 +126,8 @@ test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled
       assert.equal(error.failure.code, 'INVALID_RESPONSE');
       assert.equal(error.failure.status, 200);
       assert.equal(error.failure.requestId, undefined);
-      assert.match(error.message, /did not return an event stream/u);
+      assert.equal(error.failure.message, 'Responses endpoint did not return an event stream (content type: application/json; body shape: error-object; code: chatpass_v2_scope_not_authorized; param: model)');
+      assert.equal(JSON.stringify(error).includes('controlled-secret-message'), false);
       return true;
     });
     assert.deepEqual(connects, [`127.0.0.1:${originPort}`, `127.0.0.1:${originPort}`]);
