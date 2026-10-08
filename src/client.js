@@ -72,7 +72,8 @@ window.__ModuleLoader__.load({
       return h('div', null,
         h('p', null, mapped ? `价格映射：${subscription.mapping.catalogModel} → ${subscription.mapping.apiModel}（精确同名；${subscription.mapping.date}）` : '订阅参考价值未知：尚未确认此模型或别名对应的 API 价格映射。'),
         mapped && quote ? h('p', null, '按 Standard API 文本 token 价格作参考，实际套餐服务档位未知；不含工具等其他收费。', h('a', { href: quote.source, target: '_blank', rel: 'noreferrer' }, '官方价格来源')) : null,
-        cost?.amount === null && mapped ? h('p', null, cost.reason === 'USAGE_INCONSISTENT' ? '参考价值未知：返回用量互相矛盾，未按零计算。' : '参考价值未知：输入、缓存或输出用量不完整，无法确认完整价格与上下文档位。') : null,
+        cost?.amount === null && mapped ? h('p', null, cost.reason === 'USAGE_INCONSISTENT' ? '参考价值未知：返回用量互相矛盾，未按零计算。' : '参考价值未知：输入、缓存或输出用量不完整，无法确认完整参考值。') : null,
+        cost?.amount === null && cost.knownSubtotal !== null && cost.knownSubtotal !== undefined ? h('p', null, `可证明的参考小计：${cost.currency} ${cost.knownSubtotal}，仍计入同口径预算下界。${cost.basis?.subtotalBasis === 'minimum-context-rates' ? '上下文档位未知，小计按可确认的最低费率计算。' : ''}`) : null,
         cost?.basis?.contextBand && cost.basis.contextBand !== 'unknown' ? h('p', null, `本次按${cost.basis.contextBand === 'long' ? '长' : '短'}上下文参考价计算；完整输入含缓存读写，推理已包含于输出。`) : null);
     }
     const field = (label, value, update, disabled, props = {}) => h('label', { style: { display: 'block', margin: '8px 0' } }, `${label} `, h('input', { 'aria-label': label, value, disabled, onChange: event => update(event.target.value), ...props }));

@@ -18,37 +18,46 @@ export function tokensOf(usage) {
   if (tokens.total === null && tokens.reasoning === 0 && ['input', 'output', 'cacheRead', 'cacheWrite'].every(key => tokens[key] !== null)) tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
   return tokens;
 }
-export function costOf(tokens, quote) {
+export function costOf(tokens, quote, accounting = null) {
   if (!quote) return { amount: null, knownSubtotal: null, reason: 'PRICE_UNKNOWN', billingConfirmation: 'unconfirmed' };
   const missing = [];
   const parts = {};
   let rates = quote.perMillion;
   let basis;
+  let incompleteInput = false;
   if (quote.contextPricing) {
-    const prompt = ['input', 'cacheRead', 'cacheWrite'].every(key => tokens[key] !== null) ? tokens.input + tokens.cacheRead + tokens.cacheWrite : null;
-    const inconsistent = (prompt !== null && !Number.isSafeInteger(prompt))
+    incompleteInput = ['input', 'cacheRead', 'cacheWrite'].some(key => tokens[key] === null);
+    let prompt = incompleteInput ? null : tokens.input + tokens.cacheRead + tokens.cacheWrite;
+    const reportedPrompt = accounting?.source === 'openai-responses-usage' ? count(accounting.aggregateInputTokens) : null;
+    const promptConflict = prompt !== null && reportedPrompt !== null && prompt !== reportedPrompt;
+    prompt = reportedPrompt ?? prompt;
+    const inconsistent = promptConflict || (prompt !== null && !Number.isSafeInteger(prompt))
       || (quote.reasoning === 'included-in-output' && tokens.reasoning !== null && tokens.output !== null && tokens.reasoning > tokens.output)
       || (prompt !== null && tokens.output !== null && tokens.total !== null && prompt + tokens.output !== tokens.total);
     const band = prompt === null || inconsistent ? 'unknown' : prompt > quote.contextPricing.shortMaxInputTokens ? 'long' : 'short';
     basis = { profile: quote.referenceBasis ?? 'context-tiered', contextBand: band, promptTokens: inconsistent ? null : prompt, shortMaxInputTokens: quote.contextPricing.shortMaxInputTokens };
+    if (inconsistent) return { currency: quote.currency, kind: quote.kind, amount: null, knownSubtotal: null, parts: {}, missing: ['usage-inconsistent'], reason: 'USAGE_INCONSISTENT', reasoning: quote.reasoning, basis, billingConfirmation: 'unconfirmed' };
     if (band === 'long') rates = quote.contextPricing.longPerMillion;
-    if (band === 'unknown') {
-      // Missing cache details also make ordinary input uncertain: never price
-      // a provider's aggregate prompt as a known disjoint input subtotal.
-      return { currency: quote.currency, kind: quote.kind, amount: null, knownSubtotal: null, parts: {}, missing: [inconsistent ? 'usage-inconsistent' : 'context-band'], reason: inconsistent ? 'USAGE_INCONSISTENT' : 'USAGE_INCOMPLETE', reasoning: quote.reasoning, basis, billingConfirmation: 'unconfirmed' };
+    else if (band === 'unknown') {
+      missing.push('context-band');
+      // Even when the tier is unknown, independently reported output/cache
+      // still prove a lower bound at the minimum applicable published rate.
+      rates = Object.fromEntries(Object.keys(quote.perMillion).filter(key => quote.contextPricing.longPerMillion[key] !== undefined).map(key => [key, Math.min(quote.perMillion[key], quote.contextPricing.longPerMillion[key])]));
+      basis.subtotalBasis = 'minimum-context-rates';
     }
   }
   if (quote.reasoning === 'unknown' && tokens.reasoning !== 0) missing.push('reasoning-overlap');
   for (const key of ['input', 'output', 'cacheRead', 'cacheWrite']) {
-    if (tokens[key] === null || (tokens[key] > 0 && rates[key] === undefined)) { missing.push(key); parts[key] = null; }
+    if ((key === 'input' && incompleteInput) || tokens[key] === null || (tokens[key] > 0 && rates[key] === undefined)) { missing.push(key); parts[key] = null; }
     else parts[key] = tokens[key] * (rates[key] ?? 0) / 1_000_000;
   }
   if (quote.reasoning === 'separate') {
     if (tokens.reasoning === null || (tokens.reasoning > 0 && rates.reasoning === undefined)) { missing.push('reasoning'); parts.reasoning = null; }
     else parts.reasoning = tokens.reasoning * (rates.reasoning ?? 0) / 1_000_000;
   }
-  const knownSubtotal = Object.values(parts).reduce((sum, amount) => sum + (amount ?? 0), 0);
-  return { currency: quote.currency, kind: quote.kind, amount: missing.length ? null : Number(knownSubtotal.toPrecision(15)), knownSubtotal: Number(knownSubtotal.toPrecision(15)), parts, missing, ...(missing.length ? { reason: 'USAGE_INCOMPLETE' } : {}), reasoning: quote.reasoning, ...(basis ? { basis } : {}), billingConfirmation: 'unconfirmed' };
+  const knownParts = Object.values(parts).filter(amount => amount !== null);
+  const knownSubtotal = knownParts.length ? Number(knownParts.reduce((sum, amount) => sum + amount, 0).toPrecision(15)) : null;
+  return { currency: quote.currency, kind: quote.kind, amount: missing.length ? null : knownSubtotal, knownSubtotal, parts, missing, ...(missing.length ? { reason: 'USAGE_INCOMPLETE' } : {}), reasoning: quote.reasoning, ...(basis ? { basis } : {}), billingConfirmation: 'unconfirmed' };
 }
 export function budgetCheck(task, proposed) {
   const ledger = ledgerOf({ ...task, calls: task.calls.filter(call => !call.reservation || ['settled', 'released'].includes(call.reservation.state)) });
@@ -90,7 +99,7 @@ export function ledgerOf(task, now = Date.now()) {
     if (isChatGptSubscription(call.selection)) subscriptionQuota.set(call.selection.accountId, { accountId: call.selection.accountId, ...(call.subscription?.quota ?? unknownSubscriptionQuota()) });
     const tokens = tokensOf(call.usage);
     for (const key of Object.keys(fields)) if (tokens[key] === null) unknown[key]++; else known[key] += tokens[key];
-    let cost = costOf(tokens, call.priceQuote);
+    let cost = costOf(tokens, call.priceQuote, call.usageAccounting);
     if (!cost.currency) {
       unknownPrices++;
       if (!isChatGptSubscription(call.selection)) continue;

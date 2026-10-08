@@ -69,14 +69,21 @@ test('context pricing uses the whole prompt including cache at and above the off
   assert.equal(cost.amount, 0.780155);
 });
 
-test('missing partitions and contradictory usage never produce a claimed known subtotal', () => {
-  for (const partial of [{ ...usage, cacheWriteTokens: undefined }, { ...usage, inputTokens: undefined }]) {
+test('missing partitions retain proven output/cache lower bounds while contradictions stay unknown', () => {
+  for (const [partial, subtotal] of [[{ ...usage, cacheWriteTokens: undefined }, 0.00052], [{ ...usage, inputTokens: undefined }, 0.00077]]) {
     const cost = costOf(tokensOf(partial), reference().quote);
     assert.equal(cost.amount, null);
-    assert.equal(cost.knownSubtotal, null);
+    assert.equal(cost.knownSubtotal, subtotal);
+    assert.equal(cost.parts.input, null);
     assert.equal(cost.reason, 'USAGE_INCOMPLETE');
     assert.equal(cost.basis.contextBand, 'unknown');
   }
+  const partial = costOf(tokensOf({ ...usage, inputTokens: undefined, cacheWriteTokens: undefined }), reference().quote, { source: 'openai-responses-usage', aggregateInputTokens: 1000 });
+  assert.equal(partial.basis.contextBand, 'short');
+  assert.equal(partial.basis.promptTokens, 1000);
+  assert.equal(partial.amount, null);
+  assert.equal(partial.knownSubtotal, 0.00052);
+  assert.equal(costOf(tokensOf(null), reference().quote).knownSubtotal, null);
   for (const invalid of [{ ...usage, reasoningTokens: 51 }, { ...usage, totalTokens: 1051 }]) {
     const cost = costOf(tokensOf(invalid), reference().quote);
     assert.equal(cost.amount, null);

@@ -102,6 +102,31 @@ test('an unpriced full tool Task still waits on its explicit consumed-token limi
   }
 });
 
+test('partial cache usage preserves its proven subtotal and blocks the next tool request at an explicit money limit', async () => {
+  const f = await referenceFixture({ usage: { ...REFERENCE_USAGE, input_tokens_details: { cached_tokens: 200 } }, toolRoundTrip: true });
+  let run;
+  try {
+    f.ctx.tools.register({ name: 'reference_echo', description: 'Controlled reference evidence', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() { return 'REFERENCE_TOOL_OK'; } });
+    f.ctx.systemPrompt.tools(() => ({ schemas: f.ctx.tools.schemas() }));
+    await f.ctx.router.setBudgetDefaults({ tokens: 65_536, durationMs: 5_000, money: [{ currency: 'USD', kind: 'subscription-reference', amount: 0 }] });
+    run = f.task();
+    let waiting; const until = Date.now() + 3000;
+    do { waiting = (await f.ctx.router.snapshot()).tasks.at(-1); if (waiting?.lifecycle === 'waiting-budget') break; await new Promise(resolve => setTimeout(resolve, 5)); } while (Date.now() < until);
+    assert.equal(waiting?.lifecycle, 'waiting-budget');
+    assert.equal(waiting.calls[0].cost.amount, null);
+    assert.equal(waiting.calls[0].cost.knownSubtotal, 0.00052);
+    assert.equal(waiting.ledger.money[0].amount, null);
+    assert.equal(waiting.ledger.money[0].knownSubtotal, 0.00052);
+    assert.equal(waiting.budget.waiting.blockedBy.some(item => item.resource === 'money' && item.kind === 'subscription-reference'), true);
+    assert.equal(f.remote.requests.filter(item => item.path === '/responses').length, 1);
+    await f.ctx.router.extendTaskBudget(waiting.id, { money: [{ currency: 'USD', kind: 'subscription-reference', amount: 0.01 }] });
+    const done = await run;
+    assert.equal(done.id, waiting.id); assert.equal(done.lifecycle, 'completed');
+    assert.equal(done.ledger.money[0].amount, null); assert.equal(done.ledger.money[0].knownSubtotal, 0.00104);
+    assert.equal(f.remote.requests.filter(item => item.path === '/responses').length, 2);
+  } finally { if (run) { const task = (await f.ctx.router.snapshot()).tasks.at(-1); if (task?.lifecycle === 'waiting-budget') await f.ctx.router.stopTask(task.id); await run.catch(() => {}); } await f.close(); }
+});
+
 for (const [name, usage, expectedReason] of [
   ['missing cache write', { ...REFERENCE_USAGE, input_tokens_details: { cached_tokens: 200 } }, 'USAGE_INCOMPLETE'],
   ['missing all usage', null, 'USAGE_INCOMPLETE'],
@@ -115,7 +140,7 @@ for (const [name, usage, expectedReason] of [
       assert.equal(task.calls[0].cost.amount, null);
       assert.equal(task.calls[0].cost.reason, expectedReason);
       assert.equal(task.ledger.money[0].amount, null);
-      assert.equal(task.ledger.money[0].knownSubtotal, null);
+      assert.equal(task.ledger.money[0].knownSubtotal, name === 'missing cache write' ? 0.00052 : null);
       assert.equal(task.ledger.subscriptionQuota[0].status, 'unknown');
       assert.equal(task.ledger.subscriptionQuota[0].scarcityApplied, false);
       if (name === 'missing cache write') {

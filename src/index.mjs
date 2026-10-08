@@ -1093,7 +1093,7 @@ export class RouterService extends TypertRemoteService {
     if (settlement.failureCode) call.failureCode = settlement.failureCode;
     call.settledAt = new Date().toISOString();
     call.elapsedMs = call.dispatchedAt ? Math.max(0, Date.parse(call.settledAt) - Date.parse(call.dispatchedAt)) : null;
-    call.cost = !possiblyDispatched(call) && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote);
+    call.cost = !possiblyDispatched(call) && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote, call.usageAccounting);
     call.reservation.state = !possiblyDispatched(call) && !call.usage ? 'released' : 'settled';
     if (call.candidateId && settlement.status === 'completed') this.#connections.markInference(call.candidateId, 'verified');
     call.overEstimate = [];
