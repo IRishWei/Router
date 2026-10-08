@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { fork } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -67,6 +67,46 @@ test('two real processes share the credential file lock and cannot rotate the sa
   } finally {
     for (const child of children) if (child.exitCode === null) child.kill();
     await Promise.all(children.map(child => child.exitCode !== null ? undefined : new Promise(resolve => child.once('exit', resolve))));
+    await f.close();
+  }
+});
+
+test('restart after a process dies waiting for OIDC keeps the durable replacement and never refreshes the consumed token', async () => {
+  let enteredResolve;
+  const entered = new Promise(resolve => { enteredResolve = resolve; });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let holdDiscovery = true;
+  const f = await fixture({ discoveryUnavailable: async () => {
+    if (holdDiscovery) { enteredResolve(); await gate; }
+    return false;
+  } });
+  const child = fork(new URL('./t10-refresh-child.mjs', import.meta.url), [f.home, f.remote.origin, f.record.payload.hostId], { silent: true });
+  let recoveredContext;
+  try {
+    await new Promise((resolve, reject) => { child.once('message', resolve); child.once('error', reject); });
+    child.send('refresh');
+    await entered;
+    const beforeCrash = await readFile(join(f.home, '.credentials.yaml'), 'utf8');
+    assert.equal(beforeCrash.includes(f.record.payload.refreshToken), false);
+    assert.match(beforeCrash, /status: pending/u);
+    const exited = new Promise(resolve => child.once('exit', resolve));
+    child.kill();
+    await exited;
+    holdDiscovery = false;
+    release();
+    recoveredContext = await credentialsContext(f.home);
+    const sessions = new ChatGptSessions({ credentials: recoveredContext.credentials, ...f.remote, hostId: f.record.payload.hostId });
+    const recovered = await sessions.ensure(f.registration);
+    assert.notEqual(recovered.refreshToken, f.record.payload.refreshToken);
+    assert.equal(recovered.validation, undefined);
+    assert.equal(recovered.catalog.status, 'listed');
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+    assert.equal(f.remote.failures.length, 0);
+  } finally {
+    release();
+    if (child.exitCode === null && child.signalCode === null) { const exited = new Promise(resolve => child.once('exit', resolve)); child.kill(); await exited; }
+    await recoveredContext?.fiber.dispose();
     await f.close();
   }
 });

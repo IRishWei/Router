@@ -62,6 +62,7 @@ for (const [upstreamCode, status, cleared] of [
   ['token_revoked', 401, true],
   ['chatpass_v2_scope_not_authorized', 403, true],
   ['subscription_sharing_usage_limit_exceeded', 429, false],
+  ['subscription_sharing_user_not_eligible', 403, false],
 ]) {
   test(`full Task ${upstreamCode} pauses and stops new calls while preserving unknown usage`, async () => {
     const f = await nativeFixture({ onResponse: () => ({ status, payload: { error: { code: upstreamCode, message: 'controlled lifecycle failure' } } }) });

@@ -50,7 +50,9 @@ export async function lifecycleServer(options = {}) {
         if (form.get('grant_type') === 'authorization_code') {
           const auth = authorizations.get(form.get('code'));
           if (!auth || form.get('client_id') !== auth.client) throw new Error('controlled authorization identity mismatch');
-          response.end(JSON.stringify(makeToken(auth.client, auth.subject, auth.models, auth.url.searchParams.get('nonce')))); return;
+          const token = makeToken(auth.client, auth.subject, auth.models, auth.url.searchParams.get('nonce'));
+          await options.onAuthorization?.({ ...entry, token });
+          response.end(JSON.stringify(token)); return;
         }
         const identity = tokens.get(form.get('refresh_token'));
         if (!identity || identity.client !== form.get('client_id')) throw new Error('controlled refresh identity mismatch');

@@ -885,7 +885,7 @@ export class RouterService extends TypertRemoteService {
     this.#persist(); await this.flush();
     return this.snapshot();
   }
-  async chatGptCancelAuthorization() { this.#chatGpt.cancelAuthorization(); return this.snapshot(); }
+  async chatGptCancelAuthorization() { await this.#chatGpt.cancelAuthorization(); return this.snapshot(); }
   async chatGptConnect() {
     await this.#chatGpt.connect();
     await this.#connections.refresh();

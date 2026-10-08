@@ -223,7 +223,8 @@ export function describeChatGptGrant(record) {
 
 export function createChatGptAuthorizationFlow({
   hostId, credentialKey: key = CHATGPT_CREDENTIAL_KEY, transport, endpoints: endpointInput,
-  getExistingGrant = async () => undefined, getRegistration = () => null, afterCommit = async () => {}, timeoutMs = 5 * 60_000, now = Date.now,
+  getExistingGrant = async () => undefined, getRegistration = () => null, afterCommit = async () => {},
+  commitGrant = (record, session) => session.commit(record), timeoutMs = 5 * 60_000, now = Date.now,
 }) {
   if (!/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(hostId)) throw new TypeError('hostId must be a urn:uuid identifier');
   if (!transport?.request) throw new TypeError('transport.request is required');
@@ -294,7 +295,7 @@ export function createChatGptAuthorizationFlow({
           ...(typeof token.earliest_refresh_at === 'string' || Number.isFinite(token.earliest_refresh_at) ? { earliestRefreshAt: token.earliest_refresh_at } : {}),
           scopes, savedAt: new Date(now()).toISOString(), authorizedAt: new Date(now()).toISOString(), catalog,
         };
-        await session.commit({ kind: 'grant', payload: grant });
+        await commitGrant({ kind: 'grant', payload: grant }, session);
         const description = describeChatGptGrant({ kind: 'grant', payload: grant });
         await afterCommit({ ...description, previousRecord });
       } finally {

@@ -167,9 +167,9 @@ test('OAuth already committing behind the credential lock cannot reactivate a si
   const queued = new Promise(resolve => { queuedResolve = resolve; });
   const modify = f.ctx.credentials.modifyRecord.bind(f.ctx.credentials);
   try {
+    const attempt = await f.host.startAuthorization();
     const held = modify(chatGptSessionKey(f.registration), async () => { await gate; return undefined; });
     f.ctx.credentials.modifyRecord = (key, mutate) => { queuedResolve(); return modify(key, mutate); };
-    const attempt = await f.host.startAuthorization();
     await f.remote.authorize(attempt.authorizationURL);
     await queued;
     const signingOut = f.host.signOut();
@@ -181,9 +181,11 @@ test('OAuth already committing behind the credential lock cannot reactivate a si
     const snapshot = await f.host.snapshot();
     assert.equal(snapshot.account.configured, false);
     assert.equal(snapshot.connection, null);
-    const revoked = f.remote.requests.find(item => item.path === '/revoke');
-    assert.notEqual(revoked.form.get('token'), f.record.payload.refreshToken);
-    assert.equal(snapshot.lifecycle.revocation.status, 'confirmed');
+    await f.host.dispose(); // A cancelled public authorization can finish cleanup after begin() settles.
+    const revoked = f.remote.requests.filter(item => item.path === '/revoke');
+    assert.ok(revoked.some(item => item.form.get('token') !== f.record.payload.refreshToken));
+    assert.ok(revoked.some(item => item.form.get('token') === f.record.payload.refreshToken));
+    assert.equal((await f.host.snapshot()).lifecycle.revocation.status, 'confirmed');
   } finally { release(); f.ctx.credentials.modifyRecord = modify; await f.close(); }
 });
 
@@ -202,4 +204,78 @@ test('adding an already registered account retains the new committed slot withou
     await f.host.signOut();
     assert.equal((await f.host.snapshot()).account.configured, false);
   } finally { await f.close(); }
+});
+
+for (const cleanupStatus of [200, 503]) {
+  test(`duplicate account OAuth queued at sign-out revokes its rejected new token and reports cleanup HTTP ${cleanupStatus}`, async () => {
+    const f = await fixture({ onRevoke: entry => ({ status: entry.form.get('token') === 'refresh-fixture-1' ? 200 : cleanupStatus }) });
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    let queuedResolve;
+    const queued = new Promise(resolve => { queuedResolve = resolve; });
+    const modify = f.ctx.credentials.modifyRecord.bind(f.ctx.credentials);
+    try {
+      const attempt = await f.host.startAuthorization({ newAccount: true });
+      const held = modify(chatGptSessionKey(f.registration), async () => { await gate; return undefined; });
+      f.ctx.credentials.modifyRecord = (key, mutate) => { queuedResolve(); return modify(key, mutate); };
+      await f.remote.authorize(attempt.authorizationURL);
+      await queued;
+      const signingOut = f.host.signOut();
+      await tick();
+      assert.equal(f.state.chatGpt.connection, null);
+      release();
+      await Promise.all([held, signingOut]);
+      await waitAuthorization(f.host);
+      await f.host.dispose();
+      const snapshot = await f.host.snapshot();
+      assert.equal(snapshot.account.configured, false);
+      assert.equal(snapshot.connection, null);
+      assert.equal(snapshot.lifecycle.revocation.status, cleanupStatus === 200 ? 'confirmed' : 'unconfirmed');
+      if (cleanupStatus === 503) assert.equal(snapshot.lifecycle.revocation.failureCode, 'CHATGPT_REVOCATION_HTTP_503');
+      const revokes = f.remote.requests.filter(item => item.path === '/revoke');
+      assert.equal(revokes.length, 2);
+      assert.ok(revokes.some(item => item.form.get('token') !== f.record.payload.refreshToken));
+      for (const { key } of await f.ctx.credentials.listRecords()) {
+        const record = await f.ctx.credentials.readRecord(key);
+        assert.equal(record?.payload?.accessToken, undefined);
+        assert.equal(record?.payload?.refreshToken, undefined);
+      }
+      assert.equal(f.remote.failures.length, 0);
+    } finally { release(); f.ctx.credentials.modifyRecord = modify; await f.close(); }
+  });
+}
+
+test('a second Host signing out during OAuth token exchange prevents the first Host from restoring the account', async () => {
+  let enteredResolve;
+  const entered = new Promise(resolve => { enteredResolve = resolve; });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const f = await fixture({ onAuthorization: async () => { enteredResolve(); await gate; } });
+  let otherCtx;
+  let otherHost;
+  try {
+    const staleSpec = f.mounts.at(-1);
+    const attempt = await f.host.startAuthorization();
+    otherCtx = await credentialsContext(f.home);
+    otherHost = new ChatGptHost(otherCtx, structuredClone(f.state), async () => {}, f.hostOptions);
+    await otherHost.initialize();
+    await f.remote.authorize(attempt.authorizationURL);
+    await entered;
+    await otherHost.signOut();
+    const pending = await otherHost.snapshot();
+    assert.equal(pending.account.configured, false);
+    assert.equal(pending.lifecycle.revocation.status, 'unconfirmed');
+    assert.equal(pending.lifecycle.revocation.failureCode, 'AUTHORIZATION_CLEANUP_PENDING');
+    release();
+    assert.equal((await waitAuthorization(f.host)).authorization.status, 'cancelled');
+    await f.host.dispose();
+    await assert.rejects(staleSpec.getAuthorizedCredential(credentialRequest(staleSpec)));
+    await otherCtx.credentials.modifyRecord(chatGptSessionKey(f.registration), () => undefined);
+    const final = await otherHost.snapshot();
+    assert.equal(final.account.configured, false);
+    assert.equal(final.connection, null);
+    assert.equal(final.lifecycle.revocation.status, 'confirmed');
+    assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 2);
+    assert.equal(f.remote.failures.length, 0);
+  } finally { release(); await otherHost?.dispose(); await otherCtx?.fiber.dispose(); await f.close(); }
 });
