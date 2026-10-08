@@ -1,21 +1,15 @@
 import assert from 'node:assert/strict';
-import { execFile } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { readFile } from 'node:fs/promises';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { connect } from 'node:net';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
 import test from 'node:test';
 import { createUserMessage } from '@deepseek-ai/dsh-llm';
 import { createChatGptResponsesAdapter } from '../src/chatgpt-responses.mjs';
 import { createSourceNetworkTransport } from '../src/source-network.mjs';
 
-const run = promisify(execFile);
-const OPENSSL = 'C:/Program Files/Git/usr/bin/openssl.exe';
-
 const sse = event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+const fixture = name => new URL(`./fixtures/${name}`, import.meta.url);
 
 async function listen(server) {
   await new Promise((resolve, reject) => {
@@ -35,23 +29,20 @@ async function collect(iterable) {
   return chunks;
 }
 
-async function certificate(directory) {
-  const keyPath = join(directory, 'origin.key.pem');
-  const certPath = join(directory, 'origin.cert.pem');
-  await run(OPENSSL, [
-    'req', '-x509', '-newkey', 'rsa:2048', '-sha256', '-nodes',
-    '-keyout', keyPath, '-out', certPath, '-days', '1',
-    '-subj', '/CN=api.openai.com', '-addext', 'subjectAltName=DNS:api.openai.com',
-  ], { windowsHide: true, timeout: 10_000, maxBuffer: 64 * 1024 });
-  return { key: await readFile(keyPath), cert: await readFile(certPath) };
+async function controlledTls() {
+  const [ca, cert, key] = await Promise.all([
+    readFile(fixture('t09-controlled-ca-cert.pem')),
+    readFile(fixture('t09-controlled-server-cert.pem')),
+    readFile(fixture('t09-controlled-server-key.pem')),
+  ]);
+  return { ca, cert, key };
 }
 
 test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled HTTP 200 non-SSE response', { timeout: 10_000 }, async () => {
-  const directory = await mkdtemp(join(tmpdir(), 'router-t09-proxy-responses-'));
-  const tls = await certificate(directory);
+  const tls = await controlledTls();
   const requests = [];
   let mode = 'sse';
-  const origin = createHttpsServer(tls, async (request, response) => {
+  const origin = createHttpsServer({ cert: tls.cert, key: tls.key }, async (request, response) => {
     const body = [];
     for await (const chunk of request) body.push(chunk);
     requests.push({ method: request.method, url: request.url, body: JSON.parse(Buffer.concat(body).toString('utf8')) });
@@ -101,7 +92,7 @@ test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled
     const network = createSourceNetworkTransport({
       lookup: async () => [{ address: '127.0.0.1', family: 4 }],
       discoverProxy: async () => ({ kind: 'proxy', url: `http://127.0.0.1:${proxyPort}/` }),
-      tlsOptions: { ca: tls.cert },
+      tlsOptions: { ca: tls.ca },
     });
     const adapter = createChatGptResponsesAdapter({
       provider: 'router-chatgpt-controlled', accountId: 'account-controlled',
@@ -142,6 +133,5 @@ test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled
   } finally {
     for (const socket of sockets) socket.destroy();
     await Promise.allSettled([close(proxy), close(origin)]);
-    await rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
   }
 });
