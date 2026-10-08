@@ -134,8 +134,9 @@ window.__ModuleLoader__.load({
         ...task.calls.map(call => h('details', { key: call.id }, h('summary', null, `${call.purpose}${call.nativePurpose ? ` (${call.nativePurpose})` : ''} · ${call.selection.provider}/${call.selection.model} · ${call.status}`),
           call.priceQuote ? h('p', null, `${amountKind(call.priceQuote.kind)}报价来源：${call.priceQuote.source} · ${call.priceQuote.date} · ${call.priceQuote.currency} · ${confidence(call.priceQuote.confidence)} · ${call.priceQuote.reasoning === 'included-in-output' ? '推理已含于输出，不重复计价' : call.priceQuote.reasoning === 'separate' ? '推理单独计价' : '推理重叠关系未知'}`) : h('p', null, '价格未知'),
           h(SubscriptionReference, { subscription: call.subscription, quote: call.priceQuote, cost: call.cost }),
+          call.usageAccounting ? h('p', null, `官方聚合输入：${call.usageAccounting.aggregateInputTokens} token，包含缓存读写，不另加到 token 总量或重复计价。${call.usageAccounting.inputPartitions === 'incomplete' ? '缓存分项不完整，普通输入仍为未知。' : ''}`) : null,
           call.overEstimate?.length ? h('p', null, '实际用量超过预留；单次请求可能超出预算估算。') : null,
-          h('pre', null, JSON.stringify({ selection: call.selection, subscription: call.subscription, reservation: call.reservation, usage: call.usage, cost: call.cost, priceQuote: call.priceQuote }, null, 2)))));
+          h('pre', null, JSON.stringify({ selection: call.selection, subscription: call.subscription, reservation: call.reservation, usage: call.usage, usageAccounting: call.usageAccounting, cost: call.cost, priceQuote: call.priceQuote }, null, 2)))));
     }
     function RoutingDecision({ task }) {
       if (!task.routing) return h('p', null, '此任务没有起始路由记录。');

@@ -1081,6 +1081,10 @@ export class RouterService extends TypertRemoteService {
     this.#callSignals.delete(call.id);
     this.#unboundAbortDisposers.get(call.id)?.(); this.#unboundAbortDisposers.delete(call.id);
     call.usage = settlement.usage ? Object.fromEntries(Object.entries(settlement.usage).filter(([key, value]) => ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'totalTokens'].includes(key) && Number.isSafeInteger(value) && value >= 0)) : null;
+    if (call.usage && call.subscription?.usageFormat === 'openai-responses' && call.usage.inputTokens !== undefined) {
+      const aggregateInputTokens = call.usage.inputTokens + (call.usage.cacheReadTokens ?? 0) + (call.usage.cacheWriteTokens ?? 0);
+      if (Number.isSafeInteger(aggregateInputTokens)) call.usageAccounting = { aggregateInputTokens, source: 'openai-responses-usage', inputPartitions: ['cacheReadTokens', 'cacheWriteTokens'].every(key => call.usage[key] !== undefined) ? 'complete' : 'incomplete' };
+    }
     // Responses folds cache reads/writes into its prompt. If either detail was
     // omitted, the adapter's residual input cannot prove ordinary input usage.
     if (call.usage && call.subscription?.usageFormat === 'openai-responses' && ['cacheReadTokens', 'cacheWriteTokens'].some(key => call.usage[key] === undefined)) delete call.usage.inputTokens;

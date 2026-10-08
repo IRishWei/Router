@@ -16,6 +16,7 @@ test('full subscription Task freezes exact pricing and real returned partitions;
     const call = task.calls[0];
     assert.deepEqual(call.usage, { inputTokens: 700, outputTokens: 50, cacheReadTokens: 200, cacheWriteTokens: 100, reasoningTokens: 30, totalTokens: 1050 });
     assert.equal(call.cost.amount, 0.00217);
+    assert.deepEqual(call.usageAccounting, { aggregateInputTokens: 1000, source: 'openai-responses-usage', inputPartitions: 'complete' });
     assert.equal(call.priceQuote.kind, 'subscription-reference');
     assert.equal(call.quoteVersion, 'openai-standard-text:2026-10-09:gpt-6.1-sol');
     assert.equal(call.subscription.mapping.confidence, 'exact');
@@ -119,6 +120,8 @@ for (const [name, usage, expectedReason] of [
       assert.equal(task.ledger.subscriptionQuota[0].scarcityApplied, false);
       if (name === 'missing cache write') {
         assert.equal(task.calls[0].usage.inputTokens, undefined);
+        assert.equal(task.calls[0].usageAccounting.aggregateInputTokens, 1000);
+        assert.equal(task.calls[0].usageAccounting.inputPartitions, 'incomplete');
         assert.equal(task.ledger.tokens.input, null);
         assert.equal(task.ledger.tokens.cacheWrite, null);
         assert.equal(task.ledger.tokens.total, 1050);

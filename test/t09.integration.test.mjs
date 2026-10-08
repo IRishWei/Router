@@ -179,7 +179,9 @@ test('a native contradictory completion pauses with known usage, no retry and no
     assert.equal(remote.requests.length, 1);
     assert.equal(task.calls.length, 1);
     assert.equal(task.calls[0].failureCode, 'MALFORMED_RESPONSE');
-    assert.deepEqual(task.calls[0].usage, { inputTokens: 13, outputTokens: 2, cacheReadTokens: 3, reasoningTokens: 1, totalTokens: 18 });
+    assert.deepEqual(task.calls[0].usage, { outputTokens: 2, cacheReadTokens: 3, reasoningTokens: 1, totalTokens: 18 });
+    assert.equal(task.calls[0].usageAccounting.aggregateInputTokens, 16);
+    assert.equal(task.ledger.tokens.input, null); // Missing cache-write detail cannot prove ordinary input.
     assert.equal(task.ledger.tokens.total, 18);
     assert.equal(task.ledger.unknownTokenCalls.total, 0);
     assert.equal(task.calls.some(call => call.purpose === 'retry'), false);
