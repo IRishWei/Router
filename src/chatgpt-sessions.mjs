@@ -127,10 +127,11 @@ export class ChatGptSessions {
     try {
       await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
         const grant = chatGptGrantFromRecord(current);
-        if (skipIfCleared && !grant && current?.payload?.revocation) return undefined;
+        if (skipIfCleared && !grant && current?.payload?.revocationAuthorizationId === epoch) return undefined;
         const ownsCommitted = grant?.authorizationId === epoch;
         await revoke(ownsCommitted ? grant : exchanged);
-        return ownsCommitted ? clearedRecord({ ...registration, accountId: chatGptAccountId(grant.issuedClientId, grant.subject), issuedClientId: grant.issuedClientId }, this.#hostId, 'signed-out', { revocation }) : undefined;
+        return ownsCommitted ? clearedRecord({ ...registration, accountId: chatGptAccountId(grant.issuedClientId, grant.subject), issuedClientId: grant.issuedClientId },
+          this.#hostId, 'signed-out', { revocation, revocationAuthorizationId: epoch }) : undefined;
       });
     } catch {
       // A failed credential store cannot prevent cleanup of the grant already
@@ -355,7 +356,9 @@ export class ChatGptSessions {
         try { await this.#revoke(grant); outcome = { status: 'confirmed' }; }
         catch (cause) { outcome = { status: 'unconfirmed', failureCode: /^[A-Z0-9_]{1,100}$/u.test(cause.code ?? '') ? cause.code : 'CHATGPT_REVOCATION_FAILED' }; }
       }
-      return clearedRecord(registration, this.#hostId, 'signed-out', { revocation: outcome });
+      const revocationAuthorizationId = grant ? grant.authorizationId : current?.payload?.revocationAuthorizationId;
+      return clearedRecord(registration, this.#hostId, 'signed-out', { revocation: outcome,
+        ...(typeof revocationAuthorizationId === 'string' ? { revocationAuthorizationId } : {}) });
     });
     return outcome;
   }

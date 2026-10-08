@@ -217,13 +217,21 @@ export class ChatGptHost {
     this.#flowKey = key;
     return key;
   }
+  async #authorizationCommitIsCurrent(registration, epoch, durableEpoch, committedGrant) {
+    let current = false;
+    let checkFailure;
+    try { current = epoch === this.#authorizationEpoch && !this.#disposed && await this.#sessions.authorizationIsCurrent(durableEpoch); }
+    catch (cause) { checkFailure = cause; }
+    if (current) return true;
+    try { await this.#sessions.discardAuthorization(registration, durableEpoch, committedGrant); }
+    finally { if (checkFailure) throw checkFailure; }
+    return false;
+  }
   async #afterCommit(result, credentialId, epoch, durableEpoch, committedGrant) {
     const existing = this.#state.chatGpt.account;
     const priorRegistration = this.#state.chatGpt.registrations.find(item => item.accountId === result.accountId);
-    if (epoch !== this.#authorizationEpoch || !(await this.#sessions.authorizationIsCurrent(durableEpoch))) {
-      await this.#sessions.discardAuthorization({ accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId }, durableEpoch, committedGrant);
-      return;
-    }
+    const registration = { accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId };
+    if (!(await this.#authorizationCommitIsCurrent(registration, epoch, durableEpoch, committedGrant))) return;
     const account = { accountId: result.accountId, issuedClientId: result.issuedClientId, configRevision: Math.max(existing?.configRevision ?? 0, priorRegistration?.configRevision ?? 0) + 1 };
     const connection = {
       connectionId: existing?.accountId === result.accountId && this.#state.chatGpt.connection?.accountId === result.accountId
@@ -237,10 +245,7 @@ export class ChatGptHost {
       // slot could overwrite a replacement rotated by a concurrent process.
       await this.#sessions.signOut(priorRegistration);
     }
-    if (epoch !== this.#authorizationEpoch || !(await this.#sessions.authorizationIsCurrent(durableEpoch))) {
-      await this.#sessions.discardAuthorization({ ...account, credentialId }, durableEpoch, committedGrant);
-      return;
-    }
+    if (!(await this.#authorizationCommitIsCurrent(registration, epoch, durableEpoch, committedGrant))) return;
     this.#state.chatGpt.registrations = this.#state.chatGpt.registrations.filter(item => item.accountId !== account.accountId);
     this.#state.chatGpt.registrations.push({ ...account, credentialId, label: priorRegistration?.label ?? `ChatGPT ${this.#state.chatGpt.registrations.length + 1}` });
     if (epoch !== this.#authorizationEpoch) { await this.#changed(); return; }

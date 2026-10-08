@@ -440,3 +440,98 @@ test('storage failure after a successful commit cannot hide or prevent cleanup o
     assert.equal(f.remote.failures.length, 0);
   } finally { f.ctx.credentials.modifyRecord = modify; await f.close(); }
 });
+
+test('a cross-Host durable guard failure still cleans the committed grant without erasing another account', async () => {
+  const f = await fixture();
+  const otherCtx = await credentialsContext(f.home);
+  const otherHost = new ChatGptHost(otherCtx, structuredClone(f.state), async () => {}, f.hostOptions);
+  const modify = f.ctx.credentials.modifyRecord.bind(f.ctx.credentials);
+  let faulted = false;
+  let committedToken;
+  try {
+    await otherHost.initialize();
+    f.ctx.credentials.modifyRecord = async (key, mutate) => {
+      if (faulted) throw Object.assign(new Error('controlled durable guard storage fault'), { code: 'EACCES' });
+      const record = await modify(key, mutate);
+      if (key.startsWith('irishwei-dsh-router/chatgpt-oauth-') && record?.payload?.authorizationId) {
+        committedToken = record.payload.refreshToken;
+        await otherHost.signOut();
+        faulted = true;
+      }
+      return record;
+    };
+    const attempt = await f.host.startAuthorization({ newAccount: true });
+    await f.remote.authorize(attempt.authorizationURL, { client: 'oaiapp-b', subject: 'subject-b' });
+    await waitAuthorization(f.host);
+    await f.host.dispose();
+    const snapshot = await f.host.snapshot();
+    assert.ok(committedToken);
+    assert.equal(snapshot.authorization.status, 'failed');
+    assert.equal(snapshot.authorization.failureCode, 'EACCES');
+    assert.equal(snapshot.lifecycle.revocation.localCleared, false);
+    assert.equal(snapshot.lifecycle.revocation.remoteStatus, 'confirmed');
+    const revokes = f.remote.requests.filter(item => item.path === '/revoke');
+    assert.equal(revokes.filter(item => item.form.get('token') === committedToken).length, 1);
+    assert.equal(revokes.filter(item => item.form.get('token') === f.record.payload.refreshToken).length, 1);
+    assert.equal(f.remote.failures.length, 0);
+  } finally {
+    f.ctx.credentials.modifyRecord = modify;
+    await otherHost.dispose(); await otherCtx.fiber.dispose(); await f.close();
+  }
+});
+
+test('a newer authorization tombstone skips only its own revoked generation', async () => {
+  const f = await fixture();
+  await f.host.dispose();
+  let blocking = false;
+  let enteredResolve;
+  const entered = new Promise(resolve => { enteredResolve = resolve; });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const host = new ChatGptHost(f.ctx, f.state, async () => {
+    if (blocking) { enteredResolve(); await gate; blocking = false; }
+  }, f.hostOptions);
+  const modify = f.ctx.credentials.modifyRecord.bind(f.ctx.credentials);
+  const key = chatGptSessionKey(f.registration);
+  const commits = [];
+  let otherCtx;
+  let otherHost;
+  try {
+    await host.initialize();
+    f.ctx.credentials.modifyRecord = async (candidateKey, mutate) => {
+      const updated = await modify(candidateKey, mutate);
+      if (candidateKey === key && updated?.payload?.authorizationId
+        && !commits.some(item => item.authorizationId === updated.payload.authorizationId)) commits.push(structuredClone(updated.payload));
+      return updated;
+    };
+    blocking = true;
+    const disconnecting = host.disconnect();
+    await entered;
+    for (const expected of [1, 2]) {
+      const attempt = await host.startAuthorization();
+      await f.remote.authorize(attempt.authorizationURL);
+      for (let i = 0; i < 150 && commits.length < expected; i++) await delay(20);
+      assert.equal(commits.length, expected);
+      if (expected === 1) { await host.cancelAuthorization(); await waitAuthorization(host); }
+    }
+    otherCtx = await credentialsContext(f.home);
+    otherHost = new ChatGptHost(otherCtx, structuredClone(f.state), async () => {}, f.hostOptions);
+    await otherHost.initialize();
+    await otherHost.signOut();
+    release();
+    await disconnecting;
+    await host.dispose();
+    await otherCtx.credentials.modifyRecord(key, () => undefined);
+    const tombstone = await otherCtx.credentials.readRecord(key);
+    assert.equal(tombstone.payload.revocationAuthorizationId, commits[1].authorizationId);
+    assert.equal(tombstone.payload.refreshToken, undefined);
+    const revokes = f.remote.requests.filter(item => item.path === '/revoke');
+    for (const grant of commits) assert.equal(revokes.filter(item => item.form.get('token') === grant.refreshToken).length, 1);
+    assert.equal(revokes.length, 2);
+    assert.equal((await otherHost.snapshot()).lifecycle.revocation.status, 'confirmed');
+    assert.equal(f.remote.failures.length, 0);
+  } finally {
+    release(); f.ctx.credentials.modifyRecord = modify;
+    await host.dispose(); await otherHost?.dispose(); await otherCtx?.fiber.dispose(); await f.close();
+  }
+});
