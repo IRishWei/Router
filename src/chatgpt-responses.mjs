@@ -5,7 +5,20 @@ const DIRECT_SCOPE = 'chatgpt.tokens.use.direct';
 const REQUEST_TIMEOUT_MS = 120_000;
 const MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
 const MAX_UPLOAD_BYTES = 16 * 1024 * 1024;
+const MAX_JSON_DIAGNOSTIC_BYTES = 64 * 1024;
 const NO_RETRY_POLICY = resolveRetryPolicy({ mode: 'normal', maxRetries: 0 }, 'ChatGPT Responses retry policy');
+const KNOWN_JSON_ERROR_CODES = new Set([
+  'subscription_sharing_user_not_eligible',
+  'subscription_sharing_usage_limit_exceeded',
+  'subscription_sharing_usage_unavailable',
+  'subscription_sharing_unsupported_capability',
+  'subscription_sharing_route_not_supported',
+  'subscription_sharing_invalid_user',
+  'chatpass_v2_scope_not_authorized',
+  'chatpass_v2_invalid_authorization_context',
+  'subscription_sharing_user_unavailable',
+]);
+const SUPPORTED_REQUEST_PARAMS = new Set(['model', 'input', 'store', 'stream', 'include', 'tools']);
 
 function requiredString(value, name) {
   if (typeof value !== 'string' || value.length === 0) throw new TypeError(`${name} must be a non-empty string`);
@@ -217,9 +230,77 @@ function requestIdOf(headers) {
 
 function contentTypeClass(value) {
   if (typeof value !== 'string' || value.trim().length === 0) return 'missing';
-  const mediaType = value.split(';', 1)[0].trim().toLowerCase();
+  const mediaType = mediaTypeOf(value);
   if (mediaType === 'application/json' || mediaType === 'text/html') return mediaType;
   return 'other';
+}
+
+function mediaTypeOf(value) {
+  return typeof value === 'string' ? value.split(';', 1)[0].trim().toLowerCase() : undefined;
+}
+
+function timeoutError() {
+  return new LlmError('ChatGPT Responses request timed out', 'TIMEOUT');
+}
+
+async function boundedNext(iterator, signal, deadline) {
+  checkAbort(signal);
+  const remaining = deadline - Date.now();
+  if (remaining <= 0) throw timeoutError();
+  let timer;
+  let onAbort;
+  try {
+    const interrupted = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(timeoutError()), remaining);
+      if (signal) {
+        onAbort = () => {
+          try { checkAbort(signal); } catch (error) { reject(error); }
+        };
+        signal.addEventListener('abort', onAbort, { once: true });
+        if (signal.aborted) onAbort();
+      }
+    });
+    return await Promise.race([iterator.next(), interrupted]);
+  } finally {
+    clearTimeout(timer);
+    if (onAbort) signal.removeEventListener('abort', onAbort);
+  }
+}
+
+function classifyJsonDiagnostic(text) {
+  let raw;
+  try { raw = JSON.parse(text); } catch { return 'body shape: invalid-json'; }
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return 'body shape: other';
+  if (raw.error && typeof raw.error === 'object' && !Array.isArray(raw.error)) {
+    const code = typeof raw.error.code === 'string'
+      ? KNOWN_JSON_ERROR_CODES.has(raw.error.code) ? raw.error.code : 'unknown'
+      : 'none';
+    const param = typeof raw.error.param === 'string'
+      ? SUPPORTED_REQUEST_PARAMS.has(raw.error.param) ? raw.error.param : 'unknown'
+      : 'none';
+    return `body shape: error-object; code: ${code}; param: ${param}`;
+  }
+  if (Object.hasOwn(raw, 'detail')) return 'body shape: detail-object';
+  if (Object.hasOwn(raw, 'response')) return 'body shape: response-object';
+  return 'body shape: other';
+}
+
+async function jsonDiagnostic(body, signal, deadline) {
+  if (!body || typeof body[Symbol.asyncIterator] !== 'function') return 'body shape: invalid-json';
+  const iterator = body[Symbol.asyncIterator]();
+  const chunks = [];
+  let bytes = 0;
+  while (true) {
+    const { done, value: chunk } = await boundedNext(iterator, signal, deadline);
+    if (done) break;
+    checkAbort(signal);
+    if (!(chunk instanceof Uint8Array)) throw new LlmError('Responses transport returned a non-byte body', 'INVALID_RESPONSE');
+    bytes += chunk.byteLength;
+    if (bytes > MAX_JSON_DIAGNOSTIC_BYTES) return 'body shape: too-large';
+    chunks.push(chunk);
+  }
+  checkAbort(signal);
+  return classifyJsonDiagnostic(Buffer.concat(chunks).toString('utf8'));
 }
 
 async function readBody(body, signal) {
@@ -587,6 +668,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
     const body = JSON.stringify(requestBody(options));
     if (Buffer.byteLength(body) > MAX_UPLOAD_BYTES) throw new LlmError('Responses request exceeds the configured limit', 'REQUEST_TOO_LARGE');
     let response;
+    const deadline = Date.now() + REQUEST_TIMEOUT_MS;
     try {
       response = await this.#spec.transport(this.#spec.responsesURL, {
         method: 'POST',
@@ -597,7 +679,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
           accept: 'text/event-stream',
         },
         body,
-        deadline: Date.now() + REQUEST_TIMEOUT_MS,
+        deadline,
         signal: options.signal,
         maxResponseBytes: MAX_RESPONSE_BYTES,
         maxUploadBytes: MAX_UPLOAD_BYTES,
@@ -615,8 +697,18 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
         throw providerFailure(parsed, response.statusCode, requestId);
       }
       const contentType = headerValue(response.headers, 'content-type');
-      if (typeof contentType !== 'string' || !contentType.toLowerCase().includes('text/event-stream')) {
-        throw new LlmError(`Responses endpoint did not return an event stream (content type: ${contentTypeClass(contentType)})`, 'INVALID_RESPONSE', { status: response.statusCode, ...(requestId === undefined ? {} : { requestId }) });
+      if (mediaTypeOf(contentType) !== 'text/event-stream') {
+        const classification = contentTypeClass(contentType);
+        let diagnostic;
+        if (classification === 'application/json') {
+          try {
+            diagnostic = await jsonDiagnostic(response.body, options.signal, deadline);
+          } catch (error) {
+            throw transportError(error, options.signal, requestId);
+          }
+        }
+        const suffix = diagnostic === undefined ? '' : `; ${diagnostic}`;
+        throw new LlmError(`Responses endpoint did not return an event stream (content type: ${classification}${suffix})`, 'INVALID_RESPONSE', { status: response.statusCode, ...(requestId === undefined ? {} : { requestId }) });
       }
       const onCompleted = async usage => {
         if (!this.#spec.onInferenceCompleted) return;
