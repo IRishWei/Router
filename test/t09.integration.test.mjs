@@ -138,6 +138,37 @@ for (const [contentType, failureCode] of [['application/json', 'INVALID_RESPONSE
   });
 }
 
+test('a native contradictory completion pauses with known usage, no retry and no inference confirmation', async () => {
+  const remote = await endpoint(() => {
+    const events = finalEvents();
+    events.at(-1).response.output = [];
+    return events;
+  }, { contentType: null });
+  const home = await mkdtemp(join(tmpdir(), 'router-t09-contradictory-completion-'));
+  let ctx;
+  try {
+    const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
+    ctx = connectedHost.ctx;
+    await ctx.plugin(LlmRetry);
+    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.pauseReason, 'MALFORMED_RESPONSE');
+    assert.equal(remote.requests.length, 1);
+    assert.equal(task.calls.length, 1);
+    assert.equal(task.calls[0].failureCode, 'MALFORMED_RESPONSE');
+    assert.deepEqual(task.calls[0].usage, { inputTokens: 13, outputTokens: 2, cacheReadTokens: 3, reasoningTokens: 1, totalTokens: 18 });
+    assert.equal(task.ledger.tokens.total, 18);
+    assert.equal(task.ledger.unknownTokenCalls.total, 0);
+    assert.equal(task.calls.some(call => call.purpose === 'retry'), false);
+    assert.deepEqual(snapshot.chatGpt.inference, {});
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await remote.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
 test('the native retry plugin honors the ChatGPT zero-retry policy for a retryable SERVER failure', async () => {
   const remote = await endpoint(
     () => ({ error: { message: 'controlled server failure' } }),
