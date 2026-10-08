@@ -1,0 +1,18 @@
+{
+  "label": "t09-v0107a",
+  "stage": "offline-install",
+  "installedVersion": "0.10.7",
+  "tasks": 235,
+  "calls": 545,
+  "configVersion": 590,
+  "stateBytes": 9091083,
+  "stateSha256": "D39011690C30C7C6C54C788FE7475CE99A11A25D1235A2E406175F3F6EE261E3",
+  "preservedDataFiles": 476,
+  "installedFilesVerified": 29,
+  "packageBytes": 185622,
+  "packageSha256": "C59537DF4C82D2C0DA36275155FC4AAF6B12B6D55EBE80569A1A5A03C4EBCAC8",
+  "claimPreserved": true,
+  "newTasks": 0,
+  "modelRequests": 0,
+  "actualInference": "unconfirmed"
+}
