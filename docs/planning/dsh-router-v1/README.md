@@ -2,6 +2,8 @@
 
 来源：[GitHub 规格 #1](https://github.com/IRishWei/Router/issues/1)。已按确认的草案发布 24 张任务票（#2—#25）；父规格的正文、标签和状态保持不变。
 
+2026-10-08 用户同意优先推进独立 ChatGPT OAuth：T09 的前置由 T06 改为已完成的 T03，验收标准不变；T06 的 API Key 路径保留待验证。原始 `publication.json`、`publication-plan.json` 保持发布快照，当前唯一依赖修订见 [dependency-amendments.json](dependency-amendments.json)。全部24票仍需各自验收，原生依赖总数仍为36；T15等其他依赖不随本次改序变更。
+
 每张票交付可演示的完整行为，包含必要界面、请求路径、记录和外部测试。仓库尚无源码，没有需要先做的宽重构。
 
 ## 顺序与依赖
@@ -22,7 +24,7 @@
 
 8. **[T08 发现并引用已有 DSH 连接（#9）](https://github.com/IRishWei/Router/issues/9)** — 前置：[T03 / #4](https://github.com/IRishWei/Router/issues/4)。插件列出可通过公开宿主契约复用的已有连接，用户启用后可完成任务。
 
-9. **[T09 独立 ChatGPT 授权与首个任务（#10）](https://github.com/IRishWei/Router/issues/10)** — 前置：[T06 / #7](https://github.com/IRishWei/Router/issues/7)。在插件点击官方授权，返回后发现账号可用模型并完成同一 DSH 任务。
+9. **[T09 独立 ChatGPT 授权与首个任务（#10）](https://github.com/IRishWei/Router/issues/10)** — 前置：[T03 / #4](https://github.com/IRishWei/Router/issues/4)。在插件点击官方授权，返回后发现账号可用模型并完成同一 DSH 任务。
 
 10. **[T10 ChatGPT 续期、切换账号与退出恢复（#11）](https://github.com/IRishWei/Router/issues/11)** — 前置：[T09 / #10](https://github.com/IRishWei/Router/issues/10)。授权连接可重启恢复、串行续期、切换账号及退出，失败时任务得到清晰暂停原因。
 
@@ -56,8 +58,8 @@
 
 ## 执行边界
 
-- 全部 24 张任务票的正文、ready-for-agent 标签与 36 条 GitHub 原生阻塞关系已核验；结果记录于 publication.json。父规格仅作为子票正文引用。
-- 当前可开始的任务只有 [T01 / #2](https://github.com/IRishWei/Router/issues/2)；前置均完成后才能领取后续票。ready-for-agent 表示票已可供实现，不代表其阻塞已解除。
+- 原始发布时的24张任务票正文、ready-for-agent 标签与36条 GitHub 原生阻塞关系核验记录于 publication.json。2026-10-08 起核对当前图时须应用 dependency-amendments.json；仅 T09 的 Blocked by 行有用户授权的变更。父规格仅作为子票正文引用。
+- 原始发布时仅 T01 / #2 可开始；2026-10-08 已完成9/24，T05/T06待真实凭据及授权，T09按上述修订进入可开发前沿。前置均完成后才能领取后续票；ready-for-agent 不解除原生依赖。
 - T21 的真实效果结论是额外决策门槛；关闭本票不等于效果通过。T23/T24 必须检查允许继续的结论与用户开启条件。
 - 模拟验证、真实宿主验证与真实计费调用证据分别记录；无凭据、资格或实验预算时不得宣称已完成真实验证。
 - T04 仅处理最小社区路径和复用决定，不承诺在一张票内迁移整个社区项目。

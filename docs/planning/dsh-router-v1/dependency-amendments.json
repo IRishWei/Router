@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "repository": "IRishWei/Router",
+  "parentIssue": 1,
+  "originalPublication": "publication.json",
+  "originalPlan": "publication-plan.json",
+  "ticketCount": 24,
+  "nativeDependencyCount": 36,
+  "amendments": [
+    {
+      "date": "2026-10-08",
+      "draftId": 9,
+      "issueNumber": 10,
+      "beforeDraftDependencies": [6],
+      "afterDraftDependencies": [3],
+      "beforeIssueDependencies": [7],
+      "afterIssueDependencies": [4],
+      "reason": "用户同意优先推进独立 ChatGPT OAuth；OAuth 不要求先配置 API Key。统一模型池、Task 预算和持久化契约沿用已完成的 T03，T06 API Key 接入保留待验证。",
+      "bodyChange": "仅将 T09 的 Blocked by 引用从 T06/#7 替换为 T03/#4；六条验收标准保持原样。",
+      "otherDependenciesUnchanged": true,
+      "parentBodyUnchanged": true
+    }
+  ]
+}

@@ -21,4 +21,4 @@
 
 ## Blocked by
 
-- [#7 [T06] OpenAI API 连接到完整任务](https://github.com/IRishWei/Router/issues/7)
+- [#4 [T03] 完整任务记账、预算预留与超限暂停](https://github.com/IRishWei/Router/issues/4)
