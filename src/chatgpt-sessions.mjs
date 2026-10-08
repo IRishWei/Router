@@ -183,8 +183,8 @@ export class ChatGptSessions {
   }
   async revocation(registration, fallback) {
     const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
-    let outcome = control.revocations[registration.accountId] ?? fallback;
-    if (Object.values(control.attempts).some(attempt => attempt.revocationFor.includes(registration.accountId))) outcome = { status: 'unconfirmed', failureCode: 'AUTHORIZATION_CLEANUP_PENDING' };
+    let outcome = (registration ? control.revocations[registration.accountId] : null) ?? fallback;
+    if (registration && Object.values(control.attempts).some(attempt => attempt.revocationFor.includes(registration.accountId))) outcome = { status: 'unconfirmed', failureCode: 'AUTHORIZATION_CLEANUP_PENDING' };
     if (control.cleanupAlert) outcome = control.cleanupAlert;
     return outcome;
   }

@@ -77,3 +77,20 @@ test('quota pause has an official Usage link and adding an account uses the sepa
     assert.equal(mounted.calls.some(item => item.endpoint === 'router/chatGptRunDetection'), false);
   } finally { await mounted.dispose(); }
 });
+
+test('Renderer exposes global cleanup failure before any account is registered', async () => {
+  const snapshot = state();
+  snapshot.chatGpt.account = null;
+  snapshot.chatGpt.registrations = [];
+  snapshot.chatGpt.connection = null;
+  snapshot.chatGpt.lifecycle = { status: 'not-configured', failureCode: null, revocation: { status: 'unconfirmed', failureCode: 'CHATGPT_REVOCATION_HTTP_503' } };
+  const mounted = await mountSettings(snapshot, async (_path, endpoint) => {
+    assert.equal(endpoint, 'router/snapshot');
+    return { ok: true, value: structuredClone(snapshot) };
+  });
+  try {
+    await act(async () => { mounted.page.root.findAllByType('button').find(item => item.children.includes('ChatGPT OAuth')).props.onClick(); });
+    assert.match(JSON.stringify(mounted.page.toJSON()), /远端撤销未确认/u);
+    assert.equal(mounted.page.root.findAllByType('a').some(item => item.props.href === 'https://chatgpt.com/#settings'), true);
+  } finally { await mounted.dispose(); }
+});

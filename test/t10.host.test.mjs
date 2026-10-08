@@ -354,3 +354,31 @@ for (const expiredOwner of [false, true]) {
     } finally { release(); f.ctx.credentials.modifyRecord = modify; await otherHost?.dispose(); await otherCtx?.fiber.dispose(); await f.close(); }
   });
 }
+
+test('first sign-in cancelled before commit still exposes global revocation failure with no selected account', async () => {
+  let enteredResolve;
+  const entered = new Promise(resolve => { enteredResolve = resolve; });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  let discovery = 0;
+  const f = await fixture({ discoveryUnavailable: async () => { if (++discovery === 1) { enteredResolve(); await gate; } return false; }, onRevoke: () => ({ status: 503 }) });
+  let host;
+  try {
+    await f.host.dispose();
+    await f.ctx.credentials.deleteRecord(chatGptSessionKey(f.registration));
+    const state = {};
+    host = new ChatGptHost(f.ctx, state, async () => {}, f.hostOptions);
+    await host.initialize();
+    const attempt = await host.startAuthorization();
+    await f.remote.authorize(attempt.authorizationURL);
+    await entered;
+    await host.cancelAuthorization();
+    release();
+    await host.dispose();
+    const snapshot = await host.snapshot();
+    assert.equal(snapshot.account, null);
+    assert.equal(snapshot.registrations.length, 0);
+    assert.equal(snapshot.lifecycle.revocation.status, 'unconfirmed');
+    assert.equal(snapshot.lifecycle.revocation.failureCode, 'CHATGPT_REVOCATION_HTTP_503');
+  } finally { release(); await host?.dispose(); await f.close(); }
+});

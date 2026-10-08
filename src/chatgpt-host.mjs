@@ -496,7 +496,7 @@ export class ChatGptHost {
     if (this.#ctx.get('credentials')) {
       try { if (account) credential = describeChatGptGrant(await this.#sessions.read(this.#registration(account))); } catch { /* redacted unavailable state */ }
     }
-    if (account && this.#sessions) credential = { ...credential, revocation: await this.#sessions.revocation(this.#registration(account), credential.revocation ?? null) };
+    if (this.#sessions) credential = { ...credential, revocation: await this.#sessions.revocation(this.#registration(account), credential.revocation ?? null) };
     const inferenceEntries = [];
     if (account && connection) for (const record of Object.values(this.#state.chatGpt.inference)) {
       const expected = inferenceIdentity(account, connection, record.identity.model);
