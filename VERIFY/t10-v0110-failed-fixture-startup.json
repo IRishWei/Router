@@ -1,0 +1,81 @@
+{
+  "passed": false,
+  "kind": "controlled-fixture-startup-race",
+  "packageVersion": "0.11.0",
+  "sourceSha": "87e61a3b6a64487ca17222bf54dd68a6c7ee35e8",
+  "localEndpointCounts": {
+    "requests": [],
+    "failures": 0,
+    "responses": 0,
+    "responseIdentities": [],
+    "realModelRequests": 0
+  },
+  "tasks": [
+    {
+      "id": "7c12539e-6aa4-4a8b-98db-5b2e1a6d7218",
+      "lifecycle": "paused",
+      "timeline": [
+        {
+          "kind": "input-claimed",
+          "messageId": "360dc437-1000-4b18-aa27-1136baf558f6",
+          "requestId": "0d2ebc57-959b-4b61-a0a9-d4e9ddc98b2d",
+          "turn": 1
+        },
+        {
+          "kind": "routing-decision",
+          "candidateId": "9811b1c5-2c1d-4406-a7a2-fb27d150f917",
+          "reasons": [
+            "FIXED_CANDIDATE"
+          ],
+          "excluded": [
+            {
+              "candidateId": "ea01f948-8a4d-4437-bd59-24c367cb844f",
+              "reasons": [
+                "CANDIDATE_NOT_AUTHORIZED",
+                "CANDIDATE_DISABLED",
+                "CANDIDATE_NOT_IN_POOL"
+              ]
+            },
+            {
+              "candidateId": "e53d0d9b-db95-4bd5-946e-97883780110f",
+              "reasons": [
+                "CANDIDATE_NOT_AUTHORIZED",
+                "CANDIDATE_DISABLED",
+                "CANDIDATE_NOT_IN_POOL"
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "selection",
+          "reason": "fixed-model",
+          "provider": "router-chatgpt-account-b86df2dc48be4a88046c6712",
+          "model": "gpt-lifecycle",
+          "configVersion": 4
+        },
+        {
+          "kind": "native-terminal",
+          "lifecycle": "paused",
+          "reason": "INVALID_CLIENT"
+        },
+        {
+          "kind": "terminal",
+          "lifecycle": "paused",
+          "reason": "INVALID_CLIENT",
+          "acceptance": "unconfirmed"
+        }
+      ],
+      "calls": [
+        {
+          "id": "3e16caea-aeb5-412b-9d06-7c89c8e99fcf",
+          "dispatchStarted": false,
+          "usage": null
+        }
+      ]
+    }
+  ],
+  "diagnosis": "The fixture provided its services after asynchronous credential seeding; Router captured official defaults before those services existed. Synthetic refresh returned INVALID_CLIENT; no real credential or model request was used. The local server saw no request; the number of default-endpoint auth requests is unknown.",
+  "reproduction": "t10-v0110b-fixture-order-repro.mjs: false without Loader injection, true with --require-fixture",
+  "desktopStopped": true,
+  "realModelRequests": 0
+}

@@ -1,0 +1,19 @@
+{
+  "passed": true,
+  "sourceSha": "87e61a3b6a64487ca17222bf54dd68a6c7ee35e8",
+  "packageVersion": "0.11.0",
+  "oldFrozenFilesVerified": 76,
+  "oldStateBytes": 9114595,
+  "oldStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+  "nativeOutputMatchesTask": true,
+  "completedTasks": [
+    "e78c4acf-8fc5-4e26-a1ec-43b7e09f927f",
+    "6407a759-f548-43b5-95d6-8893a53e070f"
+  ],
+  "totalControlledTasks": 4,
+  "controlledResponses": 5,
+  "refreshRequests": 1,
+  "revocations": 1,
+  "controlledAndRestartOwnersStopped": true,
+  "realModelRequests": 0
+}
