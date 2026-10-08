@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "purpose": "T11 actual returned usage acceptance",
+  "sourceSha": "5b4048dd96237a95ad29d5973c837d60324597f3",
+  "packageVersion": "0.12.0",
+  "packageSha256": "47AE4C313FFF8C030465008C9DEC554BD161622497B9925AF1FC51F2D3AAF7E8",
+  "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t11-v0120r3-real-home",
+  "model": "gpt-6.1-sol",
+  "billingPath": "chatgpt-subscription",
+  "maxTasks": 1,
+  "maxModelRequests": 2,
+  "tokens": 65536,
+  "durationMs": 120000,
+  "outputTokenHardLimit": false,
+  "automaticRetry": false,
+  "budgetExtension": false,
+  "apiBillingFallback": false,
+  "originalClaimsAndHistory": "preserved; no credential import or old state mutation"
+}

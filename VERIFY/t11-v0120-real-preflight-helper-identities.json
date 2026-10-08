@@ -1,0 +1,97 @@
+{
+  "sourceSha": "5b4048dd96237a95ad29d5973c837d60324597f3",
+  "archiveSha": "e6fc853dc0024ef2f0d8b388344881d4605c69c9",
+  "packageSha256": "47AE4C313FFF8C030465008C9DEC554BD161622497B9925AF1FC51F2D3AAF7E8",
+  "files": [
+    {
+      "file": "t11-v0120r3-acceptance.mjs",
+      "bytes": 9297,
+      "sha256": "5eff5a5ded2b491577e8b3b10fd2976d450a415492a3396a8f8557954228d4ba"
+    },
+    {
+      "file": "t11-v0120r3-desktop-owned.ps1",
+      "bytes": 6097,
+      "sha256": "7e5de3b014f149c94e026ba8a12d5c3789c198e0b53a207d991af78627b2c3ca"
+    },
+    {
+      "file": "t11-v0120r3-freeze-preflight.mjs",
+      "bytes": 2079,
+      "sha256": "954e57aeadb7b48f2dd013c3d03497a59b33369fe49f52f2209c420a192088f0"
+    },
+    {
+      "file": "t11-v0120r3-grant-guard.test.mjs",
+      "bytes": 1715,
+      "sha256": "80d86d8d2418e4ceb3dc369ec4beb1fbeb065eccb898df07e90fec16fab5cb96"
+    },
+    {
+      "file": "t11-v0120r3-grant.mjs",
+      "bytes": 1970,
+      "sha256": "fce165442cd2aa6327c481a4b887c64817c5771643f71cdbadfb6a5e9b0a202c"
+    },
+    {
+      "file": "t11-v0120r3-host-rpc.mjs",
+      "bytes": 3590,
+      "sha256": "a121d3aee2de6bbe55f84de1cc27ca737ce231005c54a319132119fd7524f45f"
+    },
+    {
+      "file": "t11-v0120r3-install.ps1",
+      "bytes": 1432,
+      "sha256": "dfd0f60f173655ab00c87e09ff333e72c5425756aa3fa7d15800708c2ed86eed"
+    },
+    {
+      "file": "t11-v0120r3-installed-identity.json",
+      "bytes": 252,
+      "sha256": "0bae211cc49bd50f4368899e8b37db516a2a61f401e19b1f687862069f4848ef"
+    },
+    {
+      "file": "t11-v0120r3-installed-renderer.mjs",
+      "bytes": 4765,
+      "sha256": "fabb3a5c2dd1baebc5469eb0a03cb169e065d5c1fd13dfc2cee30fc86a925b20"
+    },
+    {
+      "file": "t11-v0120r3-offline-cli-receipt.json",
+      "bytes": 249,
+      "sha256": "3a6314f0dc9019d01591a0d8af53faaac89ba7585b83da410114b8e835c09a69"
+    },
+    {
+      "file": "t11-v0120r3-package-and-install.mjs",
+      "bytes": 2978,
+      "sha256": "17f3ae758889424ee4115b067756c70d0af9a40df7d27d5774609b1e0b4553b5"
+    },
+    {
+      "file": "t11-v0120r3-package-identity.json",
+      "bytes": 5090,
+      "sha256": "52449aab17d1174f95b16a990096574ef1eff316a63594c0e27bda6320852a1d"
+    },
+    {
+      "file": "t11-v0120r3-preflight-guards.json",
+      "bytes": 182,
+      "sha256": "51f9ede94fbed549494465f39bb68025b2fa3afd25518d732845206aace0e75f"
+    },
+    {
+      "file": "t11-v0120r3-prepare-helpers.mjs",
+      "bytes": 2999,
+      "sha256": "f758ca5c5ed051efc4383f22f1cb203b020ba9fa47fe5a3a37f0e6ce83be2185"
+    },
+    {
+      "file": "t11-v0120r3-prepare.mjs",
+      "bytes": 3643,
+      "sha256": "f6cda43d051ce61c256a493da5fb6ea06f96b537e8886a04ffdd204a89fa8bf5"
+    },
+    {
+      "file": "t11-v0120r3-proposal.json",
+      "bytes": 709,
+      "sha256": "4e5a44b6093b4e530188f3242261ef0a023ef8f686567cf70b34dfb9cb0869ab"
+    },
+    {
+      "file": "t11-v0120r3-usage-oracle.mjs",
+      "bytes": 6969,
+      "sha256": "93d6a0b5dbde8bd22f44f9c73d4370f2eb7ea6298717c98864154f2389f94159"
+    },
+    {
+      "file": "t11-v0120r3-usage-oracle.test.mjs",
+      "bytes": 7434,
+      "sha256": "c5837bc49bd015d2d6f0d83d7ecf566e73f7578b0d7e8d9d584e967c7c87c807"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "passed": true,
+  "missingGrantBlocksRealLaunch": true,
+  "missingGrantBlocksRpc": true,
+  "realDesktopStarted": false,
+  "realModelRequests": 0,
+  "originalClaimsReset": false
+}
