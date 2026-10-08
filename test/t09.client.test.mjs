@@ -21,7 +21,7 @@ const chatGptState = () => ({
   },
 });
 
-test('the Renderer consumes the one-time authorization URL in a synchronously opened browser window', async () => {
+test('the Renderer opens the one-time official URL directly without an about:blank placeholder', async () => {
   const state = chatGptState();
   const secretURL = 'https://auth.openai.com/api/accounts/authorize?state=state-sensitive&id_token_hint=id-sensitive';
   const carrier = async (_path, endpoint) => {
@@ -39,6 +39,9 @@ test('the Renderer consumes the one-time authorization URL in a synchronously op
     await act(async () => { await button('Continue with ChatGPT').props.onClick(); });
     assert.equal(mounted.openedUrls.length, 1);
     assert.equal(mounted.openedUrls[0].url, secretURL);
+    assert.equal(mounted.openedUrls[0].target, '_blank');
+    assert.equal(mounted.openedUrls[0].features, 'noopener,noreferrer');
+    assert.equal(mounted.openedUrls.some(item => item.url === 'about:blank'), false);
     assert.equal(JSON.stringify(mounted.page.toJSON()).includes('state-sensitive'), false);
     assert.equal(JSON.stringify(mounted.page.toJSON()).includes('id-sensitive'), false);
     assert.deepEqual(mounted.calls.find(call => call.endpoint === 'router/chatGptStartAuthorization').payload.args, {});
@@ -61,26 +64,73 @@ test('a pending browser flow remains cancellable without retaining its URL', asy
     await act(async () => { mounted.page.root.findAllByType('button').find(item => item.children.includes('ChatGPT OAuth')).props.onClick(); });
     await act(async () => { await mounted.page.root.findAllByType('button').find(item => item.children.includes('Continue with ChatGPT')).props.onClick(); });
     const cancel = mounted.page.root.findAllByType('button').find(item => item.children.includes('取消 ChatGPT 授权'));
+    assert.ok(mounted.page.root.findAllByType('button').find(item => item.children.includes('打开官方授权页')));
     assert.ok(cancel);
     await act(async () => { await cancel.props.onClick(); });
     assert.equal(cancelled, true);
     assert.equal(JSON.stringify(mounted.page.toJSON()).includes('blocked-sensitive'), false);
+    assert.equal(mounted.page.root.findAllByType('button').some(item => item.children.includes('打开官方授权页')), false);
   } finally {
     await mounted.dispose();
   }
 });
 
-test('a blocked popup does not start OAuth', async () => {
+test('Desktop external-open denial returns null but keeps OAuth waiting, retryable, and auto-refreshing', async () => {
   const state = chatGptState();
   const mounted = await mountSettings(state, async (_path, endpoint) => {
-    if (endpoint === 'router/snapshot') return { ok: true, value: structuredClone(state) };
+    if (endpoint === 'router/chatGptStartAuthorization') {
+      state.chatGpt.authorization = { status: 'waiting', attemptId: '55555555-5555-4555-8555-555555555555' };
+      return { ok: true, value: { attemptId: state.chatGpt.authorization.attemptId, authorizationURL: 'https://auth.openai.com/api/accounts/authorize?state=desktop-deny-sensitive' } };
+    }
+    if (endpoint === 'router/snapshot') {
+      return { ok: true, value: structuredClone(state) };
+    }
     throw new Error(`Unexpected RPC endpoint: ${endpoint}`);
   }, { openPopup: () => null });
   try {
     await act(async () => { mounted.page.root.findAllByType('button').find(item => item.children.includes('ChatGPT OAuth')).props.onClick(); });
     await act(async () => { await mounted.page.root.findAllByType('button').find(item => item.children.includes('Continue with ChatGPT')).props.onClick(); });
-    assert.equal(mounted.calls.some(call => call.endpoint === 'router/chatGptStartAuthorization'), false);
-    assert.match(JSON.stringify(mounted.page.toJSON()), /允许弹出窗口/u);
+    assert.equal(mounted.calls.filter(call => call.endpoint === 'router/chatGptStartAuthorization').length, 1);
+    assert.equal(mounted.openedUrls.length, 1);
+    assert.match(mounted.openedUrls[0].url, /^https:\/\/auth\.openai\.com\/api\/accounts\/authorize/u);
+    assert.equal(mounted.openedUrls.some(item => item.url === 'about:blank'), false);
+    const retry = mounted.page.root.findAllByType('button').find(item => item.children.includes('打开官方授权页'));
+    assert.ok(retry);
+    await act(async () => { retry.props.onClick(); });
+    assert.equal(mounted.openedUrls.length, 2);
+    assert.equal(mounted.calls.some(call => call.endpoint === 'router/chatGptCancelAuthorization'), false);
+    state.chatGpt.authorization = { status: 'authorized', attemptId: '55555555-5555-4555-8555-555555555555' };
+    state.chatGpt.account = { accountId: 'account-desktop', issuedClientId: 'client-desktop', configured: true, directUseEnabled: true };
+    state.chatGpt.catalog = { status: 'listed', models: [{ slug: 'gpt-desktop', displayName: 'GPT Desktop' }] };
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 650)); });
+    assert.match(JSON.stringify(mounted.page.toJSON()), /GPT Desktop/u);
+    assert.equal(JSON.stringify(mounted.page.toJSON()).includes('desktop-deny-sensitive'), false);
+    assert.equal(mounted.page.root.findAllByType('button').some(item => item.children.includes('打开官方授权页')), false);
+  } finally { await mounted.dispose(); }
+});
+
+test('the Renderer cancels a non-official authorization URL before opening it', async () => {
+  const state = chatGptState();
+  let cancelled = false;
+  const mounted = await mountSettings(state, async (_path, endpoint) => {
+    if (endpoint === 'router/chatGptStartAuthorization') {
+      state.chatGpt.authorization = { status: 'waiting', attemptId: '66666666-6666-4666-8666-666666666666' };
+      return { ok: true, value: { attemptId: state.chatGpt.authorization.attemptId, authorizationURL: 'https://untrusted.example/authorize?state=untrusted-sensitive' } };
+    }
+    if (endpoint === 'router/chatGptCancelAuthorization') {
+      cancelled = true;
+      state.chatGpt.authorization = { status: 'cancelled' };
+      return { ok: true, value: structuredClone(state) };
+    }
+    if (endpoint === 'router/snapshot') return { ok: true, value: structuredClone(state) };
+    throw new Error(`Unexpected RPC endpoint: ${endpoint}`);
+  });
+  try {
+    await act(async () => { mounted.page.root.findAllByType('button').find(item => item.children.includes('ChatGPT OAuth')).props.onClick(); });
+    await act(async () => { await mounted.page.root.findAllByType('button').find(item => item.children.includes('Continue with ChatGPT')).props.onClick(); });
+    assert.equal(cancelled, true);
+    assert.equal(mounted.openedUrls.length, 0);
+    assert.equal(JSON.stringify(mounted.page.toJSON()).includes('untrusted-sensitive'), false);
   } finally { await mounted.dispose(); }
 });
 

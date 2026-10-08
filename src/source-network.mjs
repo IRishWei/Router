@@ -186,11 +186,7 @@ const createTunnel = (proxy, target, { deadline, signal, servername, secure, tls
   request.end();
 });
 
-const readResponse = (url, route, { deadline, signal, maxBytes, transferBudget, accept, userAgent, overflowCode, tlsOptions }) => new Promise(resolve => {
-  let timeoutMs;
-  try { timeoutMs = remainingTime(deadline); }
-  catch (error) { resolve({ error }); return; }
-  const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
+const createBoundAgent = (url, route, { deadline, signal, tlsOptions }) => {
   const Agent = url.protocol === 'https:' ? HttpsAgent : HttpAgent;
   const agent = new Agent({ keepAlive: false });
   if (route.kind === 'direct') {
@@ -210,6 +206,15 @@ const readResponse = (url, route, { deadline, signal, maxBytes, transferBudget, 
       }, { deadline, signal, servername: url.hostname, secure: url.protocol === 'https:', tlsOptions }).then(socket => callback(null, socket), callback);
     };
   }
+  return agent;
+};
+
+const readResponse = (url, route, { deadline, signal, maxBytes, transferBudget, accept, userAgent, overflowCode, tlsOptions }) => new Promise(resolve => {
+  let timeoutMs;
+  try { timeoutMs = remainingTime(deadline); }
+  catch (error) { resolve({ error }); return; }
+  const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
+  const agent = createBoundAgent(url, route, { deadline, signal, tlsOptions });
   let settled = false;
   let timer;
   const startingTransferredBytes = transferBudget.used;
@@ -326,25 +331,7 @@ const streamingResponse = (url, route, {
   try { timeoutMs = remainingTime(deadline); }
   catch (error) { reject(error); return; }
   const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
-  const Agent = url.protocol === 'https:' ? HttpsAgent : HttpAgent;
-  const agent = new Agent({ keepAlive: false });
-  if (route.kind === 'direct') {
-    agent.createConnection = (options, callback) => Agent.prototype.createConnection.call(agent, {
-      ...options,
-      lookup: (_hostname, lookupOptions, done) => {
-        const pinned = { address: route.address.address, family: route.address.family };
-        if (lookupOptions && typeof lookupOptions === 'object' && lookupOptions.all === true) done(null, [pinned]);
-        else done(null, pinned.address, pinned.family);
-      },
-    }, callback);
-  } else {
-    agent.createConnection = (_options, callback) => {
-      createTunnel(route.proxy, {
-        address: route.address.address,
-        port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
-      }, { deadline, signal, servername: url.hostname, secure: url.protocol === 'https:', tlsOptions }).then(socket => callback(null, socket), callback);
-    };
-  }
+  const agent = createBoundAgent(url, route, { deadline, signal, tlsOptions });
   let response;
   let settled = false;
   let timer;
@@ -463,36 +450,16 @@ export function createSourceNetworkReader({ lookup, discoverProxy, resolveProxyA
   const proxyDiscovery = discoverProxy ?? ((url, context) => discoverWindowsProxy(url, { ...context, platform }));
   const proxyResolver = resolveProxyAddresses ?? resolveWithDoh;
   return async (url, { authorizeAddress, deadline, signal, maxBytes, transferBudget }) => {
-    if (isIP(url.hostname) && !(authorizeAddress ? authorizeAddress({ url: new URL(url), address: url.hostname, family: isIP(url.hostname) }) === true : publicSourceAddress(url.hostname))) {
-      return { error: codedError('SOURCE_ADDRESS_NOT_AUTHORIZED') };
-    }
-    let policy;
+    let route;
     try {
-      policy = directOnly || authorizeAddress && !explicitProxyDiscovery
-        ? { kind: 'direct' }
-        : parseProxy(await boundedOperation(() => proxyDiscovery(new URL(url), { deadline, signal }), { deadline, signal }));
+      route = await routeFor(url, {
+        lookup, proxyDiscovery, proxyResolver, explicitProxyDiscovery, directOnly,
+        authorizeAddress, deadline, signal, transferBudget, tlsOptions,
+      });
     } catch (error) {
-      return { error: normalizeFailure(error, signal, 'SOURCE_PROXY_UNAVAILABLE') };
+      return { error };
     }
-
-    let nativeAddresses;
-    try { nativeAddresses = isIP(url.hostname) ? [{ address: url.hostname, family: isIP(url.hostname) }] : await boundedOperation(() => lookup(url.hostname, { all: true, verbatim: true }), { deadline, signal }); }
-    catch (error) {
-      if (policy.kind === 'direct') return { error: normalizeFailure(error, signal, 'SOURCE_DNS_UNAVAILABLE') };
-      nativeAddresses = [];
-    }
-    const authorized = address => (authorizeAddress ? authorizeAddress({ url: new URL(url), address: address.address, family: address.family }) === true : publicSourceAddress(address.address));
-    let address = nativeAddresses.find(authorized);
-    if (!address && policy.kind === 'proxy') {
-      try {
-        const resolved = await boundedOperation(() => proxyResolver({ hostname: url.hostname, proxy: policy.url, deadline, signal, transferBudget, tlsOptions }), { deadline, signal });
-        address = Array.isArray(resolved) ? resolved.find(authorized) : null;
-      } catch (error) {
-        return { error: normalizeFailure(error, signal, 'SOURCE_DNS_UNAVAILABLE') };
-      }
-    }
-    if (!address) return { error: codedError('SOURCE_ADDRESS_NOT_AUTHORIZED') };
-    return readResponse(url, policy.kind === 'proxy' ? { kind: 'proxy', proxy: policy.url, address } : { kind: 'direct', address }, {
+    return readResponse(url, route, {
       deadline,
       signal,
       maxBytes,

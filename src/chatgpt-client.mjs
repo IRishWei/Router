@@ -13,6 +13,8 @@ export function createChatGptSettingsComponent(React) {
     const [tokens, setTokens] = React.useState('8192');
     const [durationMs, setDurationMs] = React.useState('60000');
     const [detection, setDetection] = React.useState(null);
+    const authorizationURL = React.useRef(null);
+    const [authorizationLinkReady, setAuthorizationLinkReady] = React.useState(false);
     const refresh = async () => {
       const [nextState, nextRouter] = await Promise.all([service.snapshot(), routerApi.snapshot()]);
       setState(nextState);
@@ -36,6 +38,13 @@ export function createChatGptSettingsComponent(React) {
       poll();
       return () => { active = false; clearTimeout(timer); };
     }, [state?.authorization?.status, state?.authorization?.attemptId]);
+    React.useEffect(() => {
+      if (state?.authorization?.status === 'waiting') return undefined;
+      authorizationURL.current = null;
+      if (authorizationLinkReady) setAuthorizationLinkReady(false);
+      return undefined;
+    }, [state?.authorization?.status, authorizationLinkReady]);
+    React.useEffect(() => () => { authorizationURL.current = null; }, []);
     const candidates = (router?.models ?? []).filter(model => model.source === 'openai-chatgpt-oauth');
     const selected = candidates.find(model => model.candidateId === candidateId) ?? candidates[0];
     React.useEffect(() => {
@@ -54,20 +63,33 @@ export function createChatGptSettingsComponent(React) {
       } finally { setBusy(false); }
     };
     const authorize = async () => {
-      const popup = window.open('about:blank', '_blank');
-      if (!popup) {
-        setError('系统浏览器未能打开；允许弹出窗口后重试。授权尚未开始。');
+      const result = await change(() => service.startAuthorization());
+      if (!result) return;
+      let url;
+      try {
+        url = new URL(result.authorizationURL);
+        if (url.protocol !== 'https:' || url.hostname !== 'auth.openai.com' || url.pathname !== '/api/accounts/authorize' || url.username || url.password || url.hash) throw new Error('invalid authorization URL');
+      } catch {
+        await change(() => service.cancelAuthorization());
+        setError('Host 返回了无效的官方授权地址；本次授权已取消。');
         return;
       }
-      popup.opener = null;
-      const result = await change(() => service.startAuthorization());
-      if (!result) { popup.close(); return; }
-      try { popup.location.href = result.authorizationURL; }
+      authorizationURL.current = url.href;
+      setAuthorizationLinkReady(true);
+      try { window.open(url.href, '_blank', 'noopener,noreferrer'); }
       catch {
-        popup.close();
-        await change(() => service.cancelAuthorization());
-        setError('系统浏览器未能打开授权页面；本次授权已取消。');
+        setError('未能自动打开系统浏览器；请点击“打开官方授权页”重试。');
       }
+    };
+    const openAuthorization = () => {
+      if (!authorizationURL.current) return;
+      try { window.open(authorizationURL.current, '_blank', 'noopener,noreferrer'); setError(''); }
+      catch { setError('系统浏览器仍未打开；授权保持等待，可重试或取消。'); }
+    };
+    const cancelAuthorization = async () => {
+      authorizationURL.current = null;
+      setAuthorizationLinkReady(false);
+      await change(() => service.cancelAuthorization());
     };
     const budget = { tokens: Number(tokens), durationMs: Number(durationMs) };
     const validBudget = Number.isSafeInteger(budget.tokens) && budget.tokens > 0 && budget.tokens <= 65_536
@@ -76,7 +98,8 @@ export function createChatGptSettingsComponent(React) {
       h('h3', null, 'ChatGPT OAuth'),
       h('p', null, '使用 DSH Router 自己的官方开源应用授权。不会读取或复用 Codex 登录，也不需要 OpenAI API Key。'),
       h('button', { type: 'button', disabled: busy || state?.authorization?.status === 'waiting', onClick: authorize }, 'Continue with ChatGPT'),
-      state?.authorization?.status === 'waiting' ? h('button', { type: 'button', disabled: busy, onClick: () => change(() => service.cancelAuthorization()) }, '取消 ChatGPT 授权') : null,
+      state?.authorization?.status === 'waiting' && authorizationLinkReady ? h('button', { type: 'button', disabled: busy, onClick: openAuthorization }, '打开官方授权页') : null,
+      state?.authorization?.status === 'waiting' ? h('button', { type: 'button', disabled: busy, onClick: cancelAuthorization }, '取消 ChatGPT 授权') : null,
       error ? h('p', { role: 'alert' }, error) : null,
       !state || !router ? h('p', null, '加载中…') : h(React.Fragment, null,
         h('p', { role: 'status' }, `授权状态：${state.authorization.status}${state.authorization.failureCode ? ` · ${state.authorization.failureCode}` : ''}`),

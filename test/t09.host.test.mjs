@@ -10,12 +10,12 @@ import AuthorizationService from '@deepseek-ai/dsh-authorization';
 import { CHATGPT_CREDENTIAL_KEY, CHATGPT_DIRECT_SCOPE, describeChatGptGrant } from '../src/chatgpt-oauth.mjs';
 import { ChatGptHost } from '../src/chatgpt-host.mjs';
 
-const grantRecord = ({ direct = true } = {}) => ({ kind: 'grant', payload: {
+const grantRecord = ({ direct = true, issuedClientId = 'oaiapp-host-controlled', hostId = `urn:uuid:${randomUUID()}`, subject = 'host-subject-sensitive', slug = 'gpt-host' } = {}) => ({ kind: 'grant', payload: {
   schemaVersion: 1,
-  issuedClientId: 'oaiapp-host-controlled',
-  hostId: `urn:uuid:${randomUUID()}`,
+  issuedClientId,
+  hostId,
   issuer: 'https://auth.openai.com',
-  subject: 'host-subject-sensitive',
+  subject,
   email: 'host-private@example.test',
   idToken: 'id-sensitive',
   accessToken: 'access-sensitive',
@@ -24,7 +24,7 @@ const grantRecord = ({ direct = true } = {}) => ({ kind: 'grant', payload: {
   expiresIn: 3600,
   scopes: ['openid', 'profile', 'email', 'offline_access', 'resource.invoke', ...(direct ? [CHATGPT_DIRECT_SCOPE] : [])],
   savedAt: new Date().toISOString(),
-  catalog: { status: 'listed', models: [{ slug: 'gpt-host', displayName: 'GPT Host' }] },
+  catalog: { status: 'listed', models: [{ slug, displayName: 'GPT Host' }] },
 } });
 
 async function context() {
@@ -139,6 +139,58 @@ test('a valid identity without the direct-use scope remains disconnected after r
     const snapshot = await host.snapshot();
     assert.equal(snapshot.account.directUseEnabled, false);
     assert.equal(snapshot.connection.available, false);
+  } finally {
+    await host.dispose();
+    await fixture.close();
+  }
+});
+
+test('inference verification is isolated across account deletion and connection generations', async () => {
+  const fixture = await context();
+  const recordA = grantRecord({ slug: 'shared-model', subject: 'account-a-subject', issuedClientId: 'oaiapp-account-a' });
+  const descriptionA = describeChatGptGrant(recordA);
+  await fixture.ctx.credentials.modifyRecord(CHATGPT_CREDENTIAL_KEY, () => recordA);
+  const state = { chatGpt: {
+    hostId: recordA.payload.hostId,
+    account: { accountId: descriptionA.accountId, issuedClientId: descriptionA.issuedClientId, configRevision: 1 },
+    connection: { connectionId: `connection-${randomUUID()}`, accountId: descriptionA.accountId, configRevision: 1 },
+    lastDetectionTaskId: null,
+    inference: { 'shared-model': { status: 'verified', verifiedAt: new Date().toISOString() } },
+  } };
+  const mounts = [];
+  const host = new ChatGptHost(fixture.ctx, state, async () => {}, {
+    mountConnection: async (_ctx, spec) => { mounts.push(spec); return { async disconnect() {} }; },
+  });
+  try {
+    await host.initialize();
+    const generationA = mounts.at(-1);
+    assert.equal((await host.snapshot()).inference['shared-model'], undefined);
+    assert.deepEqual(state.chatGpt.inference, {});
+    await generationA.onInferenceCompleted({ provider: generationA.provider, accountId: generationA.accountId, model: 'shared-model', usage: {} });
+    assert.equal((await host.snapshot()).inference['shared-model'].status, 'verified');
+
+    await host.disconnect({ deleteCredential: true });
+    assert.deepEqual(state.chatGpt.inference, {});
+
+    const recordB = grantRecord({ hostId: recordA.payload.hostId, slug: 'shared-model', subject: 'account-b-subject', issuedClientId: 'oaiapp-account-b' });
+    const descriptionB = describeChatGptGrant(recordB);
+    await fixture.ctx.credentials.modifyRecord(CHATGPT_CREDENTIAL_KEY, () => recordB);
+    state.chatGpt.account = { accountId: descriptionB.accountId, issuedClientId: descriptionB.issuedClientId, configRevision: 2 };
+    state.chatGpt.connection = { connectionId: `connection-${randomUUID()}`, accountId: descriptionB.accountId, configRevision: 2 };
+    await host.restore();
+    const generationB = mounts.at(-1);
+    await generationA.onInferenceCompleted({ provider: generationA.provider, accountId: generationA.accountId, model: 'shared-model', usage: {} });
+    assert.equal((await host.snapshot()).inference['shared-model'], undefined);
+    await generationB.onInferenceCompleted({ provider: generationB.provider, accountId: generationB.accountId, model: 'shared-model', usage: {} });
+    assert.equal((await host.snapshot()).inference['shared-model'].status, 'verified');
+
+    await host.disconnect({ deleteCredential: false });
+    await host.connect();
+    const generationC = mounts.at(-1);
+    await generationB.onInferenceCompleted({ provider: generationB.provider, accountId: generationB.accountId, model: 'shared-model', usage: {} });
+    assert.equal((await host.snapshot()).inference['shared-model'], undefined);
+    await generationC.onInferenceCompleted({ provider: generationC.provider, accountId: generationC.accountId, model: 'shared-model', usage: {} });
+    assert.equal((await host.snapshot()).inference['shared-model'].status, 'verified');
   } finally {
     await host.dispose();
     await fixture.close();

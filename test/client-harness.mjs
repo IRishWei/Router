@@ -10,17 +10,18 @@ import renderer, { act } from 'react-test-renderer';
 async function loadClient(path, imports, diagnostics, openedUrls = [], openPopup) {
   let plugin;
   const window = {
-    open(url) {
-      if (openPopup && openPopup(url) === null) return null;
-      const entry = { url, closed: false };
+    open(url, target, features) {
+      const decision = openPopup?.(url, target, features);
+      const entry = { url, target, features, closed: false };
       openedUrls.push(entry);
+      if (decision === null) return null;
       const popup = { opener: window, closed: false, close() { this.closed = true; entry.closed = true; } };
       popup.location = { get href() { return entry.url; }, set href(value) { entry.url = value; } };
       return popup;
     },
   };
   vm.runInNewContext(await readFile(path, 'utf8'), {
-    queueMicrotask, setTimeout, clearTimeout, AbortController, AbortSignal, crypto: webcrypto,
+    queueMicrotask, setTimeout, clearTimeout, AbortController, AbortSignal, URL, crypto: webcrypto,
     console: { ...console, error: (...args) => diagnostics.push(args) },
     window: { ...window, __ModuleLoader__: { load(module) {
       plugin = module.factory(name => {

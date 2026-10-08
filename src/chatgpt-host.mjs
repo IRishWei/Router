@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import {
@@ -12,6 +12,20 @@ import { createSourceNetworkTransport } from './source-network.mjs';
 
 const providerFor = accountId => `router-chatgpt-${accountId}`;
 const safeFailureCode = error => typeof error?.code === 'string' && /^[A-Z0-9_]{1,100}$/u.test(error.code) ? error.code : 'CHATGPT_AUTHORIZATION_FAILED';
+const inferenceKey = identity => createHash('sha256').update(JSON.stringify(identity)).digest('hex');
+
+function inferenceIdentity(account, connection, model) {
+  return {
+    connectionId: connection.connectionId,
+    accountId: account.accountId,
+    billingPath: 'chatgpt-subscription',
+    provider: providerFor(account.accountId),
+    model,
+    issuedClientId: account.issuedClientId,
+    accountConfigRevision: account.configRevision,
+    connectionConfigRevision: connection.configRevision,
+  };
+}
 
 function normalizeState(value) {
   if (value === undefined) return {
@@ -27,8 +41,22 @@ function normalizeState(value) {
   const connection = value.connection;
   if (connection !== null && (!account || typeof connection?.connectionId !== 'string' || !connection.connectionId.startsWith('connection-') || connection.accountId !== account.accountId || !Number.isSafeInteger(connection.configRevision) || connection.configRevision < 1)) throw new Error('Unsupported ChatGPT connection state');
   if (value.lastDetectionTaskId !== null && typeof value.lastDetectionTaskId !== 'string') throw new Error('Unsupported ChatGPT detection state');
-  const inference = value.inference ?? {};
-  if (!inference || Array.isArray(inference) || Object.entries(inference).some(([model, record]) => !model || record?.status !== 'verified' || typeof record.verifiedAt !== 'string')) throw new Error('Unsupported ChatGPT inference state');
+  const rawInference = value.inference ?? {};
+  if (!rawInference || Array.isArray(rawInference)) throw new Error('Unsupported ChatGPT inference state');
+  const inference = {};
+  for (const [key, record] of Object.entries(rawInference)) {
+    // 0.10.0 keyed these observations only by model slug. Discard them because
+    // they cannot prove which account and connection produced the completion.
+    if (record?.status === 'verified' && typeof record.verifiedAt === 'string' && record.identity === undefined) continue;
+    const identity = record?.identity;
+    const valid = record?.status === 'verified' && typeof record.verifiedAt === 'string'
+      && identity && ['connectionId', 'accountId', 'billingPath', 'provider', 'model', 'issuedClientId'].every(name => typeof identity[name] === 'string' && identity[name])
+      && Number.isSafeInteger(identity.accountConfigRevision) && identity.accountConfigRevision > 0
+      && Number.isSafeInteger(identity.connectionConfigRevision) && identity.connectionConfigRevision > 0
+      && key === inferenceKey(identity);
+    if (!valid) throw new Error('Unsupported ChatGPT inference state');
+    inference[key] = structuredClone(record);
+  }
   return structuredClone({ hostId: value.hostId, account, connection, lastDetectionTaskId: value.lastDetectionTaskId ?? null, inference });
 }
 
@@ -103,6 +131,7 @@ export class ChatGptHost {
     };
     this.#state.chatGpt.account = account;
     this.#state.chatGpt.connection = result.directUseEnabled && result.catalogStatus === 'listed' && result.models.length ? connection : null;
+    this.#state.chatGpt.inference = {};
     try {
       await this.#changed();
       await this.#unmount();
@@ -147,7 +176,7 @@ export class ChatGptHost {
       ...(this.#endpoints?.responsesURL ? { responsesURL: this.#endpoints.responsesURL } : {}),
       getAuthorizedCredential,
       getCatalog,
-      onInferenceCompleted: result => this.#markInferenceCompleted(result),
+      onInferenceCompleted: result => this.#markInferenceCompleted(result, { account: structuredClone(account), connection: structuredClone(connection) }),
     });
   }
   async #unmount() {
@@ -181,10 +210,15 @@ export class ChatGptHost {
       models: grant.catalog.models.map(model => ({ slug: model.slug, display_name: model.displayName })),
     };
   }
-  async #markInferenceCompleted({ provider, accountId, model }) {
+  async #markInferenceCompleted({ provider, accountId, model }, expected) {
     const account = this.#state.chatGpt.account;
-    if (!account || provider !== providerFor(account.accountId) || accountId !== account.accountId || typeof model !== 'string' || !model) return;
-    this.#state.chatGpt.inference[model] = { status: 'verified', verifiedAt: new Date().toISOString() };
+    const connection = this.#state.chatGpt.connection;
+    if (!account || !connection || !expected
+      || account.accountId !== expected.account.accountId || account.issuedClientId !== expected.account.issuedClientId || account.configRevision !== expected.account.configRevision
+      || connection.connectionId !== expected.connection.connectionId || connection.accountId !== expected.connection.accountId || connection.configRevision !== expected.connection.configRevision
+      || provider !== providerFor(account.accountId) || accountId !== account.accountId || typeof model !== 'string' || !model) return;
+    const identity = inferenceIdentity(account, connection, model);
+    this.#state.chatGpt.inference[inferenceKey(identity)] = { status: 'verified', verifiedAt: new Date().toISOString(), identity };
     await this.#changed().catch(() => {});
   }
   async startAuthorization() {
@@ -224,6 +258,7 @@ export class ChatGptHost {
     if (!description.directUseEnabled || description.accountId !== account.accountId || !description.models.length) throw new TypeError('ChatGPT plan use or model catalog is unavailable');
     const connection = { connectionId: `connection-${randomUUID()}`, accountId: account.accountId, configRevision: account.configRevision + 1 };
     this.#state.chatGpt.connection = connection;
+    this.#state.chatGpt.inference = {};
     try { await this.#changed(); await this.#mount(connection); await this.#changed(); }
     catch (error) { this.#state.chatGpt.connection = null; await this.#changed().catch(() => {}); throw error; }
   }
@@ -231,7 +266,7 @@ export class ChatGptHost {
     this.cancelAuthorization();
     const previous = structuredClone(this.#state.chatGpt);
     this.#state.chatGpt.connection = null;
-    if (deleteCredential) this.#state.chatGpt.account = null;
+    if (deleteCredential) { this.#state.chatGpt.account = null; this.#state.chatGpt.inference = {}; }
     try { await this.#changed(); }
     catch (error) { this.#state.chatGpt = previous; throw error; }
     await this.#unmount();
@@ -253,11 +288,17 @@ export class ChatGptHost {
     catch (error) { this.#state.chatGpt.lastDetectionTaskId = claimId; throw error; }
   }
   async snapshot() {
-    const { account, connection, hostId, lastDetectionTaskId, inference } = this.#state.chatGpt;
+    const { account, connection, hostId, lastDetectionTaskId } = this.#state.chatGpt;
     let credential = { configured: false, directUseEnabled: false, catalogStatus: 'not-requested', models: [] };
     if (this.#ctx.get('credentials')) {
       try { credential = describeChatGptGrant(await this.#credentials().readRecord(CHATGPT_CREDENTIAL_KEY)); } catch { /* redacted unavailable state */ }
     }
+    const inferenceEntries = [];
+    if (account && connection) for (const record of Object.values(this.#state.chatGpt.inference)) {
+      const expected = inferenceIdentity(account, connection, record.identity.model);
+      if (inferenceKey(expected) === inferenceKey(record.identity)) inferenceEntries.push([record.identity.model, { status: record.status, verifiedAt: record.verifiedAt }]);
+    }
+    const inference = Object.fromEntries(inferenceEntries);
     return structuredClone({
       hostId,
       servicesAvailable: Boolean(this.#ctx.get('credentials') && this.#ctx.get('authorization')),
