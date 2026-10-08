@@ -38,7 +38,7 @@ async function controlledTls() {
   return { ca, cert, key };
 }
 
-test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled HTTP 200 non-SSE response', { timeout: 10_000 }, async () => {
+test('production CONNECT transport accepts HTTPS SSE with or without content-type and rejects JSON', { timeout: 10_000 }, async () => {
   const tls = await controlledTls();
   const requests = [];
   let mode = 'sse';
@@ -51,7 +51,10 @@ test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled
       response.end(JSON.stringify({ error: { code: 'chatpass_v2_scope_not_authorized', param: 'model', message: 'controlled-secret-message' } }));
       return;
     }
-    response.writeHead(200, { 'content-type': 'text/event-stream', 'x-request-id': 'controlled-request-id' });
+    response.writeHead(200, {
+      ...(mode === 'missing-sse' ? {} : { 'content-type': 'text/event-stream' }),
+      'x-request-id': 'controlled-request-id',
+    });
     response.end(sse({
       type: 'response.completed',
       response: {
@@ -121,6 +124,11 @@ test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled
     assert.equal(requests[0].body.store, false);
     assert.equal(requests[0].body.stream, true);
 
+    mode = 'missing-sse';
+    const unlabelled = await collect(adapter.stream(request));
+    assert.equal(unlabelled.find(chunk => chunk.type === 'block-end').block.text, 'PROXY_SSE_OK');
+    assert.equal(unlabelled.at(-1).reason.kind, 'stop');
+
     mode = 'non-sse';
     await assert.rejects(collect(adapter.stream(request)), error => {
       assert.equal(error.failure.code, 'INVALID_RESPONSE');
@@ -130,7 +138,7 @@ test('production CONNECT transport preserves HTTPS SSE and surfaces a controlled
       assert.equal(JSON.stringify(error).includes('controlled-secret-message'), false);
       return true;
     });
-    assert.deepEqual(connects, [`127.0.0.1:${originPort}`, `127.0.0.1:${originPort}`]);
+    assert.deepEqual(connects, Array(3).fill(`127.0.0.1:${originPort}`));
   } finally {
     for (const socket of sockets) socket.destroy();
     await Promise.allSettled([close(proxy), close(origin)]);

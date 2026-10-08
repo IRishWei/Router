@@ -1,6 +1,6 @@
 {
   "name": "@irishwei/dsh-router",
-  "version": "0.10.4",
+  "version": "0.10.5",
   "description": "Local DSH model routing with observable task records",
   "type": "module",
   "license": "MIT",

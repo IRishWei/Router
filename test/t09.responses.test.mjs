@@ -27,7 +27,7 @@ function sse(...events) {
   return events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('');
 }
 
-function fixture({ events, credential, catalog, onInferenceCompleted } = {}) {
+function fixture({ events = [], credential, catalog, onInferenceCompleted, headers, rawBody } = {}) {
   const requests = [];
   const currentCredential = credential ?? {
     access_token: 'oauth-test-token',
@@ -48,8 +48,8 @@ function fixture({ events, credential, catalog, onInferenceCompleted } = {}) {
       requests.push({ url, options, json: JSON.parse(options.body) });
       return {
         statusCode: 200,
-        headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req-1' },
-        body: streamBody(sse(...events), [1, 2, 5, 3, 8, 13]),
+        headers: headers ?? { 'content-type': 'text/event-stream', 'x-request-id': 'req-1' },
+        body: streamBody(rawBody ?? sse(...events), [1, 2, 5, 3, 8, 13]),
       };
     },
     onInferenceCompleted,
@@ -302,7 +302,6 @@ test('an aborted HTTP 200 JSON diagnostic remains aborted and closes the respons
 test('HTTP 200 non-JSON non-SSE failures expose only a bounded content-type classification without reading the body', async () => {
   for (const scenario of [
     { header: 'text/html', classification: 'text/html' },
-    { header: undefined, classification: 'missing' },
     { header: 'image/png; private=secret-value', classification: 'other' },
   ]) {
     const adapter = createChatGptResponsesAdapter({
@@ -324,6 +323,59 @@ test('HTTP 200 non-JSON non-SSE failures expose only a bounded content-type clas
       assert.equal(error.failure.message.includes('secret-value'), false);
       return true;
     });
+  }
+});
+
+test('an unlabelled SSE response still requires validated completion and preserves exact usage', async () => {
+  for (const headers of [{}, { 'content-type': '' }, { 'content-type': ' \t ' }]) {
+    const completions = [];
+    const { adapter, requests } = fixture({
+      headers,
+      events: [{ type: 'response.completed', response: {
+        id: 'resp-unlabelled', status: 'completed',
+        output: [{ type: 'message', id: 'msg-unlabelled', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'UNLABELLED_OK' }] }],
+        usage: { input_tokens: 5, output_tokens: 2, total_tokens: 7 },
+      } }],
+      onInferenceCompleted: value => completions.push(value),
+    });
+    const chunks = await collect(adapter.stream({
+      provider: 'router-chatgpt-account-1', model: 'gpt-test',
+      messages: [createUserMessage({ content: [{ type: 'text', text: 'one attempt' }] })],
+    }));
+    assert.equal(requests.length, 1);
+    assert.equal(chunks.find(chunk => chunk.type === 'block-end').block.text, 'UNLABELLED_OK');
+    assert.deepEqual(chunks.find(chunk => chunk.type === 'usage').usage, { inputTokens: 5, outputTokens: 2, totalTokens: 7 });
+    assert.equal(chunks.at(-1).type, 'finish');
+    assert.equal(completions.length, 1);
+  }
+});
+
+test('unlabelled empty, JSON, HTML, malformed and incomplete bodies cannot confirm inference', async () => {
+  for (const scenario of [
+    { body: '', code: 'STREAM_CLOSED' },
+    { body: '{"error":{"message":"private-body"}}', code: 'STREAM_CLOSED' },
+    { body: '<html>private-body</html>', code: 'STREAM_CLOSED' },
+    { body: 'data: {private-body\n\n', code: 'MALFORMED_RESPONSE' },
+    { body: sse({ type: 'response.output_text.delta', item_id: 'msg-partial', delta: 'partial' }), code: 'STREAM_CLOSED' },
+    { body: sse({ type: 'response.completed', response: { status: 'in_progress', output: [] } }), code: 'MALFORMED_RESPONSE' },
+    { body: sse({ type: 'response.incomplete', response: { status: 'incomplete' } }), code: 'RESPONSE_INCOMPLETE' },
+  ]) {
+    let completions = 0;
+    const { adapter, requests } = fixture({ headers: {}, rawBody: scenario.body, onInferenceCompleted: () => { completions += 1; } });
+    const chunks = [];
+    await assert.rejects(async () => {
+      for await (const chunk of adapter.stream({
+        provider: 'router-chatgpt-account-1', model: 'gpt-test',
+        messages: [createUserMessage({ content: [{ type: 'text', text: 'one attempt' }] })],
+      })) chunks.push(chunk);
+    }, error => {
+      assert.equal(error.failure.code, scenario.code);
+      assert.equal(JSON.stringify(error.failure).includes('private-body'), false);
+      return true;
+    });
+    assert.equal(requests.length, 1);
+    assert.equal(completions, 0);
+    assert.equal(chunks.some(chunk => chunk.type === 'finish' || chunk.type === 'usage'), false);
   }
 });
 
@@ -367,7 +419,7 @@ test('an interrupted SSE stream keeps partial text and fails without inventing u
   assert.equal(chunks.some(chunk => chunk.type === 'usage'), false);
 });
 
-test('original cancellation closes the active transport and reports ABORTED', async () => {
+test('original cancellation closes an unlabelled active stream and reports ABORTED', async () => {
   const controller = new AbortController();
   let closes = 0;
   let requests = 0;
@@ -379,7 +431,7 @@ test('original cancellation closes the active transport and reports ABORTED', as
       requests += 1;
       return {
         statusCode: 200,
-        headers: { 'content-type': 'text/event-stream' },
+        headers: {},
         body: (async function* () {
           const aborted = new Promise((_, reject) => controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true }));
           yield encoder.encode(sse({ type: 'response.output_text.delta', item_id: 'msg-live', output_index: 0, content_index: 0, delta: 'LIVE' }));

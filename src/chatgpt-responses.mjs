@@ -697,8 +697,11 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
         throw providerFailure(parsed, response.statusCode, requestId);
       }
       const contentType = headerValue(response.headers, 'content-type');
-      if (mediaTypeOf(contentType) !== 'text/event-stream') {
-        const classification = contentTypeClass(contentType);
+      const classification = contentTypeClass(contentType);
+      // Like the official SDK's stream:true path, decode an unlabelled body as
+      // SSE. A missing media type alone cannot disprove a Responses stream;
+      // only the validated response.completed event below proves success.
+      if (mediaTypeOf(contentType) !== 'text/event-stream' && classification !== 'missing') {
         let diagnostic;
         if (classification === 'application/json') {
           try {
