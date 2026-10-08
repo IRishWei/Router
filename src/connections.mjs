@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { discoverNativeConnections } from './native-connections.mjs';
+import { subscriptionReference } from './subscription-reference.mjs';
 
 export const IDENTITY_KEYS = ['connectionId', 'accountId', 'billingPath', 'provider', 'model'];
 export const sameIdentity = (left, right) => IDENTITY_KEYS.every(key => left?.[key] === right?.[key]);
@@ -274,6 +275,7 @@ export class ConnectionRegistry {
     const pool = stableRouterSnapshot.pool ?? [];
     const entry = pool.find(item => matchesCandidate(item, candidate));
     const priced = (stableRouterSnapshot.prices ?? []).find(item => item.candidateId === candidate.candidateId || sameIdentity(item, candidate));
+    const reference = subscriptionReference(candidate);
     const controlled = isControlledFixture(candidate);
     const contextWindow = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: controlled ? 'known' : 'declared', source: controlled ? candidate.source : 'provider-model-metadata' };
     const unknownCapacity = { value: null, confidence: 'unknown', source: 'host-public-contract' };
@@ -286,8 +288,9 @@ export class ConnectionRegistry {
       capability: candidate.capability,
       capabilities: { text: candidate.capability.text, image: candidate.capability.image, tools: candidate.capability.tools, contextWindow, inputLimit: unknownCapacity, maxOutput: unknownCapacity },
       maxContextTokens: candidate.maxContextTokens,
-      quote: priced?.quote ?? null,
-      quoteVersion: priced?.quoteVersion ?? null,
+      quote: reference ? reference.quote : priced?.quote ?? null,
+      quoteVersion: reference ? reference.quoteVersion : priced?.quoteVersion ?? null,
+      ...(reference ? { subscription: reference.subscription } : {}),
       enabled: Boolean(entry?.enabled),
     });
   }
@@ -304,10 +307,12 @@ export class ConnectionRegistry {
     const candidates = this.#state.connections.candidates.map(candidate => {
       const entry = (config.pool ?? []).find(item => matchesCandidate(item, candidate));
       const quote = (config.prices ?? []).find(item => item.candidateId === candidate.candidateId || sameIdentity(item, candidate));
+      const reference = subscriptionReference(candidate);
       const controlled = isControlledFixture(candidate);
       const knownCapacity = candidate.maxContextTokens === null ? { value: null, confidence: 'unknown', source: 'host-public-contract' } : { value: candidate.maxContextTokens, confidence: controlled ? 'known' : 'declared', source: controlled ? candidate.source : 'provider-model-metadata' };
       const unknownCapacity = { value: null, confidence: 'unknown', source: 'host-public-contract' };
-      const normalizedQuote = quote ? { ...structuredClone(quote.quote), quoteVersion: quote.quoteVersion ?? null, estimatedCost: null } : null;
+      const chosenQuote = reference ? reference.quote : quote?.quote ?? null;
+      const normalizedQuote = chosenQuote ? { ...structuredClone(chosenQuote), quoteVersion: reference ? reference.quoteVersion : quote.quoteVersion ?? null, estimatedCost: null } : null;
       return {
         ...structuredClone(candidate),
         id: candidate.candidateId,
@@ -321,6 +326,7 @@ export class ConnectionRegistry {
         inferenceVerification: structuredClone(candidate.inferenceVerification ?? { status: 'unknown' }),
         capabilities: { modalities: { text: candidate.capability.text, image: candidate.capability.image }, text: candidate.capability.text, image: candidate.capability.image, tools: candidate.capability.tools, contextWindow: knownCapacity, inputLimit: unknownCapacity, maxOutput: unknownCapacity, maxContextTokens: candidate.maxContextTokens, confidence: candidate.capability.text.confidence, source: candidate.capability.text.source ?? candidate.source },
         quote: normalizedQuote,
+        ...(reference ? { subscription: reference.subscription } : {}),
         observations: [],
         compatibility: { confidence: controlled ? 'known' : 'declared', scope: candidate.supportScope },
       };

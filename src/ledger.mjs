@@ -1,3 +1,5 @@
+import { isChatGptSubscription, unknownSubscriptionQuota } from './subscription-reference.mjs';
+
 const fields = { input: 'inputTokens', output: 'outputTokens', cacheRead: 'cacheReadTokens', cacheWrite: 'cacheWriteTokens', reasoning: 'reasoningTokens', total: 'totalTokens' };
 const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 export const emptyBudget = () => ({ tokens: null, durationMs: null, money: [] });
@@ -20,17 +22,33 @@ export function costOf(tokens, quote) {
   if (!quote) return { amount: null, knownSubtotal: null, reason: 'PRICE_UNKNOWN', billingConfirmation: 'unconfirmed' };
   const missing = [];
   const parts = {};
+  let rates = quote.perMillion;
+  let basis;
+  if (quote.contextPricing) {
+    const prompt = ['input', 'cacheRead', 'cacheWrite'].every(key => tokens[key] !== null) ? tokens.input + tokens.cacheRead + tokens.cacheWrite : null;
+    const inconsistent = (prompt !== null && !Number.isSafeInteger(prompt))
+      || (quote.reasoning === 'included-in-output' && tokens.reasoning !== null && tokens.output !== null && tokens.reasoning > tokens.output)
+      || (prompt !== null && tokens.output !== null && tokens.total !== null && prompt + tokens.output !== tokens.total);
+    const band = prompt === null || inconsistent ? 'unknown' : prompt > quote.contextPricing.shortMaxInputTokens ? 'long' : 'short';
+    basis = { profile: quote.referenceBasis ?? 'context-tiered', contextBand: band, promptTokens: inconsistent ? null : prompt, shortMaxInputTokens: quote.contextPricing.shortMaxInputTokens };
+    if (band === 'long') rates = quote.contextPricing.longPerMillion;
+    if (band === 'unknown') {
+      // Missing cache details also make ordinary input uncertain: never price
+      // a provider's aggregate prompt as a known disjoint input subtotal.
+      return { currency: quote.currency, kind: quote.kind, amount: null, knownSubtotal: null, parts: {}, missing: [inconsistent ? 'usage-inconsistent' : 'context-band'], reason: inconsistent ? 'USAGE_INCONSISTENT' : 'USAGE_INCOMPLETE', reasoning: quote.reasoning, basis, billingConfirmation: 'unconfirmed' };
+    }
+  }
   if (quote.reasoning === 'unknown' && tokens.reasoning !== 0) missing.push('reasoning-overlap');
   for (const key of ['input', 'output', 'cacheRead', 'cacheWrite']) {
-    if (tokens[key] === null || (tokens[key] > 0 && quote.perMillion[key] === undefined)) { missing.push(key); parts[key] = null; }
-    else parts[key] = tokens[key] * (quote.perMillion[key] ?? 0) / 1_000_000;
+    if (tokens[key] === null || (tokens[key] > 0 && rates[key] === undefined)) { missing.push(key); parts[key] = null; }
+    else parts[key] = tokens[key] * (rates[key] ?? 0) / 1_000_000;
   }
   if (quote.reasoning === 'separate') {
-    if (tokens.reasoning === null || (tokens.reasoning > 0 && quote.perMillion.reasoning === undefined)) { missing.push('reasoning'); parts.reasoning = null; }
-    else parts.reasoning = tokens.reasoning * (quote.perMillion.reasoning ?? 0) / 1_000_000;
+    if (tokens.reasoning === null || (tokens.reasoning > 0 && rates.reasoning === undefined)) { missing.push('reasoning'); parts.reasoning = null; }
+    else parts.reasoning = tokens.reasoning * (rates.reasoning ?? 0) / 1_000_000;
   }
   const knownSubtotal = Object.values(parts).reduce((sum, amount) => sum + (amount ?? 0), 0);
-  return { currency: quote.currency, kind: quote.kind, amount: missing.length ? null : Number(knownSubtotal.toPrecision(15)), knownSubtotal: Number(knownSubtotal.toPrecision(15)), parts, missing, reasoning: quote.reasoning, billingConfirmation: 'unconfirmed' };
+  return { currency: quote.currency, kind: quote.kind, amount: missing.length ? null : Number(knownSubtotal.toPrecision(15)), knownSubtotal: Number(knownSubtotal.toPrecision(15)), parts, missing, ...(missing.length ? { reason: 'USAGE_INCOMPLETE' } : {}), reasoning: quote.reasoning, ...(basis ? { basis } : {}), billingConfirmation: 'unconfirmed' };
 }
 export function budgetCheck(task, proposed) {
   const ledger = ledgerOf({ ...task, calls: task.calls.filter(call => !call.reservation || ['settled', 'released'].includes(call.reservation.state)) });
@@ -66,18 +84,27 @@ export function ledgerOf(task, now = Date.now()) {
   const known = Object.fromEntries(Object.keys(fields).map(key => [key, 0]));
   const unknown = Object.fromEntries(Object.keys(fields).map(key => [key, 0]));
   const money = new Map();
+  const subscriptionQuota = new Map();
   let unknownPrices = 0;
   for (const call of calls) {
+    if (isChatGptSubscription(call.selection)) subscriptionQuota.set(call.selection.accountId, { accountId: call.selection.accountId, ...(call.subscription?.quota ?? unknownSubscriptionQuota()) });
     const tokens = tokensOf(call.usage);
     for (const key of Object.keys(fields)) if (tokens[key] === null) unknown[key]++; else known[key] += tokens[key];
-    const cost = costOf(tokens, call.priceQuote);
-    if (!cost.currency) { unknownPrices++; continue; }
+    let cost = costOf(tokens, call.priceQuote);
+    if (!cost.currency) {
+      unknownPrices++;
+      if (!isChatGptSubscription(call.selection)) continue;
+      // USD is the reference policy's comparison currency, not a known price.
+      // An unmapped subscription call makes the whole reference total unknown.
+      cost = { ...cost, currency: 'USD', kind: 'subscription-reference' };
+    }
     const key = `${cost.currency}:${cost.kind}`;
-    const total = money.get(key) ?? { currency: cost.currency, kind: cost.kind, amount: 0, knownSubtotal: 0, unknownCalls: 0, billingConfirmation: 'unconfirmed' };
+    const total = money.get(key) ?? { currency: cost.currency, kind: cost.kind, amount: 0, knownSubtotal: 0, knownSubtotalCalls: 0, unknownCalls: 0, billingConfirmation: 'unconfirmed' };
     total.knownSubtotal += cost.knownSubtotal ?? 0;
+    if (cost.knownSubtotal !== null && cost.knownSubtotal !== undefined) total.knownSubtotalCalls++;
     if (cost.amount === null) total.unknownCalls++; else total.amount += cost.amount;
     money.set(key, total);
   }
-  const amounts = [...money.values()].map(item => ({ ...item, amount: item.unknownCalls ? null : Number(item.amount.toPrecision(15)), knownSubtotal: Number(item.knownSubtotal.toPrecision(15)) }));
-  return { tokens: Object.fromEntries(Object.keys(fields).map(key => [key, unknown[key] ? null : known[key]])), knownTokens: known, unknownTokenCalls: unknown, money: amounts, unknownPriceCalls: unknownPrices, elapsedMs: Math.max(0, (task.endedAt ? Date.parse(task.endedAt) : now) - Date.parse(task.startedAt)), callCount: calls.length, uncertainDispatchCalls: calls.filter(call => possiblyDispatched(call) && !call.dispatchStarted && !call.usage).length };
+  const amounts = [...money.values()].map(item => ({ ...item, amount: item.unknownCalls ? null : Number(item.amount.toPrecision(15)), knownSubtotal: item.knownSubtotalCalls ? Number(item.knownSubtotal.toPrecision(15)) : null }));
+  return { tokens: Object.fromEntries(Object.keys(fields).map(key => [key, unknown[key] ? null : known[key]])), knownTokens: known, unknownTokenCalls: unknown, money: amounts, unknownPriceCalls: unknownPrices, actualSpend: { status: 'unknown', amount: null, currency: null, reason: 'NO_CONFIRMED_PROVIDER_BILL' }, subscriptionQuota: [...subscriptionQuota.values()], elapsedMs: Math.max(0, (task.endedAt ? Date.parse(task.endedAt) : now) - Date.parse(task.startedAt)), callCount: calls.length, uncertainDispatchCalls: calls.filter(call => possiblyDispatched(call) && !call.dispatchStarted && !call.usage).length };
 }
