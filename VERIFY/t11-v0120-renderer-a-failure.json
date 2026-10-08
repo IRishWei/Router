@@ -1,0 +1,9 @@
+{
+  "passed": false,
+  "script": "t11-v0120a-installed-renderer.mjs",
+  "assertion": "known: Task identity 0 != 1",
+  "observed": "The asynchronous live RPC response was not awaited before querying the history entry.",
+  "nextStage": "b waits for the actual Task identity after opening history; source/package unchanged.",
+  "localResponsesAlreadyCompleted": 8,
+  "additionalModelRequests": 0
+}

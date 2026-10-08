@@ -1,0 +1,9 @@
+{
+  "passed": false,
+  "script": "t11-v0120b-installed-renderer.mjs",
+  "assertion": "普通输入未知 substring absent",
+  "diagnosis": "The script expected different wording. The installed UI says 缓存分项不完整，普通输入仍为未知。",
+  "taskIdentityAwaitVerified": true,
+  "sourceAndPackageUnchanged": true,
+  "additionalModelRequests": 0
+}

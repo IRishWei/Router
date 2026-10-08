@@ -1,0 +1,40 @@
+{
+  "passed": true,
+  "installedClientSha256": "24CA53C15834CAE2590DB81B46F48A8845D2913B55D69EB9F8FC23A3FE6CF177",
+  "harnessSha256": "E66FD5E1BFB04AD23149F176D20A811DCEC80059B49A427AE7970897FDC05387",
+  "integrationCommit": "58fbdc2b17e377fadb711f5fa53deeb9bdaf7699",
+  "realNativeRenderer": true,
+  "realTypertRpcCodec": true,
+  "livePublicRpcCarrier": true,
+  "browserDomMount": "react-test-renderer",
+  "visualScreenshotVerified": false,
+  "displayed": [
+    {
+      "stage": "known",
+      "taskId": "eb13a0d8-dcaf-4293-afc0-a7409c3a0818",
+      "textSha256": "DB6AF39330DC34C646B1A7C872302756ADE8065E3EC7611DAEE9919D2959E7A1",
+      "estimateStatus": "known"
+    },
+    {
+      "stage": "alias",
+      "taskId": "ca3a654e-3882-470c-b655-01ef7bdda9af",
+      "textSha256": "3EBE422BF89382F96C51E2D850CC4CD4C62FF937E04AEBD09EB3D133964B462A",
+      "estimateStatus": "unknown"
+    },
+    {
+      "stage": "partial",
+      "taskId": "0c287f05-cf74-4bce-8d57-597d78d4b743",
+      "textSha256": "DDC3CD99D697C6D4B3F7F05DC4C191F83AF816D24AF0544BA5BD34D8B625F997",
+      "estimateStatus": "unknown"
+    },
+    {
+      "stage": "long",
+      "taskId": "49268538-8e9d-436d-af67-005486697920",
+      "textSha256": "98CAD8668D16BCA57547BF5F176F4BB4DF1477CEF35282F739C463B905CC8F44",
+      "estimateStatus": "known"
+    }
+  ],
+  "configAndHistoryPreserved": true,
+  "nativeDefaultPreserved": true,
+  "realModelRequests": 0
+}
