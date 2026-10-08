@@ -111,7 +111,7 @@ export class ChatGptSessions {
         return { kind: 'grant', payload: { ...record.payload, authorizationId: epoch } };
     });
   }
-  async cleanupReceived(registration, exchanged, epoch) {
+  async cleanupReceived(registration, exchanged, epoch, { skipIfCleared = false } = {}) {
     let cleanupFailure;
     let attempted = false;
     let revocation;
@@ -127,6 +127,7 @@ export class ChatGptSessions {
     try {
       await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
         const grant = chatGptGrantFromRecord(current);
+        if (skipIfCleared && !grant && current?.payload?.revocation) return undefined;
         const ownsCommitted = grant?.authorizationId === epoch;
         await revoke(ownsCommitted ? grant : exchanged);
         return ownsCommitted ? clearedRecord({ ...registration, accountId: chatGptAccountId(grant.issuedClientId, grant.subject), issuedClientId: grant.issuedClientId }, this.#hostId, 'signed-out', { revocation }) : undefined;
@@ -140,20 +141,8 @@ export class ChatGptSessions {
     }
     if (cleanupFailure) await this.finishAuthorization(epoch, cleanupFailure);
   }
-  async discardAuthorization(registration, epoch) {
-    let cleanupFailure;
-    await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
-      const grant = chatGptGrantFromRecord(current);
-      if (!grant || grant.authorizationId !== epoch) return undefined;
-      let revocation = { status: 'confirmed' };
-      try { await this.#revoke(grant); }
-      catch (cause) {
-        revocation = { status: 'unconfirmed', failureCode: cause.code ?? 'CHATGPT_REVOCATION_FAILED' };
-        cleanupFailure = { accountId: registration.accountId, code: revocation.failureCode };
-      }
-      return clearedRecord(registration, this.#hostId, 'signed-out', { revocation });
-    });
-    if (cleanupFailure) await this.finishAuthorization(epoch, cleanupFailure);
+  async discardAuthorization(registration, epoch, fallbackGrant) {
+    return this.cleanupReceived(registration, { ...fallbackGrant, accountId: registration.accountId }, epoch, { skipIfCleared: true });
   }
   async signOutRegistration(registration) {
     await this.recoverSignOut();

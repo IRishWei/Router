@@ -184,6 +184,7 @@ export class ChatGptHost {
     const key = chatGptSessionKey({ credentialId });
     const epoch = ++this.#authorizationEpoch;
     const durableEpoch = await this.#sessions.beginAuthorization(registration);
+    let committedGrant;
     if (epoch !== this.#authorizationEpoch || this.#disposed) {
       await this.#sessions.finishAuthorization(durableEpoch);
       throw Object.assign(new Error('ChatGPT authorization cancelled'), { code: 'OAUTH_CANCELLED' });
@@ -196,13 +197,16 @@ export class ChatGptHost {
       ...(this.#timeoutMs ? { timeoutMs: this.#timeoutMs } : {}),
       getExistingGrant: () => this.#credentials().readRecord(key),
       getRegistration: () => registration,
-      commitGrant: (record, session) => this.#sessions.commitAuthorization({
-        accountId: describeChatGptGrant(record).accountId, issuedClientId: record.payload.issuedClientId, credentialId,
-      }, record, durableEpoch, session.signal),
+      commitGrant: async (record, session) => {
+        await this.#sessions.commitAuthorization({
+          accountId: describeChatGptGrant(record).accountId, issuedClientId: record.payload.issuedClientId, credentialId,
+        }, record, durableEpoch, session.signal);
+        committedGrant = { issuedClientId: record.payload.issuedClientId, refreshToken: record.payload.refreshToken };
+      },
       cleanupGrant: exchanged => this.#sessions.cleanupReceived({ accountId: exchanged.accountId ?? registration?.accountId, credentialId }, exchanged, durableEpoch),
       afterCommit: result => this.#disposed
-        ? this.#sessions.discardAuthorization({ accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId }, durableEpoch)
-        : this.#operation(() => this.#afterCommit(result, credentialId, epoch, durableEpoch)),
+        ? this.#sessions.discardAuthorization({ accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId }, durableEpoch, committedGrant)
+        : this.#operation(() => this.#afterCommit(result, credentialId, epoch, durableEpoch, committedGrant)),
     });
     this.#disposeFlow = this.#authorization().registerFlow({ ...flow, run: session => {
       const completion = flow.run(session).finally(() => this.#sessions.finishAuthorization(durableEpoch));
@@ -213,11 +217,11 @@ export class ChatGptHost {
     this.#flowKey = key;
     return key;
   }
-  async #afterCommit(result, credentialId, epoch, durableEpoch) {
+  async #afterCommit(result, credentialId, epoch, durableEpoch, committedGrant) {
     const existing = this.#state.chatGpt.account;
     const priorRegistration = this.#state.chatGpt.registrations.find(item => item.accountId === result.accountId);
     if (epoch !== this.#authorizationEpoch || !(await this.#sessions.authorizationIsCurrent(durableEpoch))) {
-      await this.#sessions.discardAuthorization({ accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId }, durableEpoch);
+      await this.#sessions.discardAuthorization({ accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId }, durableEpoch, committedGrant);
       return;
     }
     const account = { accountId: result.accountId, issuedClientId: result.issuedClientId, configRevision: Math.max(existing?.configRevision ?? 0, priorRegistration?.configRevision ?? 0) + 1 };
@@ -234,7 +238,7 @@ export class ChatGptHost {
       await this.#sessions.signOut(priorRegistration);
     }
     if (epoch !== this.#authorizationEpoch || !(await this.#sessions.authorizationIsCurrent(durableEpoch))) {
-      await this.#sessions.discardAuthorization({ ...account, credentialId }, durableEpoch);
+      await this.#sessions.discardAuthorization({ ...account, credentialId }, durableEpoch, committedGrant);
       return;
     }
     this.#state.chatGpt.registrations = this.#state.chatGpt.registrations.filter(item => item.accountId !== account.accountId);

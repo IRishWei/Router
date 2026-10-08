@@ -409,3 +409,34 @@ for (const remoteStatus of [200, 503]) {
     } finally { f.ctx.credentials.modifyRecord = modify; await f.close(); }
   });
 }
+
+test('storage failure after a successful commit cannot hide or prevent cleanup of a cancelled grant', async () => {
+  const f = await fixture();
+  const modify = f.ctx.credentials.modifyRecord.bind(f.ctx.credentials);
+  let faulted = false;
+  let committedKey;
+  try {
+    f.ctx.credentials.modifyRecord = async (key, mutate) => {
+      if (faulted) throw Object.assign(new Error('controlled storage fault after commit'), { code: 'EACCES' });
+      const record = await modify(key, mutate);
+      if (key.startsWith('irishwei-dsh-router/chatgpt-oauth-') && record?.payload?.authorizationId) {
+        committedKey = key;
+        faulted = true;
+        void f.host.cancelAuthorization().catch(() => {});
+      }
+      return record;
+    };
+    const attempt = await f.host.startAuthorization({ newAccount: true });
+    await f.remote.authorize(attempt.authorizationURL, { client: 'oaiapp-b', subject: 'subject-b' });
+    await waitAuthorization(f.host);
+    await f.host.dispose();
+    const snapshot = await f.host.snapshot();
+    assert.ok((await f.ctx.credentials.readRecord(committedKey)).payload.refreshToken);
+    assert.equal(snapshot.authorization.status, 'cancelled');
+    assert.equal(snapshot.registrations.length, 1);
+    assert.equal(snapshot.lifecycle.revocation.localCleared, false);
+    assert.equal(snapshot.lifecycle.revocation.remoteStatus, 'confirmed');
+    assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 1);
+    assert.equal(f.remote.failures.length, 0);
+  } finally { f.ctx.credentials.modifyRecord = modify; await f.close(); }
+});
