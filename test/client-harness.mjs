@@ -7,12 +7,23 @@ import React from 'react';
 import * as jsx from 'react/jsx-runtime';
 import renderer, { act } from 'react-test-renderer';
 
-async function loadClient(path, imports, diagnostics) {
+async function loadClient(path, imports, diagnostics, openedUrls = [], openPopup) {
   let plugin;
+  const window = {
+    open(url, target, features) {
+      const decision = openPopup?.(url, target, features);
+      const entry = { url, target, features, closed: false };
+      openedUrls.push(entry);
+      if (decision === null) return null;
+      const popup = { opener: window, closed: false, close() { this.closed = true; entry.closed = true; } };
+      popup.location = { get href() { return entry.url; }, set href(value) { entry.url = value; } };
+      return popup;
+    },
+  };
   vm.runInNewContext(await readFile(path, 'utf8'), {
-    queueMicrotask, AbortController, AbortSignal, crypto: webcrypto,
+    queueMicrotask, setTimeout, clearTimeout, AbortController, AbortSignal, URL, crypto: webcrypto,
     console: { ...console, error: (...args) => diagnostics.push(args) },
-    window: { __ModuleLoader__: { load(module) {
+    window: { ...window, __ModuleLoader__: { load(module) {
       plugin = module.factory(name => {
         if (!(name in imports)) throw new Error(`Unexpected client dependency: ${name}`);
         return imports[name];
@@ -28,12 +39,12 @@ export function taskState() {
 
 // Only the transport and browser DOM mount are external. Slot assembly,
 // Cordis dependency tracing, namespace mounting, and RPC codecs use rc.2 code.
-export async function mountSettings(initialState = taskState(), carrier) {
-  const diagnostics = [], errors = [], calls = [];
+export async function mountSettings(initialState = taskState(), carrier, { openPopup } = {}) {
+  const diagnostics = [], errors = [], calls = [], openedUrls = [];
   const imports = { 'react': React, 'react/jsx-runtime': jsx, '@deepseek-ai/cordis': cordis, '@deepseek-ai/dsh-client-ui-slots': slots, 'react-dom': {}, 'react-dom/client': {} };
-  const native = name => loadClient(`node_modules/@deepseek-ai/${name}/lib/client.js`, imports, diagnostics);
+  const native = name => loadClient(`node_modules/@deepseek-ai/${name}/lib/client.js`, imports, diagnostics, openedUrls, openPopup);
   const [nativeRenderer, registry, gateway, client] = await Promise.all([
-    native('dsh-client-ui-renderer'), native('dsh-typert-registry'), native('dsh-api-gateway'), loadClient('lib/client.js', imports, diagnostics),
+    native('dsh-client-ui-renderer'), native('dsh-typert-registry'), native('dsh-api-gateway'), loadClient('lib/client.js', imports, diagnostics, openedUrls, openPopup),
   ]);
   const ctx = new cordis.Context();
   let state = structuredClone(initialState), page, clientFiber;
@@ -65,7 +76,7 @@ export async function mountSettings(initialState = taskState(), carrier) {
     clientFiber = await ctx.plugin(client);
     await act(async () => { page = renderer.create(ctx.slots.renderSlot('root', {})); });
     return {
-      ctx, page, errors, diagnostics, calls, client,
+      ctx, page, errors, diagnostics, calls, openedUrls, client,
       async unload() { await act(async () => { await clientFiber.dispose(); }); },
       async reload() { await act(async () => { clientFiber = await ctx.plugin(client); }); },
       async dispose() {

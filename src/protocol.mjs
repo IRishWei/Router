@@ -25,7 +25,8 @@ export const coordinationPolicySchema = () => z.object({
   maxAdviceChars: z.number().int().positive().safe().max(16384),
   forecastTokens: z.number().int().positive().safe().max(65536),
 }).strict().refine(value => value.forecastTokens >= value.maxTokens, { message: 'Consultation forecast must cover its output cap', path: ['forecastTokens'] });
-const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), routingObjective: z.enum(['balanced', 'cost', 'tokens', 'speed', 'quality']).default('balanced'), semanticAssessment: z.boolean().default(false), acceptance: acceptancePolicySchema().optional(), coordination: coordinationPolicySchema().optional(), fixedModel: z.string().nullable().optional(), fixedCandidateId: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), semanticAssessmentRequest: z.object({ status: z.literal('armed'), requestedAt: z.string() }).strict().nullable().optional(), calibrationPreview: z.json().optional(), candidateSnapshot: z.json().optional(), unsupportedProviders: z.array(z.json()).optional(), deepSeek: z.json().optional(), tasks: z.array(z.json()), blockedRequests: z.array(z.json()).optional(), storageError: z.string().nullable(), models: z.array(z.json()) }) };
+const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), routingObjective: z.enum(['balanced', 'cost', 'tokens', 'speed', 'quality']).default('balanced'), semanticAssessment: z.boolean().default(false), acceptance: acceptancePolicySchema().optional(), coordination: coordinationPolicySchema().optional(), fixedModel: z.string().nullable().optional(), fixedCandidateId: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), semanticAssessmentRequest: z.object({ status: z.literal('armed'), requestedAt: z.string() }).strict().nullable().optional(), calibrationPreview: z.json().optional(), candidateSnapshot: z.json().optional(), unsupportedProviders: z.array(z.json()).optional(), deepSeek: z.json().optional(), chatGpt: z.json().optional(), tasks: z.array(z.json()), blockedRequests: z.array(z.json()).optional(), storageError: z.string().nullable(), models: z.array(z.json()) }) };
+const authorizationStartResult = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#ChatGptAuthorizationStart', create: () => z.object({ attemptId: z.string().uuid(), authorizationURL: z.string().url().max(16_384) }).strict() };
 const parameter = (name, create) => ({ name, wire: name, source: 'json', codec: { mode: 'strict', typeSymbol: `@irishwei/dsh-router#${name}`, create } });
 const parameters = {
   snapshot: [],
@@ -49,12 +50,17 @@ const parameters = {
   deepSeekConnect: [parameter('request', () => z.object({ accountId: z.string().min(1).max(500) }).strict())],
   deepSeekDisconnect: [parameter('request', () => z.object({ connectionId: z.string().min(1).max(500), deleteCredential: z.boolean() }).strict())],
   deepSeekRunDetection: [parameter('request', () => z.object({ candidateId: z.string().min(1).max(500), budget: z.object({ tokens: z.number().int().positive().safe().max(4096), durationMs: z.number().int().positive().safe().max(60_000) }).strict() }).strict())],
+  chatGptStartAuthorization: [],
+  chatGptCancelAuthorization: [],
+  chatGptConnect: [],
+  chatGptDisconnect: [parameter('request', () => z.object({ deleteCredential: z.boolean() }).strict())],
+  chatGptRunDetection: [parameter('request', () => z.object({ candidateId: z.string().min(1).max(500), budget: z.object({ tokens: z.number().int().positive().safe().max(65_536), durationMs: z.number().int().positive().safe().max(120_000) }).strict() }).strict())],
 };
 export const descriptors = Object.keys(parameters).map(method => ({
   id: `@irishwei/dsh-router#router/${method}`, service: 'router', namespace: 'router', method,
   invocation: { kind: 'direct' },
   parameters: parameters[method],
-  result,
+  result: method === 'chatGptStartAuthorization' ? authorizationStartResult : result,
 }));
 export const TYPERT = { package: '@irishwei/dsh-router', face: 'host', schemas: [], invocations: descriptors, model: { services: [], events: [], objects: [] } };
 export const TYPERT_REMOTE = { package: '@irishwei/dsh-router', descriptors };

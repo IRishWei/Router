@@ -5,6 +5,7 @@ window.__ModuleLoader__.load({
     const h = React.createElement;
     const valueOf = result => { if (!result.ok) throw result.error; return result.value; };
     const DeepSeekSettings = createDeepSeekSettingsComponent(React);
+    const ChatGptSettings = createChatGptSettingsComponent(React);
     const deepSeekService = api => ({
       snapshot: async () => valueOf(await api.snapshot()).deepSeek,
       saveCredential: async request => valueOf(await api.deepSeekSaveCredential(request)).deepSeek,
@@ -28,6 +29,19 @@ window.__ModuleLoader__.load({
     const deepSeekRouterApi = api => ({
       snapshot: async () => valueOf(await api.snapshot()),
       setModelEnabled: async (candidateId, enabled) => valueOf(await api.setModelEnabled(candidateId, enabled)),
+    });
+    const chatGptService = api => ({
+      snapshot: async () => valueOf(await api.snapshot()).chatGpt,
+      startAuthorization: async () => valueOf(await api.chatGptStartAuthorization()),
+      cancelAuthorization: async () => valueOf(await api.chatGptCancelAuthorization()).chatGpt,
+      connect: async () => valueOf(await api.chatGptConnect()).chatGpt,
+      disconnect: async request => valueOf(await api.chatGptDisconnect(request)).chatGpt,
+      runDetection: async request => {
+        const snapshot = valueOf(await api.chatGptRunDetection(request));
+        const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt?.lastDetectionTaskId);
+        if (!task) throw new Error('ChatGPT validation Task is unavailable');
+        return { taskId: task.id, lifecycle: task.lifecycle, result: task.result ?? '', budget: task.budget.limits, ledger: task.ledger, calls: task.calls };
+      },
     });
     const confidence = value => ({ known: '已知', declared: '声明', unknown: '未知' })[value] ?? '未知';
     const reasons = {
@@ -244,7 +258,7 @@ window.__ModuleLoader__.load({
       return h('section', { style: { maxWidth: 720, display: 'grid', gap: 16 } },
         h('h2', null, 'DSH Router'),
         h('p', null, '启用模型池和自动路由后发送 Reply ROUTER_OK。暂停后可在原生会话模型菜单选择仍有效的模型。'),
-        h('nav', { 'aria-label': 'Router 设置' }, ...['连接与模型', 'DeepSeek API', '路由与预算', '任务记录'].map(label => h('button', { key: label, type: 'button', 'aria-pressed': page === label, onClick: () => setPage(label) }, label))),
+        h('nav', { 'aria-label': 'Router 设置' }, ...['连接与模型', 'DeepSeek API', 'ChatGPT OAuth', '路由与预算', '任务记录'].map(label => h('button', { key: label, type: 'button', 'aria-pressed': page === label, onClick: () => setPage(label) }, label))),
         error ? h('p', { role: 'alert' }, error) : null,
         !state ? h('p', null, '加载中…') : h(React.Fragment, null,
           h('p', { role: 'status' }, `期望配置 ${state.config.version} · ${state.application?.status === 'pending' ? '待生效：下一稳定请求应用' : '已生效'}`),
@@ -252,7 +266,7 @@ window.__ModuleLoader__.load({
           state.storageError ? h('p', { role: 'alert' }, state.storageError) : null,
           ...(state.blockedRequests ?? []).slice(-5).map((request, index) => h('p', { key: `${request.at}:${index}`, role: 'status' }, `辅助请求 ${request.nativePurpose} ${request.reason === 'AUXILIARY_LIFECYCLE_UNAVAILABLE' ? '缺少可观察的流生命周期' : '无法安全关联活动任务'}，尚未发送：${request.reason}`)),
           h('button', { type: 'button', onClick: refresh }, '刷新任务记录'),
-          page === '连接与模型' ? pool() : page === 'DeepSeek API' ? h(DeepSeekSettings, { service: deepSeekService(api), routerApi: deepSeekRouterApi(api) }) : page === '路由与预算' ? routing() : history()));
+          page === '连接与模型' ? pool() : page === 'DeepSeek API' ? h(DeepSeekSettings, { service: deepSeekService(api), routerApi: deepSeekRouterApi(api) }) : page === 'ChatGPT OAuth' ? h(ChatGptSettings, { service: chatGptService(api), routerApi: deepSeekRouterApi(api) }) : page === '路由与预算' ? routing() : history()));
     }
     return {
       inject: ['slots', 'remote'],
