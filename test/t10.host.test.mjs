@@ -279,3 +279,78 @@ test('a second Host signing out during OAuth token exchange prevents the first H
     assert.equal(f.remote.failures.length, 0);
   } finally { release(); await otherHost?.dispose(); await otherCtx?.fiber.dispose(); await f.close(); }
 });
+
+for (const cleanupStatus of [200, 503]) {
+  test(`cancellation during ID validation cleans an exchanged grant and exposes cleanup HTTP ${cleanupStatus}`, async () => {
+    let enteredResolve;
+    const entered = new Promise(resolve => { enteredResolve = resolve; });
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    let discovery = 0;
+    const f = await fixture({ discoveryUnavailable: async () => { if (++discovery === 1) { enteredResolve(); await gate; } return false; },
+      onRevoke: entry => ({ status: entry.form.get('token') === 'refresh-fixture-1' ? 200 : cleanupStatus }),
+    });
+    try {
+      const attempt = await f.host.startAuthorization({ newAccount: true });
+      await f.remote.authorize(attempt.authorizationURL, { client: 'oaiapp-b', subject: 'subject-b' });
+      await entered;
+      await f.host.signOut();
+      release();
+      await f.host.dispose();
+      const snapshot = await f.host.snapshot();
+      assert.equal(snapshot.account.configured, false);
+      assert.equal(snapshot.registrations.length, 1);
+      assert.equal(snapshot.lifecycle.revocation.status, cleanupStatus === 200 ? 'confirmed' : 'unconfirmed');
+      assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 2);
+      assert.equal(f.remote.failures.length, 0);
+    } finally { release(); await f.close(); }
+  });
+}
+
+for (const expiredOwner of [false, true]) {
+  test(`${expiredOwner ? 'expired' : 'live'} sign-out owner is coordinated across Hosts without erasing a later grant`, async () => {
+    const f = await fixture();
+    let enteredResolve;
+    const entered = new Promise(resolve => { enteredResolve = resolve; });
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    const modify = f.ctx.credentials.modifyRecord.bind(f.ctx.credentials);
+    let otherCtx;
+    let otherHost;
+    try {
+      f.ctx.credentials.modifyRecord = async (key, mutate) => {
+        if (key === chatGptSessionKey(f.registration)) { enteredResolve(); await gate; }
+        return modify(key, mutate);
+      };
+      const signingOut = f.host.signOut();
+      await entered;
+      otherCtx = await credentialsContext(f.home);
+      if (expiredOwner) {
+        const key = (await otherCtx.credentials.listRecords()).find(item => item.key.includes('/chatgpt-control-')).key;
+        await otherCtx.credentials.modifyRecord(key, current => ({ ...current, payload: { ...current.payload, signingOut: { ...current.payload.signingOut, owner: { ...current.payload.signingOut.owner, deadline: 0 } } } }));
+      }
+      otherHost = new ChatGptHost(otherCtx, structuredClone(f.state), async () => {}, f.hostOptions);
+      await otherHost.initialize();
+      if (expiredOwner) {
+        assert.equal((await otherHost.snapshot()).account.configured, false);
+        const attempt = await otherHost.startAuthorization();
+        await f.remote.authorize(attempt.authorizationURL);
+        assert.equal((await waitAuthorization(otherHost)).authorization.status, 'authorized');
+      } else {
+        assert.equal(Boolean((await otherHost.snapshot()).connection?.available), false);
+        await assert.rejects(otherHost.startAuthorization(), cause => cause.code === 'AUTHORIZATION_IN_PROGRESS');
+      }
+      release();
+      await signingOut;
+      await otherCtx.credentials.modifyRecord(chatGptSessionKey(f.registration), () => undefined);
+      const snapshot = await otherHost.snapshot();
+      assert.equal(snapshot.account.configured, expiredOwner);
+      if (expiredOwner) {
+        assert.equal(snapshot.connection.available, true);
+        const selected = f.mounts.at(-1);
+        assert.equal((await selected.getAuthorizedCredential(credentialRequest(selected))).client_id, 'oaiapp-a');
+        assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 0);
+      } else assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 1);
+    } finally { release(); f.ctx.credentials.modifyRecord = modify; await otherHost?.dispose(); await otherCtx?.fiber.dispose(); await f.close(); }
+  });
+}

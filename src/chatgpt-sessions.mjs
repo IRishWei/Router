@@ -12,6 +12,12 @@ const TERMINAL_REFRESH_ERRORS = new Set([
   'REFRESH_TOKEN_INVALIDATED', 'REFRESH_TOKEN_REUSED',
 ]);
 const error = code => new AuthorizationError('ChatGPT session is unavailable', code);
+const PROCESS_INSTANCE = randomUUID();
+function ownerAlive(owner, now) {
+  if (!owner || !Number.isSafeInteger(owner.pid) || owner.pid < 1 || !Number.isFinite(owner.deadline)
+    || owner.deadline <= now || (owner.pid === process.pid && owner.instance !== PROCESS_INSTANCE)) return false;
+  try { process.kill(owner.pid, 0); return true; } catch (cause) { return cause.code !== 'ESRCH'; }
+}
 const terminalIdentityError = code => code === 'OAUTH_ACCOUNT_MISMATCH' || code?.startsWith('ID_TOKEN_');
 export const chatGptSessionKey = registration => registration.credentialId === 'legacy'
   ? CHATGPT_CREDENTIAL_KEY : credentialKey('irishwei-dsh-router', `chatgpt-oauth-${registration.credentialId}`);
@@ -53,12 +59,14 @@ export class ChatGptSessions {
     return structuredClone(record.payload);
   }
   async beginAuthorization(registration) {
+    await this.recoverSignOut();
     let epoch;
     await this.#credentials.modifyRecord(this.#controlKey(), current => {
       const control = this.#control(current);
       if (control.signingOut) throw error('AUTHORIZATION_IN_PROGRESS');
       epoch = control.epoch = randomUUID();
-      control.attempts[epoch] = { accountId: registration?.accountId ?? null, revocationFor: [] };
+      control.attempts[epoch] = { accountId: registration?.accountId ?? null, revocationFor: [],
+        owner: { pid: process.pid, instance: PROCESS_INSTANCE, deadline: this.#now() + 10 * 60_000 + this.#timeoutMs } };
       return { kind: 'grant', payload: control };
     });
     return epoch;
@@ -70,7 +78,7 @@ export class ChatGptSessions {
     let valid = false;
     await this.#credentials.modifyRecord(this.#controlKey(), current => {
       const control = this.#control(current);
-      valid = control.epoch === epoch && !control.signingOut;
+      valid = control.epoch === epoch && Boolean(control.attempts[epoch]) && !control.signingOut;
       return undefined;
     });
     return valid;
@@ -78,33 +86,43 @@ export class ChatGptSessions {
   async finishAuthorization(epoch, cleanupFailure) {
     await this.#credentials.modifyRecord(this.#controlKey(), current => {
       const control = this.#control(current);
+      const attempt = control.attempts[epoch];
+      if (cleanupFailure) {
+        for (const accountId of new Set([cleanupFailure.accountId, ...(attempt?.revocationFor ?? [])].filter(Boolean))) {
+          control.revocations[accountId] = { status: 'unconfirmed', failureCode: cleanupFailure.code };
+        }
+        control.cleanupAlert = { status: 'unconfirmed', failureCode: cleanupFailure.code };
+      }
       delete control.attempts[epoch];
-      if (cleanupFailure) control.revocations[cleanupFailure.accountId] = { status: 'unconfirmed', failureCode: cleanupFailure.code };
       return { kind: 'grant', payload: control };
     });
   }
   async commitAuthorization(registration, record, epoch, signal) {
-    let rejected = false;
-    try {
-      await this.#credentials.modifyRecord(chatGptSessionKey(registration), async () => {
+    await this.#credentials.modifyRecord(chatGptSessionKey(registration), async () => {
         // LocalCredentialProvider reconciles the entire document under its
         // cross-process lock before entering this callback. Reads do not nest locks.
         const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
-        if (signal.aborted || control.epoch !== epoch || control.signingOut) {
-          rejected = true;
+        if (signal.aborted || control.epoch !== epoch || !control.attempts[epoch] || control.signingOut) {
           throw error('OAUTH_CANCELLED');
         }
         return { kind: 'grant', payload: { ...record.payload, authorizationId: epoch } };
-      });
-    } catch (cause) {
-      if (rejected) {
-        let cleanupFailure;
-        try { await this.#revoke(record.payload); }
-        catch (cleanup) { cleanupFailure = { accountId: registration.accountId, code: cleanup.code ?? 'CHATGPT_REVOCATION_FAILED' }; }
-        await this.finishAuthorization(epoch, cleanupFailure);
+    });
+  }
+  async cleanupReceived(registration, exchanged, epoch) {
+    let cleanupFailure;
+    await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
+      const grant = chatGptGrantFromRecord(current);
+      const ownsCommitted = grant?.authorizationId === epoch;
+      const target = ownsCommitted ? grant : exchanged;
+      let revocation = { status: 'confirmed' };
+      try { await this.#revoke(target); }
+      catch (cause) {
+        revocation = { status: 'unconfirmed', failureCode: cause.code ?? 'CHATGPT_REVOCATION_FAILED' };
+        cleanupFailure = { accountId: exchanged.accountId ?? registration.accountId, code: revocation.failureCode };
       }
-      throw cause;
-    }
+      return ownsCommitted ? clearedRecord({ ...registration, accountId: chatGptAccountId(grant.issuedClientId, grant.subject), issuedClientId: grant.issuedClientId }, this.#hostId, 'signed-out', { revocation }) : undefined;
+    });
+    if (cleanupFailure) await this.finishAuthorization(epoch, cleanupFailure);
   }
   async discardAuthorization(registration, epoch) {
     let cleanupFailure;
@@ -122,13 +140,13 @@ export class ChatGptSessions {
     if (cleanupFailure) await this.finishAuthorization(epoch, cleanupFailure);
   }
   async signOutRegistration(registration) {
+    await this.recoverSignOut();
     const slots = new Map([[chatGptSessionKey(registration), registration]]);
     const operationId = randomUUID();
     await this.#credentials.modifyRecord(this.#controlKey(), async current => {
       const control = this.#control(current);
       if (control.signingOut) throw error('AUTHORIZATION_IN_PROGRESS');
       control.epoch = randomUUID();
-      control.signingOut = operationId;
       for (const attempt of Object.values(control.attempts)) {
         if (!attempt.accountId || attempt.accountId === registration.accountId) attempt.revocationFor.push(registration.accountId);
       }
@@ -140,12 +158,14 @@ export class ChatGptSessions {
         const description = describeChatGptGrant(stored);
         if (description.accountId === registration.accountId) slots.set(key, { ...registration, credentialId: match[1] ?? 'legacy' });
       }
+      control.signingOut = { operationId, accountId: registration.accountId, slots: [...slots.values()],
+        owner: { pid: process.pid, instance: PROCESS_INSTANCE, deadline: this.#now() + this.#timeoutMs * (slots.size + 1) } };
       return { kind: 'grant', payload: control };
     });
     let outcome = { status: 'confirmed' };
     try {
       for (const slot of slots.values()) {
-        const result = await this.signOut(slot);
+        const result = await this.signOut(slot, { operationId });
         if (result.status !== 'confirmed') outcome = result;
       }
     } catch (cause) {
@@ -154,7 +174,8 @@ export class ChatGptSessions {
     } finally {
       await this.#credentials.modifyRecord(this.#controlKey(), current => {
         const control = this.#control(current);
-        if (control.signingOut === operationId) delete control.signingOut;
+        if (control.signingOut?.operationId !== operationId) return undefined;
+        delete control.signingOut;
         if (control.revocations[registration.accountId]?.status !== 'unconfirmed') control.revocations[registration.accountId] = outcome;
         return { kind: 'grant', payload: control };
       });
@@ -164,17 +185,80 @@ export class ChatGptSessions {
     const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
     let outcome = control.revocations[registration.accountId] ?? fallback;
     if (Object.values(control.attempts).some(attempt => attempt.revocationFor.includes(registration.accountId))) outcome = { status: 'unconfirmed', failureCode: 'AUTHORIZATION_CLEANUP_PENDING' };
+    if (control.cleanupAlert) outcome = control.cleanupAlert;
     return outcome;
+  }
+  async recoverSignOut() {
+    let pending;
+    const recoveryId = randomUUID();
+    await this.#credentials.modifyRecord(this.#controlKey(), current => {
+      const control = this.#control(current);
+      let changed = false;
+      for (const [epoch, attempt] of Object.entries(control.attempts)) {
+        if (ownerAlive(attempt.owner, this.#now())) continue;
+        control.cleanupAlert = { status: 'unconfirmed', failureCode: 'OAUTH_ATTEMPT_INTERRUPTED' };
+        for (const accountId of new Set([attempt.accountId, ...attempt.revocationFor].filter(Boolean))) control.revocations[accountId] = { status: 'unconfirmed', failureCode: 'OAUTH_ATTEMPT_INTERRUPTED' };
+        delete control.attempts[epoch];
+        changed = true;
+      }
+      if (control.signingOut && !ownerAlive(control.signingOut.owner, this.#now())) {
+        pending = { ...control.signingOut, operationId: recoveryId,
+          owner: { pid: process.pid, instance: PROCESS_INSTANCE, deadline: this.#now() + this.#timeoutMs } };
+        control.signingOut = pending;
+        changed = true;
+      }
+      return changed ? { kind: 'grant', payload: control } : undefined;
+    });
+    if (!pending) return;
+    const revocation = { status: 'unconfirmed', failureCode: 'CHATGPT_SIGN_OUT_INTERRUPTED' };
+    for (const registration of pending.slots) {
+      await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
+        const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
+        if (control.signingOut?.operationId !== recoveryId) return undefined;
+        if (current?.payload?.hostId !== this.#hostId) return undefined;
+        const description = describeChatGptGrant(current);
+        if (description.accountId !== pending.accountId) return undefined;
+        return clearedRecord(registration, this.#hostId, 'signed-out', { revocation });
+      });
+    }
+    await this.#credentials.modifyRecord(this.#controlKey(), current => {
+      const control = this.#control(current);
+      if (control.signingOut?.operationId !== pending.operationId) return undefined;
+      delete control.signingOut;
+      control.revocations[pending.accountId] = revocation;
+      return { kind: 'grant', payload: control };
+    });
+  }
+  async #assertAllowed(registration) {
+    const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
+    if (control.signingOut?.accountId === registration.accountId) throw error('CHATGPT_SIGN_OUT_PENDING');
+  }
+  async isSigningOut(registration) {
+    const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
+    return control.signingOut?.accountId === registration.accountId;
   }
   async ensure(registration, { refreshCatalog = false, signal } = {}) {
     signal?.throwIfAborted();
     let failure;
+    const quarantine = (cause, grant) => {
+      failure = cause;
+      if (terminalIdentityError(cause.code)) return clearedRecord(registration, this.#hostId, 'reauthorization-required', { failureCode: cause.code });
+      return { kind: 'grant', payload: { ...grant, catalog: { status: 'error', models: [], failureCode: cause.code ?? 'OIDC_DISCOVERY_FAILED' } } };
+    };
     await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
-      const grant = chatGptGrantFromRecord(current);
+      await this.#assertAllowed(registration);
+      let grant = chatGptGrantFromRecord(current);
       if (!grant) { failure = error(current?.payload?.failureCode ?? 'CHATGPT_SIGNED_OUT'); return undefined; }
       checkIdentity(grant, registration, this.#hostId);
+      const pendingValidation = grant.validation?.status === 'pending';
+      // An unvalidated replacement is already durable. Validate it before using
+      // even its refresh token; a later response omitting id_token cannot clear isolation.
+      if (pendingValidation) {
+        try { grant = await this.#validate(grant, this.#now() + this.#timeoutMs); }
+        catch (cause) { return quarantine(cause, grant); }
+      }
       const expired = Date.parse(grant.savedAt) + grant.expiresIn * 1000 <= this.#now();
-      if (!expired) return undefined;
+      if (!expired) return pendingValidation ? { kind: 'grant', payload: { ...grant, catalog: { status: 'pending', models: [] } } } : undefined;
       const deadline = this.#now() + this.#timeoutMs;
       // Rotation belongs to the session, not to one waiting Task's cancellation.
       // Persist a received replacement before any identity/catalog network work.
@@ -192,6 +276,7 @@ export class ChatGptSessions {
     // Re-read under a new lock. Another process may have validated the replacement
     // or signed out between phases; never write back the first phase's snapshot.
     const record = await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
+      await this.#assertAllowed(registration);
       let grant = chatGptGrantFromRecord(current);
       if (!grant) { failure = error(current?.payload?.failureCode ?? 'CHATGPT_SIGNED_OUT'); return undefined; }
       checkIdentity(grant, registration, this.#hostId);
@@ -200,19 +285,8 @@ export class ChatGptSessions {
       if (!pendingValidation && !refreshCatalog && grant.catalog?.status !== 'pending') return undefined;
       const deadline = this.#now() + this.#timeoutMs;
       if (grant.validation?.status === 'pending') {
-        try {
-          const identity = await validateChatGptIdToken({ token: grant.idToken, issuedClientId: grant.issuedClientId,
-            transport: this.#transport, endpoints: this.#endpoints, deadline, now: this.#now });
-          if (identity.issuer !== grant.issuer || identity.subject !== grant.subject) throw error('OAUTH_ACCOUNT_MISMATCH');
-          const { validation: _validation, ...validated } = grant;
-          grant = validated;
-        } catch (cause) {
-          failure = cause;
-          if (terminalIdentityError(cause.code)) return clearedRecord(registration, this.#hostId, 'reauthorization-required', { failureCode: cause.code });
-          // Discovery/JWKS can fail after the server has already rotated. Keep
-          // that replacement quarantined and retry identity validation only.
-          return { kind: 'grant', payload: { ...grant, catalog: { status: 'error', models: [], failureCode: cause.code ?? 'OIDC_DISCOVERY_FAILED' } } };
-        }
+        try { grant = await this.#validate(grant, deadline); }
+        catch (cause) { return quarantine(cause, grant); }
       }
       if (grant.scopes.includes(CHATGPT_DIRECT_SCOPE)) {
         const catalog = await fetchChatGptCatalog({ accessToken: grant.accessToken, transport: this.#transport, endpoints: this.#endpoints, deadline });
@@ -228,6 +302,13 @@ export class ChatGptSessions {
     if (!grant.scopes.includes(CHATGPT_DIRECT_SCOPE)) throw error('CHATGPT_SCOPE_REQUIRED');
     if (grant.catalog?.status !== 'listed' || !grant.catalog.models?.length) throw error(grant.catalog?.failureCode ?? 'MODEL_CATALOG_UNAVAILABLE');
     return grant;
+  }
+  async #validate(grant, deadline) {
+    const identity = await validateChatGptIdToken({ token: grant.idToken, issuedClientId: grant.issuedClientId,
+      transport: this.#transport, endpoints: this.#endpoints, deadline, now: this.#now });
+    if (identity.issuer !== grant.issuer || identity.subject !== grant.subject) throw error('OAUTH_ACCOUNT_MISMATCH');
+    const { validation: _validation, ...validated } = grant;
+    return validated;
   }
   async #refresh(previous, deadline) {
     const form = new URLSearchParams({
@@ -249,13 +330,17 @@ export class ChatGptSessions {
       scopes: token.scope === undefined ? previous.scopes : [...new Set(token.scope.split(/\s+/u).filter(Boolean))],
       savedAt: new Date(this.#now()).toISOString(),
       authorizedAt: previous.authorizedAt ?? previous.savedAt,
-      ...(token.id_token === undefined ? {} : { validation: { status: 'pending' } }),
+      ...(token.id_token === undefined && previous.validation?.status !== 'pending' ? {} : { validation: { status: 'pending' } }),
       ...(token.earliest_refresh_at === undefined ? {} : { earliestRefreshAt: token.earliest_refresh_at }),
     };
   }
-  async signOut(registration) {
+  async signOut(registration, { operationId } = {}) {
     let outcome;
     await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
+      if (operationId) {
+        const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
+        if (control.signingOut?.operationId !== operationId) { outcome = { status: 'unconfirmed', failureCode: 'CHATGPT_SIGN_OUT_INTERRUPTED' }; return undefined; }
+      }
       const grant = chatGptGrantFromRecord(current);
       if (!grant) {
         outcome = current?.payload?.revocation ?? { status: 'unconfirmed', failureCode: 'NO_LOCAL_REFRESH_TOKEN' };

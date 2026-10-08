@@ -224,7 +224,7 @@ export function describeChatGptGrant(record) {
 export function createChatGptAuthorizationFlow({
   hostId, credentialKey: key = CHATGPT_CREDENTIAL_KEY, transport, endpoints: endpointInput,
   getExistingGrant = async () => undefined, getRegistration = () => null, afterCommit = async () => {},
-  commitGrant = (record, session) => session.commit(record), timeoutMs = 5 * 60_000, now = Date.now,
+  commitGrant = (record, session) => session.commit(record), cleanupGrant = async () => {}, timeoutMs = 5 * 60_000, now = Date.now,
 }) {
   if (!/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(hostId)) throw new TypeError('hostId must be a urn:uuid identifier');
   if (!transport?.request) throw new TypeError('transport.request is required');
@@ -245,6 +245,8 @@ export function createChatGptAuthorizationFlow({
       const verifier = randomBytes(32).toString('base64url');
       const listener = callbackListener({ signal: session.signal, timeoutMs });
       const startedAt = now();
+      let exchanged;
+      let committed = false;
       try {
         const redirectURI = await listener.start();
         const authorizationURL = new URL(endpoints.authorizationURL);
@@ -278,6 +280,7 @@ export function createChatGptAuthorizationFlow({
           method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' }, body: Buffer.from(form), deadline, signal: session.signal,
           maxUploadBytes: 16 * 1024, maxResponseBytes: 1024 * 1024,
         }, 'OAUTH_TOKEN_EXCHANGE_FAILED');
+        if (typeof token.refresh_token === 'string' && token.refresh_token) exchanged = { issuedClientId, refreshToken: token.refresh_token };
         const accessToken = requiredString(token.access_token, 'OAUTH_TOKEN_RESPONSE_INVALID');
         const refreshToken = requiredString(token.refresh_token, 'OAUTH_TOKEN_RESPONSE_INVALID');
         const idToken = requiredString(token.id_token, 'OAUTH_TOKEN_RESPONSE_INVALID');
@@ -285,6 +288,7 @@ export function createChatGptAuthorizationFlow({
         if (tokenType.toLowerCase() !== 'bearer' || !Number.isSafeInteger(token.expires_in) || token.expires_in < 1) throw oauthError('OAUTH_TOKEN_RESPONSE_INVALID');
         const scopes = [...new Set(requiredString(token.scope, 'OAUTH_TOKEN_RESPONSE_INVALID').split(/\s+/u).filter(Boolean))];
         const identity = await validateChatGptIdToken({ token: idToken, issuedClientId, nonce, transport, endpoints, deadline, signal: session.signal, now });
+        if (exchanged) exchanged.accountId = chatGptAccountId(issuedClientId, identity.subject);
         if (existing && !safeEqual(existing.subject, identity.subject)) throw oauthError('OAUTH_ACCOUNT_MISMATCH');
         if (registration && registration.accountId !== chatGptAccountId(issuedClientId, identity.subject)) throw oauthError('OAUTH_ACCOUNT_MISMATCH');
         const catalog = await fetchChatGptCatalog({ accessToken, transport, endpoints, deadline, signal: session.signal });
@@ -296,8 +300,12 @@ export function createChatGptAuthorizationFlow({
           scopes, savedAt: new Date(now()).toISOString(), authorizedAt: new Date(now()).toISOString(), catalog,
         };
         await commitGrant({ kind: 'grant', payload: grant }, session);
+        committed = true;
         const description = describeChatGptGrant({ kind: 'grant', payload: grant });
         await afterCommit({ ...description, previousRecord });
+      } catch (cause) {
+        if (exchanged && !committed) await cleanupGrant(exchanged);
+        throw cause;
       } finally {
         await listener.dispose();
       }

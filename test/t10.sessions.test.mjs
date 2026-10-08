@@ -178,6 +178,61 @@ test('OIDC outage after rotation quarantines the replacement and recovery valida
   } finally { await f.close(); }
 });
 
+test('an expired quarantined identity cannot be cleared by a later refresh omitting id_token', async () => {
+  let unavailable = true;
+  let refreshes = 0;
+  const f = await fixture({ discoveryUnavailable: () => unavailable, onRefresh: ({ token }) => {
+    if (++refreshes > 1) { const { id_token: _idToken, ...replacement } = token; return { token: replacement }; }
+    const wrongIdentity = f.remote.grant({ hostId: f.record.payload.hostId, subject: 'different-subject-b' });
+    return { token: { ...token, id_token: wrongIdentity.payload.idToken } };
+  } });
+  try {
+    await assert.rejects(f.sessions.ensure(f.registration));
+    const quarantined = await f.sessions.read(f.registration);
+    assert.equal(quarantined.payload.validation.status, 'pending');
+    unavailable = false;
+    const advanced = new ChatGptSessions({ credentials: f.ctx.credentials, ...f.remote, hostId: f.record.payload.hostId, now: () => Date.now() + 3_700_000 });
+    await assert.rejects(advanced.ensure(f.registration), cause => cause.code === 'ID_TOKEN_EXPIRED' || cause.code === 'OAUTH_ACCOUNT_MISMATCH');
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+    assert.equal(f.remote.requests.filter(item => item.path === '/discovery').length, 2);
+    assert.equal(chatGptGrantFromRecord(await f.sessions.read(f.registration)), null);
+  } finally { await f.close(); }
+});
+
+test('restart after sign-out dies in revocation clears locally, reports unconfirmed, and releases the authorization gate without retry', async () => {
+  let enteredResolve;
+  const entered = new Promise(resolve => { enteredResolve = resolve; });
+  let release;
+  const gate = new Promise(resolve => { release = resolve; });
+  const f = await fixture({ onRevoke: async () => { enteredResolve(); await gate; return { status: 200 }; } });
+  const child = fork(new URL('./t10-signout-child.mjs', import.meta.url), [f.home, f.remote.origin], { silent: true });
+  let restored;
+  try {
+    await new Promise((resolve, reject) => { child.once('message', resolve); child.once('error', reject); });
+    child.send('sign-out');
+    await entered;
+    const exited = new Promise(resolve => child.once('exit', resolve)); child.kill(); await exited;
+    release();
+    restored = await credentialsContext(f.home);
+    const sessions = new ChatGptSessions({ credentials: restored.credentials, ...f.remote, hostId: f.record.payload.hostId });
+    await sessions.recoverSignOut();
+    await assert.rejects(sessions.ensure(f.registration));
+    const record = await sessions.read(f.registration);
+    assert.equal(record.payload.accessToken, undefined);
+    assert.equal(record.payload.refreshToken, undefined);
+    assert.equal((await sessions.revocation(f.registration, record.payload.revocation)).status, 'unconfirmed');
+    const epoch = await sessions.beginAuthorization(f.registration);
+    await sessions.finishAuthorization(epoch);
+    await sessions.signOutRegistration(f.registration);
+    assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 1);
+    assert.equal(f.remote.failures.length, 0);
+  } finally {
+    release();
+    if (child.exitCode === null && child.signalCode === null) { const exited = new Promise(resolve => child.once('exit', resolve)); child.kill(); await exited; }
+    await restored?.fiber.dispose(); await f.close();
+  }
+});
+
 test('omitted scope/id token retains prior identity and Task cancellation cannot discard a received rotation', async () => {
   const controller = new AbortController();
   const f = await fixture({ onRefresh: ({ token }) => {

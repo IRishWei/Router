@@ -120,6 +120,7 @@ export class ChatGptHost {
       this.#createdState = false;
     }
     this.#sessions = new ChatGptSessions({ credentials, transport: this.#transport, endpoints: this.#endpoints, hostId: this.#state.chatGpt.hostId });
+    await this.#sessions.recoverSignOut();
     await this.#recoverRegistrations();
     await this.restore();
   }
@@ -198,6 +199,7 @@ export class ChatGptHost {
       commitGrant: (record, session) => this.#sessions.commitAuthorization({
         accountId: describeChatGptGrant(record).accountId, issuedClientId: record.payload.issuedClientId, credentialId,
       }, record, durableEpoch, session.signal),
+      cleanupGrant: exchanged => this.#sessions.cleanupReceived({ accountId: exchanged.accountId ?? registration?.accountId, credentialId }, exchanged, durableEpoch),
       afterCommit: result => this.#disposed
         ? this.#sessions.discardAuthorization({ accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId }, durableEpoch)
         : this.#operation(() => this.#afterCommit(result, credentialId, epoch, durableEpoch)),
@@ -262,6 +264,7 @@ export class ChatGptHost {
     const { account, connection } = this.#state.chatGpt;
     if (!account || !connection || !this.#ctx.get('credentials')) return;
     try {
+      if (await this.#sessions.isSigningOut(this.#registration(account))) return;
       const description = describeChatGptGrant(await this.#sessions.read(this.#registration(account)));
       if (!description.configured || !description.directUseEnabled || description.accountId !== account.accountId || description.issuedClientId !== account.issuedClientId || !description.models.length) return;
       await this.#mount(connection);
@@ -306,7 +309,7 @@ export class ChatGptHost {
       this.#assertCurrent(account, connection);
       this.#state.chatGpt.failures[account.accountId] = safeFailureCode(error);
       const description = describeChatGptGrant(await this.#sessions.read(this.#registration(account)));
-      if (!description.configured || !description.directUseEnabled || description.catalogStatus !== 'listed') {
+      if (error.code === 'CHATGPT_SIGN_OUT_PENDING' || !description.configured || !description.directUseEnabled || description.catalogStatus !== 'listed') {
         this.#state.chatGpt.connection = null;
         await this.#unmount();
       }
