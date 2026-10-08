@@ -33,6 +33,9 @@ window.__ModuleLoader__.load({
     const chatGptService = api => ({
       snapshot: async () => valueOf(await api.snapshot()).chatGpt,
       startAuthorization: async () => valueOf(await api.chatGptStartAuthorization()),
+      addAccount: async () => valueOf(await api.chatGptAddAccount()),
+      selectAccount: async request => valueOf(await api.chatGptSelectAccount(request)).chatGpt,
+      signOut: async () => valueOf(await api.chatGptSignOut()).chatGpt,
       cancelAuthorization: async () => valueOf(await api.chatGptCancelAuthorization()).chatGpt,
       connect: async () => valueOf(await api.chatGptConnect()).chatGpt,
       disconnect: async request => valueOf(await api.chatGptDisconnect(request)).chatGpt,

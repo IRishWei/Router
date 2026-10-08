@@ -18,9 +18,16 @@ import { startNative } from './t02-harness.mjs';
 const sse = events => events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('');
 const accountIdOf = (clientId, subject) => `account-${createHash('sha256').update(`${clientId}\0${subject}`).digest('hex').slice(0, 24)}`;
 
-async function endpoint(respond, { statusCode = 200, contentType = 'text/event-stream', encode = sse } = {}) {
+async function endpoint(respond, { statusCode = 200, contentType = 'text/event-stream', encode = sse, refreshError } = {}) {
   const requests = [];
+  const refreshRequests = [];
   const server = createServer(async (request, response) => {
+    if (request.url === '/token' && refreshError) {
+      const body = [];
+      for await (const chunk of request) body.push(chunk);
+      refreshRequests.push(Buffer.concat(body).toString('utf8'));
+      response.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: refreshError })); return;
+    }
     if (request.url !== '/responses') return response.writeHead(404).end();
     const body = [];
     for await (const chunk of request) body.push(chunk);
@@ -30,7 +37,7 @@ async function endpoint(respond, { statusCode = 200, contentType = 'text/event-s
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
   const origin = `http://127.0.0.1:${server.address().port}`;
-  return { origin, requests, close: () => new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())) };
+  return { origin, requests, refreshRequests, close: () => new Promise((resolve, reject) => server.close(error => error ? reject(error) : resolve())) };
 }
 
 async function connected(home, remote, { sessionControllerAsPlugin = false } = {}) {
@@ -211,8 +218,8 @@ test('the native retry plugin honors the ChatGPT zero-retry policy for a retryab
   }
 });
 
-test('an expired ChatGPT grant retains TOKEN_EXPIRED without dispatch, retry, or billing fallback', async () => {
-  const remote = await endpoint(() => finalEvents());
+test('a terminal refresh failure pauses an expired grant without Responses dispatch, retry, or billing fallback', async () => {
+  const remote = await endpoint(() => finalEvents(), { refreshError: 'invalid_grant' });
   const home = await mkdtemp(join(tmpdir(), 'router-t09-expired-grant-'));
   let ctx;
   try {
@@ -236,9 +243,11 @@ test('an expired ChatGPT grant retains TOKEN_EXPIRED without dispatch, retry, or
     assert.equal(task.calls[0].selection.provider, `router-chatgpt-${connectedHost.candidate.accountId}`);
     assert.equal(task.calls[0].selection.accountId, connectedHost.candidate.accountId);
     assert.equal(task.calls[0].selection.billingPath, 'chatgpt-subscription');
-    assert.equal(task.nativePauseReason, 'TOKEN_EXPIRED');
-    assert.equal(task.pauseReason, 'TOKEN_EXPIRED');
-    assert.equal(task.fault.code, 'TOKEN_EXPIRED');
+    assert.equal(remote.refreshRequests.length, 1);
+    assert.equal(task.nativePauseReason, 'INVALID_GRANT');
+    assert.equal(task.pauseReason, 'INVALID_GRANT');
+    assert.equal(task.fault.code, 'INVALID_GRANT');
+    assert.equal(snapshot.chatGpt.account.configured, false);
   } finally {
     if (ctx) await ctx.fiber.dispose();
     await remote.close();
@@ -246,7 +255,7 @@ test('an expired ChatGPT grant retains TOKEN_EXPIRED without dispatch, retry, or
   }
 });
 
-test('an unrecognized credential callback failure remains UNKNOWN and does not dispatch', async () => {
+test('a malformed saved credential retains its explicit failure code and does not dispatch', async () => {
   const remote = await endpoint(() => finalEvents());
   const home = await mkdtemp(join(tmpdir(), 'router-t09-unknown-credential-'));
   let ctx;
@@ -262,8 +271,8 @@ test('an unrecognized credential callback failure remains UNKNOWN and does not d
     assert.equal(task.calls[0].dispatchStarted, false);
     assert.equal(task.calls[0].reservation.state, 'released');
     assert.equal(task.calls.some(call => call.purpose === 'retry'), false);
-    assert.equal(task.nativePauseReason, 'UNKNOWN');
-    assert.equal(task.pauseReason, 'UNKNOWN');
+    assert.equal(task.nativePauseReason, 'OAUTH_CREDENTIAL_INVALID');
+    assert.equal(task.pauseReason, 'OAUTH_CREDENTIAL_INVALID');
   } finally {
     if (ctx) await ctx.fiber.dispose();
     await remote.close();

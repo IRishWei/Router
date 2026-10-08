@@ -159,6 +159,12 @@ test('inference verification is isolated across account deletion and connection 
   } };
   const mounts = [];
   const host = new ChatGptHost(fixture.ctx, state, async () => {}, {
+    endpoints: { kind: 'controlled-test', authorizationURL: 'http://127.0.0.1/authorize', tokenURL: 'http://127.0.0.1/token', discoveryURL: 'http://127.0.0.1/discovery', modelsURL: 'http://127.0.0.1/models' },
+    transport: { async request(url) {
+      const payload = url.pathname === '/discovery' ? { issuer: 'http://127.0.0.1', revocation_endpoint: 'http://127.0.0.1/revoke' }
+        : url.pathname === '/models' ? { models: [{ slug: 'shared-model', display_name: 'GPT Host', visibility: 'list' }] } : {};
+      return { statusCode: 200, body: (async function* () { yield Buffer.from(JSON.stringify(payload)); })(), close() {} };
+    } },
     mountConnection: async (_ctx, spec) => { mounts.push(spec); return { async disconnect() {} }; },
   });
   try {

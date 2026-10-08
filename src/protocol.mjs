@@ -51,6 +51,9 @@ const parameters = {
   deepSeekDisconnect: [parameter('request', () => z.object({ connectionId: z.string().min(1).max(500), deleteCredential: z.boolean() }).strict())],
   deepSeekRunDetection: [parameter('request', () => z.object({ candidateId: z.string().min(1).max(500), budget: z.object({ tokens: z.number().int().positive().safe().max(4096), durationMs: z.number().int().positive().safe().max(60_000) }).strict() }).strict())],
   chatGptStartAuthorization: [],
+  chatGptAddAccount: [],
+  chatGptSelectAccount: [parameter('request', () => z.object({ accountId: z.string().regex(/^account-[a-f0-9]{24}$/u) }).strict())],
+  chatGptSignOut: [],
   chatGptCancelAuthorization: [],
   chatGptConnect: [],
   chatGptDisconnect: [parameter('request', () => z.object({ deleteCredential: z.boolean() }).strict())],
@@ -60,7 +63,7 @@ export const descriptors = Object.keys(parameters).map(method => ({
   id: `@irishwei/dsh-router#router/${method}`, service: 'router', namespace: 'router', method,
   invocation: { kind: 'direct' },
   parameters: parameters[method],
-  result: method === 'chatGptStartAuthorization' ? authorizationStartResult : result,
+  result: ['chatGptStartAuthorization', 'chatGptAddAccount'].includes(method) ? authorizationStartResult : result,
 }));
 export const TYPERT = { package: '@irishwei/dsh-router', face: 'host', schemas: [], invocations: descriptors, model: { services: [], events: [], objects: [] } };
 export const TYPERT_REMOTE = { package: '@irishwei/dsh-router', descriptors };

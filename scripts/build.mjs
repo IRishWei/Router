@@ -20,7 +20,8 @@ await writeFile('lib/deepseek-deadline.js', await readFile('src/deepseek-deadlin
 await writeFile('lib/chatgpt-oauth.js', (await readFile('src/chatgpt-oauth.mjs', 'utf8')).replace("'./source-network.mjs'", "'./source-network.js'"));
 await writeFile('lib/chatgpt-responses.js', await readFile('src/chatgpt-responses.mjs', 'utf8'));
 await writeFile('lib/chatgpt-router.js', (await readFile('src/chatgpt-router.mjs', 'utf8')).replace("'./chatgpt-responses.mjs'", "'./chatgpt-responses.js'"));
-await writeFile('lib/chatgpt-host.js', (await readFile('src/chatgpt-host.mjs', 'utf8')).replace("'./chatgpt-oauth.mjs'", "'./chatgpt-oauth.js'").replace("'./source-network.mjs'", "'./source-network.js'"));
+await writeFile('lib/chatgpt-sessions.js', (await readFile('src/chatgpt-sessions.mjs', 'utf8')).replace("'./chatgpt-oauth.mjs'", "'./chatgpt-oauth.js'"));
+await writeFile('lib/chatgpt-host.js', (await readFile('src/chatgpt-host.mjs', 'utf8')).replace("'./chatgpt-oauth.mjs'", "'./chatgpt-oauth.js'").replace("'./source-network.mjs'", "'./source-network.js'").replace("'./chatgpt-sessions.mjs'", "'./chatgpt-sessions.js'"));
 await writeFile('lib/research-artifact.js', await readFile('src/research-artifact.mjs', 'utf8'));
 await writeFile('lib/research-acceptance.js', (await readFile('src/research-acceptance.mjs', 'utf8')).replace("'./research-artifact.mjs'", "'./research-artifact.js'").replace("'./source-network.mjs'", "'./source-network.js'"));
 await writeFile('lib/source-network.js', await readFile('src/source-network.mjs', 'utf8'));

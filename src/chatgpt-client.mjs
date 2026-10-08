@@ -2,6 +2,17 @@ function chatGptCandidateLabel(candidate) {
   return `${candidate.name ?? candidate.model} (${candidate.model}) · 连接 ${candidate.connectionId} · 账号 ${candidate.accountId} · 计费 ${candidate.billingPath}`;
 }
 
+function chatGptSessionMessage(lifecycle) {
+  const code = lifecycle?.failureCode;
+  if (lifecycle?.status === 'signed-out') return '已退出当前账号；重新登录会沿用原注册。';
+  if (lifecycle?.status === 'reauthorization-required') return '此账号授权已失效，请重新登录。';
+  if (code === 'SUBSCRIPTION_SHARING_USAGE_LIMIT_EXCEEDED') return '当前授权使用达到上游限制，已暂停新调用。套餐总剩余额度和重置时间未知。';
+  if (['CHATGPT_SCOPE_REQUIRED', 'CHATPASS_V2_SCOPE_NOT_AUTHORIZED', 'INSUFFICIENT_SCOPE'].includes(code)) return '套餐使用权限已变化，已暂停新调用，请重新授权。';
+  if (code === 'MODEL_CATALOG_CHANGED') return '账号模型目录已变化，请重新连接并选择当前可用模型。';
+  if (code) return `当前调用未完成（${code}）。登录已保留；请检查后再继续。`;
+  return '';
+}
+
 export function createChatGptSettingsComponent(React) {
   const h = React.createElement;
   return function ChatGptSettings({ service, routerApi }) {
@@ -62,8 +73,8 @@ export function createChatGptSettingsComponent(React) {
         return undefined;
       } finally { setBusy(false); }
     };
-    const authorize = async () => {
-      const result = await change(() => service.startAuthorization());
+    const authorize = async (newAccount = false) => {
+      const result = await change(() => newAccount ? service.addAccount() : service.startAuthorization());
       if (!result) return;
       let url;
       try {
@@ -97,19 +108,27 @@ export function createChatGptSettingsComponent(React) {
     return h('section', { style: { display: 'grid', gap: 12 } },
       h('h3', null, 'ChatGPT OAuth'),
       h('p', null, '使用 DSH Router 自己的官方开源应用授权。不会读取或复用 Codex 登录，也不需要 OpenAI API Key。'),
-      h('button', { type: 'button', disabled: busy || state?.authorization?.status === 'waiting', onClick: authorize }, 'Continue with ChatGPT'),
+      h('button', { type: 'button', disabled: busy || state?.authorization?.status === 'waiting', onClick: () => authorize() }, 'Continue with ChatGPT'),
       state?.authorization?.status === 'waiting' && authorizationLinkReady ? h('button', { type: 'button', disabled: busy, onClick: openAuthorization }, '打开官方授权页') : null,
       state?.authorization?.status === 'waiting' ? h('button', { type: 'button', disabled: busy, onClick: cancelAuthorization }, '取消 ChatGPT 授权') : null,
       error ? h('p', { role: 'alert' }, error) : null,
       !state || !router ? h('p', null, '加载中…') : h(React.Fragment, null,
         h('p', { role: 'status' }, `授权状态：${state.authorization.status}${state.authorization.failureCode ? ` · ${state.authorization.failureCode}` : ''}`),
-        h('p', null, state.account ? `账号 ${state.account.accountId} · ${state.account.directUseEnabled ? 'ChatGPT 套餐使用已授权' : '身份已登录，但套餐使用未授权'}` : '尚未登录 ChatGPT。'),
+        (state.registrations ?? []).length ? h(React.Fragment, null,
+          h('label', null, '当前 ChatGPT 账号 ', h('select', { 'aria-label': '当前 ChatGPT 账号', value: state.account?.accountId ?? '', disabled: busy || state.authorization.status === 'waiting', onChange: event => change(() => service.selectAccount({ accountId: event.target.value })) },
+            ...state.registrations.map(registration => h('option', { key: registration.accountId, value: registration.accountId }, `${registration.label} · ${registration.accountId} · ${registration.configured ? '已登录' : '需登录'}`)))),
+          h('button', { type: 'button', disabled: busy || state.authorization.status === 'waiting', onClick: () => authorize(true) }, '添加另一个 ChatGPT 账号')) : null,
+        h('p', null, state.account ? `账号 ${state.account.accountId} · ${!state.account.configured ? '需要登录' : state.account.directUseEnabled ? 'ChatGPT 套餐使用已授权' : '身份已登录，但套餐使用未授权'}` : '尚未登录 ChatGPT。'),
+        chatGptSessionMessage(state.lifecycle) ? h('p', { role: 'status' }, chatGptSessionMessage(state.lifecycle)) : null,
+        state.lifecycle?.failureCode === 'SUBSCRIPTION_SHARING_USAGE_LIMIT_EXCEEDED' ? h('a', { href: 'https://chatgpt.com/settings/usage', target: '_blank', rel: 'noopener noreferrer' }, '查看 ChatGPT Usage') : null,
+        state.lifecycle?.revocation?.status === 'unconfirmed' ? h('p', { role: 'alert' }, '本地凭据已清除，远端撤销未确认。可在 ', h('a', { href: 'https://chatgpt.com/#settings', target: '_blank', rel: 'noopener noreferrer' }, 'ChatGPT 设置'), ' 中检查并断开应用。') : null,
+        state.lifecycle?.revocation?.status === 'confirmed' ? h('p', null, '远端撤销已确认，本地凭据已清除。') : null,
         h('p', null, `模型目录：${state.catalog.status} · ${state.catalog.models.length} 个可见模型。目录可见不表示推理已验证。`),
-        state.account && !state.connection ? h('button', { type: 'button', disabled: busy || !state.account.directUseEnabled || !state.catalog.models.length, onClick: () => change(() => service.connect()) }, '连接已保存的 ChatGPT 账号') : null,
+        state.account && !state.connection?.available ? h('button', { type: 'button', disabled: busy || !state.account.configured || !state.account.directUseEnabled, onClick: () => change(() => service.connect()) }, '连接已保存的 ChatGPT 账号') : null,
         state.connection ? h(React.Fragment, null,
           h('p', null, `${state.connection.connectionId} · ${state.connection.available ? '连接可用' : '连接未挂载'}`),
-          h('button', { type: 'button', disabled: busy, onClick: () => change(() => service.disconnect({ deleteCredential: false })) }, '断开连接并保留 ChatGPT 登录'),
-          h('button', { type: 'button', disabled: busy, onClick: () => change(() => service.disconnect({ deleteCredential: true })) }, '断开并删除 ChatGPT 登录')) : null,
+          h('button', { type: 'button', disabled: busy, onClick: () => change(() => service.disconnect({ deleteCredential: false })) }, '断开连接并保留 ChatGPT 登录')) : null,
+        state.account ? h('button', { type: 'button', disabled: busy || state.authorization.status === 'waiting', onClick: () => change(() => service.signOut()) }, '退出当前 ChatGPT 账号') : null,
         h('h4', null, '账号模型'),
         ...state.catalog.models.map(model => h('p', { key: model.slug }, `${model.displayName} · ${model.slug} · 当前账号目录可见`)),
         candidates.length === 0 ? h('p', null, '完成授权和连接后才会出现候选；候选默认不参与任务。') : null,

@@ -1,0 +1,195 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { fork } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { setTimeout as delay } from 'node:timers/promises';
+import { ChatGptSessions, chatGptSessionKey } from '../src/chatgpt-sessions.mjs';
+import { chatGptGrantFromRecord, describeChatGptGrant } from '../src/chatgpt-oauth.mjs';
+import { lifecycleServer, registrationFor, credentialsContext } from './t10-harness.mjs';
+
+async function fixture(options) {
+  const home = await mkdtemp(join(tmpdir(), 'router-t10-sessions-'));
+  const remote = await lifecycleServer(options);
+  const ctx = await credentialsContext(home);
+  const hostId = `urn:uuid:${randomUUID()}`;
+  const record = remote.grant({ hostId, expired: true });
+  const registration = registrationFor(record);
+  await ctx.credentials.modifyRecord(chatGptSessionKey(registration), () => record);
+  const sessions = new ChatGptSessions({ credentials: ctx.credentials, ...remote, hostId });
+  return { home, remote, ctx, record, registration, sessions,
+    async close() { await ctx.fiber.dispose(); await remote.close(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); },
+  };
+}
+
+test('concurrent Tasks rotate once, atomically keep replacement, and omit refresh scope', async () => {
+  const f = await fixture({ onRefresh: async ({ token }) => { await delay(40); return { token }; } });
+  try {
+    const grants = await Promise.all(Array.from({ length: 6 }, () => f.sessions.ensure(f.registration)));
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+    const request = f.remote.requests.find(item => item.path === '/token');
+    assert.equal(request.form.get('client_id'), f.record.payload.issuedClientId);
+    assert.equal(request.form.get('refresh_token'), f.record.payload.refreshToken);
+    assert.equal(request.form.get('resource'), 'https://api.openai.com/v1');
+    assert.equal(request.form.has('scope'), false);
+    assert.equal(new Set(grants.map(item => item.refreshToken)).size, 1);
+    assert.notEqual(grants[0].refreshToken, f.record.payload.refreshToken);
+    assert.equal((await f.sessions.read(f.registration)).payload.refreshToken, grants[0].refreshToken);
+    assert.equal(f.remote.failures.length, 0);
+  } finally { await f.close(); }
+});
+
+test('two real processes share the credential file lock and cannot rotate the same token twice', async () => {
+  const f = await fixture({ onRefresh: async ({ token }) => { await delay(100); return { token }; } });
+  const children = [];
+  try {
+    const jobs = Array.from({ length: 2 }, () => {
+      const child = fork(new URL('./t10-refresh-child.mjs', import.meta.url), [f.home, f.remote.origin, f.record.payload.hostId], { silent: true });
+      children.push(child);
+      let readyResolve;
+      const ready = new Promise(resolve => { readyResolve = resolve; });
+      const result = new Promise((resolve, reject) => {
+        child.on('message', message => { if (message.type === 'ready') readyResolve(); else if (message.type === 'result') message.ok ? resolve(message) : reject(new Error(message.code)); });
+        child.on('error', reject);
+        child.on('exit', code => { if (code) reject(new Error(`refresh child exited ${code}`)); });
+      });
+      return { ready, result, child };
+    });
+    await Promise.all(jobs.map(job => job.ready));
+    for (const job of jobs) job.child.send('refresh');
+    await Promise.all(jobs.map(job => job.result));
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+    const restored = await f.sessions.ensure(f.registration);
+    assert.notEqual(restored.refreshToken, f.record.payload.refreshToken);
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+  } finally {
+    for (const child of children) if (child.exitCode === null) child.kill();
+    await Promise.all(children.map(child => child.exitCode !== null ? undefined : new Promise(resolve => child.once('exit', resolve))));
+    await f.close();
+  }
+});
+
+for (const code of ['invalid_grant', 'invalid_refresh_token', 'token_expired', 'refresh_token_expired', 'refresh_token_invalidated', 'refresh_token_reused']) {
+  test(`terminal refresh ${code} clears only unusable tokens and retains registration`, async () => {
+    const f = await fixture({ onRefresh: () => ({ status: 400, payload: { error: code } }) });
+    try {
+      await assert.rejects(f.sessions.ensure(f.registration), cause => cause.code === code.toUpperCase());
+      const record = await f.sessions.read(f.registration);
+      assert.equal(chatGptGrantFromRecord(record), null);
+      assert.equal(record.payload.accountId, f.registration.accountId);
+      assert.equal(record.payload.issuedClientId, f.registration.issuedClientId);
+      for (const token of [f.record.payload.accessToken, f.record.payload.refreshToken, f.record.payload.idToken]) assert.equal(JSON.stringify(record).includes(token), false);
+      await assert.rejects(f.sessions.ensure(f.registration));
+      assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+    } finally { await f.close(); }
+  });
+}
+
+test('temporary refresh failure preserves the grant and does not initiate browser login or retry', async () => {
+  const f = await fixture({ onRefresh: () => ({ status: 503, payload: { error: 'temporarily_unavailable' } }) });
+  try {
+    await assert.rejects(f.sessions.ensure(f.registration), cause => cause.code === 'TEMPORARILY_UNAVAILABLE');
+    assert.deepEqual(await f.sessions.read(f.registration), f.record);
+    assert.deepEqual(f.remote.requests.map(item => item.path), ['/token']);
+  } finally { await f.close(); }
+});
+
+test('catalog failure after rotation keeps the replacement even when no model can be dispatched', async () => {
+  const f = await fixture({ onModels: () => ({ status: 503, payload: { error: 'temporarily_unavailable' } }) });
+  try {
+    await assert.rejects(f.sessions.ensure(f.registration), cause => cause.code === 'TEMPORARILY_UNAVAILABLE');
+    const record = await f.sessions.read(f.registration);
+    assert.notEqual(record.payload.refreshToken, f.record.payload.refreshToken);
+    assert.equal(record.payload.catalog.status, 'error');
+    await assert.rejects(f.sessions.ensure(f.registration));
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+  } finally { await f.close(); }
+});
+
+test('scope loss is saved with rotated tokens and prevents catalog and inference access', async () => {
+  const f = await fixture({ onRefresh: ({ token }) => ({ token: { ...token, scope: 'openid offline_access' } }) });
+  try {
+    await assert.rejects(f.sessions.ensure(f.registration), cause => cause.code === 'CHATGPT_SCOPE_REQUIRED');
+    const description = describeChatGptGrant(await f.sessions.read(f.registration));
+    assert.equal(description.configured, true);
+    assert.equal(description.directUseEnabled, false);
+    assert.equal(description.models.length, 0);
+    assert.equal(f.remote.requests.some(item => item.path === '/models'), false);
+  } finally { await f.close(); }
+});
+
+test('OIDC outage after rotation quarantines the replacement and recovery validates it without another refresh', async () => {
+  let unavailable = true;
+  const f = await fixture({ discoveryUnavailable: () => unavailable });
+  try {
+    await assert.rejects(f.sessions.ensure(f.registration), cause => cause.code === 'OIDC_DISCOVERY_FAILED_INVALID_JSON' || cause.code === 'OIDC_DISCOVERY_FAILED_HTTP_503');
+    const pending = await f.sessions.read(f.registration);
+    assert.notEqual(pending.payload.refreshToken, f.record.payload.refreshToken);
+    assert.equal(pending.payload.validation.status, 'pending');
+    assert.equal(pending.payload.catalog.status, 'error');
+    unavailable = false;
+    const recovered = await f.sessions.ensure(f.registration);
+    assert.equal(recovered.refreshToken, pending.payload.refreshToken);
+    assert.equal(recovered.validation, undefined);
+    assert.equal(recovered.catalog.status, 'listed');
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+  } finally { await f.close(); }
+});
+
+test('omitted scope/id token retains prior identity and Task cancellation cannot discard a received rotation', async () => {
+  const controller = new AbortController();
+  const f = await fixture({ onRefresh: ({ token }) => {
+    controller.abort();
+    const { scope: _scope, id_token: _idToken, ...replacement } = token;
+    return { token: replacement };
+  } });
+  try {
+    await assert.rejects(f.sessions.ensure(f.registration, { signal: controller.signal }));
+    const record = await f.sessions.read(f.registration);
+    assert.notEqual(record.payload.refreshToken, f.record.payload.refreshToken);
+    assert.equal(record.payload.idToken, f.record.payload.idToken);
+    assert.deepEqual(record.payload.scopes, f.record.payload.scopes);
+    await f.sessions.ensure(f.registration);
+    assert.equal(f.remote.requests.filter(item => item.path === '/token').length, 1);
+  } finally { await f.close(); }
+});
+
+for (const [name, options, status] of [
+  ['empty HTTP 200', {}, 'confirmed'],
+  ['server failure', { onRevoke: () => ({ status: 503 }) }, 'unconfirmed'],
+  ['cross-origin endpoint', { revocationURL: 'https://example.test/steal' }, 'unconfirmed'],
+]) {
+  test(`sign-out with ${name} clears only this account and reports remote confirmation accurately`, async () => {
+    const f = await fixture(options);
+    try {
+      const other = f.remote.grant({ hostId: f.record.payload.hostId, client: 'oaiapp-b', subject: 'subject-b' });
+      const otherRegistration = registrationFor(other, randomUUID(), 'ChatGPT 2');
+      await f.ctx.credentials.modifyRecord(chatGptSessionKey(otherRegistration), () => other);
+      const outcome = await f.sessions.signOut(f.registration);
+      assert.equal(outcome.status, status);
+      const cleared = await f.sessions.read(f.registration);
+      assert.equal(chatGptGrantFromRecord(cleared), null);
+      assert.equal(cleared.payload.revocation.status, status);
+      assert.deepEqual(await f.sessions.read(otherRegistration), other);
+      const revoke = f.remote.requests.find(item => item.path === '/revoke');
+      if (name !== 'cross-origin endpoint') {
+        assert.equal(revoke.form.get('token'), f.record.payload.refreshToken);
+        assert.equal(revoke.form.get('client_id'), f.registration.issuedClientId);
+        assert.equal(revoke.form.get('token_type_hint'), 'refresh_token');
+      } else assert.equal(revoke, undefined);
+    } finally { await f.close(); }
+  });
+}
+
+test('a stale upstream revocation cannot clear a later successful rotation', async () => {
+  const f = await fixture();
+  try {
+    await f.sessions.ensure(f.registration);
+    assert.equal(await f.sessions.invalidate(f.registration, f.record.payload.accessToken, 'TOKEN_REVOKED'), false);
+    const current = await f.sessions.ensure(f.registration);
+    assert.equal(await f.sessions.invalidate(f.registration, current.accessToken, 'TOKEN_REVOKED'), true);
+    await assert.rejects(f.sessions.ensure(f.registration), cause => cause.code === 'TOKEN_REVOKED');
+  } finally { await f.close(); }
+});
