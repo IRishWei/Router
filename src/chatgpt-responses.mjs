@@ -502,7 +502,10 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
     }
     if (event.type === 'response.output_text.delta') {
       if (typeof event.delta !== 'string') throw new LlmError('Responses text delta is invalid', 'MALFORMED_RESPONSE');
-      const current = block(`text:${event.item_id}:${event.content_index ?? 0}`, 'text');
+      const current = block(`text:${event.item_id}:${event.content_index ?? 0}`, 'text', {
+        itemId: event.item_id, outputIndex: event.output_index, contentIndex: event.content_index ?? 0,
+      });
+      if (current.outputIndex !== event.output_index) throw new LlmError('Responses text output index changed', 'MALFORMED_RESPONSE');
       if (current.closed) throw new LlmError('Responses text continued after completion', 'MALFORMED_RESPONSE');
       if (!current.started) {
         current.started = true;
@@ -514,7 +517,10 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
     }
     if (event.type === 'response.output_text.done') {
       if (typeof event.text !== 'string') throw new LlmError('Responses final text is invalid', 'MALFORMED_RESPONSE');
-      const current = block(`text:${event.item_id}:${event.content_index ?? 0}`, 'text');
+      const current = block(`text:${event.item_id}:${event.content_index ?? 0}`, 'text', {
+        itemId: event.item_id, outputIndex: event.output_index, contentIndex: event.content_index ?? 0,
+      });
+      if (current.outputIndex !== event.output_index) throw new LlmError('Responses text output index changed', 'MALFORMED_RESPONSE');
       if (current.closed) throw new LlmError('Responses repeated final text', 'MALFORMED_RESPONSE');
       if (!current.started) {
         current.started = true;
@@ -532,7 +538,7 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
       if (event.item.namespace !== undefined && event.item.namespace !== 'functions') throw new LlmError('Responses called an unknown tool namespace', 'UNSUPPORTED_CONTENT');
       const id = requiredString(event.item.call_id, 'Responses tool call id');
       const name = requiredString(event.item.name, 'Responses tool call name');
-      const current = block(`tool:${event.item.id ?? id}`, 'tool-call', { id, name });
+      const current = block(`tool:${event.item.id ?? id}`, 'tool-call', { id, name, itemId: event.item.id, outputIndex: event.output_index });
       if (current.started) throw new LlmError('Responses repeated a function call start', 'MALFORMED_RESPONSE');
       current.started = true;
       toolCalls = true;
@@ -545,6 +551,7 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
       const key = `tool:${event.item_id}`;
       const current = blocks.get(key);
       if (!current || current.type !== 'tool-call' || current.closed) throw new LlmError('Responses tool delta has no open function call', 'MALFORMED_RESPONSE');
+      if (current.outputIndex !== event.output_index) throw new LlmError('Responses tool output index changed', 'MALFORMED_RESPONSE');
       current.text += event.delta;
       yield { type: 'tool-call-delta', index: current.index, id: current.id, argumentsDelta: event.delta };
       continue;
@@ -587,6 +594,15 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
             throw new LlmError('Responses terminal envelope has unfinished output items', 'MALFORMED_RESPONSE');
           }
           replay = safeReplayItems(finalized.map(([, value]) => value.item));
+          for (const current of blocks.values()) {
+            const item = outputItems.get(current.outputIndex)?.item;
+            if (!item || item.id !== current.itemId || (current.type === 'text'
+              ? item.type !== 'message' || !Number.isSafeInteger(current.contentIndex) || current.contentIndex < 0
+                || item.content[current.contentIndex]?.text !== current.text
+              : item.type !== 'function_call' || item.call_id !== current.id || item.name !== current.name || item.arguments !== current.text)) {
+              throw new LlmError('Responses final item does not match its streamed block', 'MALFORMED_RESPONSE');
+            }
+          }
         }
         const authoritative = visibleBlocks(replay);
         const streamed = [...blocks.values()].sort((a, b) => a.index - b.index).map(current => current.type === 'text'

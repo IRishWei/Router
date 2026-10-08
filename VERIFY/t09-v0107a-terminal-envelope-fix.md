@@ -21,3 +21,5 @@
 官方事件定义：[Responses streaming events](https://developers.openai.com/api/reference/resources/responses/streaming-events)。最终 reasoning 内容位于 output_item.done；完成以 response.completed 为准。实际安装验收尚待执行，受控通过不代表真实接入已通过。
 
 构建与 check 通过。全量首次 343/344，唯一失败为无关 T16 临时目录清理的 ENOTEMPTY；T16 单独重跑通过，完整重跑 344/344 通过。保留两轮原日志，不修改 T16。
+
+独立 Standards 首轮发现文本事件与最终项的 item_id/output_index 未关联（P2）。已补齐 item_id、output_index、content_index 对应检查及文本/工具索引漂移拒绝。新增三个编号漂移拒绝用例，onInferenceCompleted 保持未调用。修订后 focused 32/32、build/check、全量 345/345 通过，旧审查与日志保留。

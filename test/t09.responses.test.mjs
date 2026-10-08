@@ -648,3 +648,21 @@ test('terminal envelopes reject incomplete, conflicting and malformed final item
     assert.equal(requests.length, 1);
   }
 });
+
+test('terminal envelopes bind text item identity and indices before confirming inference', async () => {
+  const item = { type: 'message', id: 'msg-final', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'OK' }] };
+  for (const fields of [{ item_id: 'different-id', output_index: 0 }, { item_id: item.id, output_index: 7 }, { item_id: item.id, output_index: 0, content_index: 7 }]) {
+    let completions = 0;
+    const { adapter } = fixture({ events: [
+      { type: 'response.output_text.done', content_index: 0, ...fields, text: 'OK' },
+      { type: 'response.output_item.done', output_index: 0, item },
+      { type: 'response.completed', response: { status: 'completed', output: [] } },
+    ], onInferenceCompleted: () => { completions += 1; } });
+    const chunks = [];
+    await assert.rejects(async () => {
+      for await (const chunk of adapter.stream({ provider: 'router-chatgpt-account-1', model: 'gpt-test', messages: [createUserMessage({ content: [{ type: 'text', text: 'check identity' }] })] })) chunks.push(chunk);
+    }, error => error.failure.code === 'MALFORMED_RESPONSE');
+    assert.equal(chunks.some(chunk => chunk.type === 'finish'), false);
+    assert.equal(completions, 0);
+  }
+});
