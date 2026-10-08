@@ -6,7 +6,7 @@
 - Author source fix: `0665b4135587958476c464caa9bcf505379e5ea6` (independent standards/spec PASS).
 - Independent test fixture: `930543ba03e09a3b91f480d3fd55ebf55239165b` (includes `5814808`, independent standards/spec PASS).
 - Non-author merge commits, in order: `092d901` (source fix), `9c143b6` (TLS fixture tests).
-- Final HEAD: `9c143b6`.
+- Integrated source HEAD: `9c143b6`.
 
 ## Verification
 
