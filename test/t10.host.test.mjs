@@ -382,3 +382,30 @@ test('first sign-in cancelled before commit still exposes global revocation fail
     assert.equal(snapshot.lifecycle.revocation.failureCode, 'CHATGPT_REVOCATION_HTTP_503');
   } finally { release(); await host?.dispose(); await f.close(); }
 });
+
+for (const remoteStatus of [200, 503]) {
+  test(`a credential store fault at commit cannot prevent one remote cleanup attempt (HTTP ${remoteStatus})`, async () => {
+    const f = await fixture({ onRevoke: () => ({ status: remoteStatus }) });
+    const modify = f.ctx.credentials.modifyRecord.bind(f.ctx.credentials);
+    let faulted = false;
+    try {
+      f.ctx.credentials.modifyRecord = (key, mutate) => {
+        if (key.startsWith('irishwei-dsh-router/chatgpt-oauth-')) faulted = true;
+        if (faulted) return Promise.reject(Object.assign(new Error('controlled credential storage fault'), { code: 'EACCES' }));
+        return modify(key, mutate);
+      };
+      const attempt = await f.host.startAuthorization({ newAccount: true });
+      await f.remote.authorize(attempt.authorizationURL, { client: 'oaiapp-b', subject: 'subject-b' });
+      await waitAuthorization(f.host);
+      await f.host.dispose();
+      const snapshot = await f.host.snapshot();
+      assert.equal(snapshot.authorization.status, 'failed');
+      assert.equal(snapshot.account.configured, true);
+      assert.equal(snapshot.lifecycle.revocation.status, 'unconfirmed');
+      assert.equal(snapshot.lifecycle.revocation.localCleared, false);
+      assert.equal(snapshot.lifecycle.revocation.remoteStatus, remoteStatus === 200 ? 'confirmed' : 'unconfirmed');
+      assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 1);
+      assert.deepEqual(await f.ctx.credentials.readRecord(chatGptSessionKey(f.registration)), f.record);
+    } finally { f.ctx.credentials.modifyRecord = modify; await f.close(); }
+  });
+}

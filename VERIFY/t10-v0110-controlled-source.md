@@ -3,7 +3,7 @@
 基线 `9a392a93eb280fefcca99cd292ec85de26befd49`，2026-10-09。此记录只证明源码阶段；目标 Desktop 安装、真实 OAuth 生命周期及独立双轴结果待单独归档，#11 保持打开。
 
 - `npm run build`、`npm run check` 通过。
-- `npm test`（`node --test --test-concurrency=4 test/*.test.mjs`）：388/388 通过。43项新增测试覆盖公开 Controller/Renderer、多进程凭据锁、账号切换、串行续期、权限/额度错误、退出及重启恢复。
+- `npm test`（`node --test --test-concurrency=4 test/*.test.mjs`）：391/391 通过。46项新增测试覆盖公开 Controller/Renderer、多进程凭据锁、账号切换、串行续期、权限/额度错误、退出及重启恢复。
 - 原生 Task 到期后仅续期一次，使用替换 token 完成；切换后目录及候选身份隔离、新候选默认禁用；撤销/权限失败/额度限制各仅一次 Responses 请求，Task 暂停，未知用量不记零，无 API Key fallback 或透明重试。
 - 两个实际子进程同时对同一凭据文件续期，仅一个 token 请求；取消、切换、退出不丢弃已接收替换。目录失败与 OIDC 暂时失败均保留替换，后者先隔离，再验证，不再次轮换旧 token。
 - 两个账号退出互不影响；发现的撤销 endpoint 必须同认证 origin，跨域拒绝且无凭据派发；空 HTTP 200 确认撤销，503/不可信 metadata 为未确认但本地 token 清除。退出保留 issued client/host 注册，重新登录身份受校验。
@@ -18,4 +18,6 @@
 
 第三轮 Standards 在 `b12c749` 发现首次登录尚无选中账号时全局清理告警漏投影。现已修复，新增 Host 和实际 Renderer/RPC 测试；保留原失败报告，Spec 该轮未完成，不作通过声明。
 
-最终源码日志：`C:/Users/a1500/AppData/Local/Temp/router-implementation/t10-v0110-full-test-20261009-e.log`。旧 b.log（375项）、c.log（380项）和 d.log（386项）通过记录保留。没有执行真实 OAuth、模型请求或读取/修改 Codex 认证配置；Astra 的原真实调用许可已耗尽。
+第四轮 `f75c85f` Standards 通过；Spec 剩余存储故障导致清理也被阻断的问题。现已修复：提交及后续所有 CredentialProvider 写入持续 EACCES 时仍执行一次内存 grant 撤销，已尝试的不重复；持久化也失败则保留会话内告警，页面分别呈现远端撤销确认与本地清理无法确认。独立原始复现通过，新增200/503两种 Host 与 Renderer回归。
+
+最终源码日志：`C:/Users/a1500/AppData/Local/Temp/router-implementation/t10-v0110-full-test-20261009-f.log`。旧 b.log（375项）、c.log（380项）、d.log（386项）、e.log（388项）通过记录保留。没有执行真实 OAuth、模型请求或读取/修改 Codex 认证配置；Astra 的原真实调用许可已耗尽。

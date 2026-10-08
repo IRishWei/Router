@@ -121,7 +121,11 @@ export function createChatGptSettingsComponent(React) {
         h('p', null, state.account ? `账号 ${state.account.accountId} · ${!state.account.configured ? '需要登录' : state.account.directUseEnabled ? 'ChatGPT 套餐使用已授权' : '身份已登录，但套餐使用未授权'}` : '尚未登录 ChatGPT。'),
         chatGptSessionMessage(state.lifecycle) ? h('p', { role: 'status' }, chatGptSessionMessage(state.lifecycle)) : null,
         state.lifecycle?.failureCode === 'SUBSCRIPTION_SHARING_USAGE_LIMIT_EXCEEDED' ? h('a', { href: 'https://chatgpt.com/settings/usage', target: '_blank', rel: 'noopener noreferrer' }, '查看 ChatGPT Usage') : null,
-        state.lifecycle?.revocation?.status === 'unconfirmed' ? h('p', { role: 'alert' }, state.account?.configured ? '部分授权的远端撤销未确认。可在 ' : '本地凭据已清除，远端撤销未确认。可在 ', h('a', { href: 'https://chatgpt.com/#settings', target: '_blank', rel: 'noopener noreferrer' }, 'ChatGPT 设置'), ' 中检查并断开应用。') : null,
+        state.lifecycle?.revocation?.status === 'unconfirmed' ? h('p', { role: 'alert' },
+          state.lifecycle.revocation.localCleared === false
+            ? state.lifecycle.revocation.remoteStatus === 'confirmed' ? '远端撤销已确认，本地凭据清理未确认。可在 ' : '本地凭据清理与远端撤销均未确认。可在 '
+            : state.account?.configured ? '部分授权的远端撤销未确认。可在 ' : '本地凭据已清除，远端撤销未确认。可在 ',
+          h('a', { href: 'https://chatgpt.com/#settings', target: '_blank', rel: 'noopener noreferrer' }, 'ChatGPT 设置'), ' 中检查并断开应用。') : null,
         state.lifecycle?.revocation?.status === 'confirmed' ? h('p', null, '远端撤销已确认，本地凭据已清除。') : null,
         h('p', null, `模型目录：${state.catalog.status} · ${state.catalog.models.length} 个可见模型。目录可见不表示推理已验证。`),
         state.account && !state.connection?.available ? h('button', { type: 'button', disabled: busy || !state.account.configured || !state.account.directUseEnabled, onClick: () => change(() => service.connect()) }, '连接已保存的 ChatGPT 账号') : null,

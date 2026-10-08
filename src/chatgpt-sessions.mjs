@@ -42,6 +42,7 @@ export class ChatGptSessions {
   #hostId;
   #now;
   #timeoutMs;
+  #volatileCleanupAlert = null;
   constructor({ credentials, transport, endpoints, hostId, now = Date.now, timeoutMs = 25_000 }) {
     this.#credentials = credentials;
     this.#transport = transport;
@@ -84,14 +85,16 @@ export class ChatGptSessions {
     return valid;
   }
   async finishAuthorization(epoch, cleanupFailure) {
+    if (cleanupFailure) this.#volatileCleanupAlert = { status: 'unconfirmed', failureCode: cleanupFailure.code,
+      ...(cleanupFailure.localCleared === false ? { localCleared: false, remoteStatus: cleanupFailure.remoteStatus } : {}) };
     await this.#credentials.modifyRecord(this.#controlKey(), current => {
       const control = this.#control(current);
       const attempt = control.attempts[epoch];
       if (cleanupFailure) {
         for (const accountId of new Set([cleanupFailure.accountId, ...(attempt?.revocationFor ?? [])].filter(Boolean))) {
-          control.revocations[accountId] = { status: 'unconfirmed', failureCode: cleanupFailure.code };
+          control.revocations[accountId] = this.#volatileCleanupAlert;
         }
-        control.cleanupAlert = { status: 'unconfirmed', failureCode: cleanupFailure.code };
+        control.cleanupAlert = this.#volatileCleanupAlert;
       }
       delete control.attempts[epoch];
       return { kind: 'grant', payload: control };
@@ -110,18 +113,31 @@ export class ChatGptSessions {
   }
   async cleanupReceived(registration, exchanged, epoch) {
     let cleanupFailure;
-    await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
-      const grant = chatGptGrantFromRecord(current);
-      const ownsCommitted = grant?.authorizationId === epoch;
-      const target = ownsCommitted ? grant : exchanged;
-      let revocation = { status: 'confirmed' };
+    let attempted = false;
+    let revocation;
+    const revoke = async target => {
+      attempted = true;
+      revocation = { status: 'confirmed' };
       try { await this.#revoke(target); }
       catch (cause) {
         revocation = { status: 'unconfirmed', failureCode: cause.code ?? 'CHATGPT_REVOCATION_FAILED' };
         cleanupFailure = { accountId: exchanged.accountId ?? registration.accountId, code: revocation.failureCode };
       }
-      return ownsCommitted ? clearedRecord({ ...registration, accountId: chatGptAccountId(grant.issuedClientId, grant.subject), issuedClientId: grant.issuedClientId }, this.#hostId, 'signed-out', { revocation }) : undefined;
-    });
+    };
+    try {
+      await this.#credentials.modifyRecord(chatGptSessionKey(registration), async current => {
+        const grant = chatGptGrantFromRecord(current);
+        const ownsCommitted = grant?.authorizationId === epoch;
+        await revoke(ownsCommitted ? grant : exchanged);
+        return ownsCommitted ? clearedRecord({ ...registration, accountId: chatGptAccountId(grant.issuedClientId, grant.subject), issuedClientId: grant.issuedClientId }, this.#hostId, 'signed-out', { revocation }) : undefined;
+      });
+    } catch {
+      // A failed credential store cannot prevent cleanup of the grant already
+      // received in memory. Never repeat an HTTP revocation that was attempted.
+      if (!attempted) await revoke(exchanged);
+      cleanupFailure = { accountId: exchanged.accountId ?? registration.accountId,
+        code: cleanupFailure?.code ?? 'OAUTH_LOCAL_CLEANUP_UNCONFIRMED', localCleared: false, remoteStatus: revocation.status };
+    }
     if (cleanupFailure) await this.finishAuthorization(epoch, cleanupFailure);
   }
   async discardAuthorization(registration, epoch) {
@@ -182,6 +198,7 @@ export class ChatGptSessions {
     }
   }
   async revocation(registration, fallback) {
+    if (this.#volatileCleanupAlert) return structuredClone(this.#volatileCleanupAlert);
     const control = this.#control(await this.#credentials.readRecord(this.#controlKey()));
     let outcome = (registration ? control.revocations[registration.accountId] : null) ?? fallback;
     if (registration && Object.values(control.attempts).some(attempt => attempt.revocationFor.includes(registration.accountId))) outcome = { status: 'unconfirmed', failureCode: 'AUTHORIZATION_CLEANUP_PENDING' };

@@ -94,3 +94,15 @@ test('Renderer exposes global cleanup failure before any account is registered',
     assert.equal(mounted.page.root.findAllByType('a').some(item => item.props.href === 'https://chatgpt.com/#settings'), true);
   } finally { await mounted.dispose(); }
 });
+
+test('Renderer distinguishes confirmed remote revocation from unconfirmed local credential cleanup', async () => {
+  const snapshot = state();
+  snapshot.chatGpt.lifecycle.revocation = { status: 'unconfirmed', localCleared: false, remoteStatus: 'confirmed' };
+  const mounted = await mountSettings(snapshot, async () => ({ ok: true, value: structuredClone(snapshot) }));
+  try {
+    await act(async () => { mounted.page.root.findAllByType('button').find(item => item.children.includes('ChatGPT OAuth')).props.onClick(); });
+    const text = JSON.stringify(mounted.page.toJSON());
+    assert.match(text, /远端撤销已确认，本地凭据清理未确认/u);
+    assert.equal(text.includes('本地凭据已清除'), false);
+  } finally { await mounted.dispose(); }
+});
