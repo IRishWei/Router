@@ -25,6 +25,17 @@ function transportError(error, signal, requestId) {
   });
 }
 
+function credentialError(error) {
+  if (error instanceof LlmError) return error;
+  let code;
+  try {
+    const descriptor = error instanceof Error ? Object.getOwnPropertyDescriptor(error, 'code') : undefined;
+    code = descriptor && 'value' in descriptor ? descriptor.value : undefined;
+  } catch { /* Unknown callback failures remain unknown at the native boundary. */ }
+  if (code === 'TOKEN_EXPIRED') return new LlmError('ChatGPT access token expired; sign in again', 'TOKEN_EXPIRED');
+  return error;
+}
+
 function scopesOf(value) {
   if (Array.isArray(value)) return new Set(value.filter(scope => typeof scope === 'string'));
   if (typeof value === 'string') return new Set(value.split(/\s+/u).filter(Boolean));
@@ -524,7 +535,13 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
 
   async #current(signal) {
     checkAbort(signal);
-    const credential = credentialSnapshot(await this.#spec.getAuthorizedCredential({ provider: this.#spec.provider, accountId: this.#spec.accountId, signal }));
+    let rawCredential;
+    try {
+      rawCredential = await this.#spec.getAuthorizedCredential({ provider: this.#spec.provider, accountId: this.#spec.accountId, signal });
+    } catch (error) {
+      throw credentialError(error);
+    }
+    const credential = credentialSnapshot(rawCredential);
     checkAbort(signal);
     const catalog = catalogSnapshot(await this.#spec.getCatalog({ provider: this.#spec.provider, accountId: this.#spec.accountId, signal }), credential);
     checkAbort(signal);
