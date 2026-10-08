@@ -7,7 +7,9 @@ Reviewer: non-author merger
 
 The prepare-only proposal is not applied. Its manifest is 2860 bytes, SHA-256 `7F8E1928B216EA2DAF44221FD4A66CF96C5C9934FC3671C84468C036D3F10074`; raw backup is 9022698 bytes, SHA-256 `F8D4B0CE2C0D6A2D07426C03EB98F5F88E9063CBCC4F77B8ECC5BE847D47C410`; proposal is 9022664 bytes, SHA-256 `CB5E9A9C5692B5109E9F8172367A04B77F30136F84D31EB70EB6A5320F7FBD3B`. The sole proposed diff is `/chatGpt/lastDetectionTaskId`: `8471898a-8454-4085-b79e-a6f6c5f00cc6` → `null`. Human authorization and claim marker are absent, so apply, browser OAuth, and Task creation remain gated.
 
-The pending authorization permits one new Task and at most two requests, 65536 tokens, 120000 ms, forecast 2048, same-account official re-login and detection within 30 seconds, with extensions, retry, refresh, API fallback, and server output hard cap disabled. Earlier b/c/d chains remain retained historical evidence and are not executable; e is the only current chain. T09 remains BLOCK/OPEN, 9/24 complete.
+Both earlier one-Task allowances have been consumed. The second attempt created a Task but dispatched zero model requests because the credential had expired; unused requests do not authorize a replacement Task.
+
+The proposed fresh authorization is for one new Task and at most two requests, 65536 tokens, 120000 ms, forecast 2048, same-account official re-login and detection within 30 seconds, with extensions, retry, refresh, API fallback, and server output hard cap disabled. Earlier b/c/d chains remain retained historical evidence and are not executable; e is the only current chain. T09 remains BLOCK/OPEN, 9/24 complete.
 
 Archived report byte/hash bindings:
 
