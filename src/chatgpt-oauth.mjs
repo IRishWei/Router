@@ -35,7 +35,7 @@ const loopbackURL = value => {
   return url.href;
 };
 
-function normalizeEndpoints(value) {
+export function normalizeChatGptEndpoints(value) {
   if (value === undefined || value?.kind === 'official') return PRODUCTION_ENDPOINTS;
   if (value?.kind !== 'controlled-test') throw new TypeError('ChatGPT endpoints must be official or controlled-test');
   return Object.freeze({
@@ -57,7 +57,7 @@ async function readBody(response) {
   return Buffer.concat(chunks).toString('utf8');
 }
 
-async function jsonRequest(transport, endpoints, url, options, failureCode) {
+export async function chatGptJsonRequest(transport, endpoints, url, options, failureCode) {
   let response;
   try {
     response = await transport.request(new URL(url), transportOptions(endpoints, options));
@@ -76,6 +76,7 @@ async function jsonRequest(transport, endpoints, url, options, failureCode) {
     response?.close?.();
   }
 }
+const jsonRequest = chatGptJsonRequest;
 
 function parseJwt(token) {
   const parts = typeof token === 'string' ? token.split('.') : [];
@@ -90,7 +91,7 @@ function parseJwt(token) {
   } catch { throw oauthError('ID_TOKEN_MALFORMED'); }
 }
 
-async function validateIdToken({ token, issuedClientId, nonce, transport, endpoints, deadline, signal, now }) {
+export async function validateChatGptIdToken({ token, issuedClientId, nonce, transport, endpoints, deadline, signal, now }) {
   const parsed = parseJwt(token);
   if (parsed.header?.alg !== 'RS256' || typeof parsed.header?.kid !== 'string' || !parsed.header.kid) throw oauthError('ID_TOKEN_ALGORITHM_INVALID');
   const common = { method: 'GET', headers: { accept: 'application/json' }, body: Buffer.alloc(0), deadline, signal, maxUploadBytes: 0, maxResponseBytes: 256 * 1024 };
@@ -114,7 +115,7 @@ async function validateIdToken({ token, issuedClientId, nonce, transport, endpoi
   if (!audience.includes(issuedClientId)) throw oauthError('ID_TOKEN_AUDIENCE_INVALID');
   const nowSeconds = Math.floor(now() / 1000);
   if (!Number.isSafeInteger(claims?.exp) || claims.exp <= nowSeconds) throw oauthError('ID_TOKEN_EXPIRED');
-  if (!safeEqual(claims?.nonce, nonce)) throw oauthError('ID_TOKEN_NONCE_INVALID');
+  if (nonce !== undefined && !safeEqual(claims?.nonce, nonce)) throw oauthError('ID_TOKEN_NONCE_INVALID');
   const subject = requiredString(claims?.sub, 'ID_TOKEN_SUBJECT_INVALID');
   const email = typeof claims?.email === 'string' && claims.email ? claims.email : undefined;
   return { issuer: claims.iss, subject, ...(email ? { email } : {}) };
@@ -133,7 +134,7 @@ function validateCatalog(payload) {
   return models;
 }
 
-async function fetchCatalog({ accessToken, transport, endpoints, deadline, signal }) {
+export async function fetchChatGptCatalog({ accessToken, transport, endpoints, deadline, signal }) {
   try {
     const payload = await jsonRequest(transport, endpoints, endpoints.modelsURL, {
       method: 'GET', headers: { accept: 'application/json', authorization: `Bearer ${accessToken}` }, body: Buffer.alloc(0), deadline, signal,
@@ -141,7 +142,7 @@ async function fetchCatalog({ accessToken, transport, endpoints, deadline, signa
     }, 'MODEL_CATALOG_FAILED');
     return { status: 'listed', models: validateCatalog(payload) };
   } catch (error) {
-    if (signal.aborted) throw error;
+    if (signal?.aborted) throw error;
     return { status: 'error', models: [], failureCode: error.code ?? 'MODEL_CATALOG_FAILED' };
   }
 }
@@ -194,21 +195,27 @@ function callbackListener({ signal, timeoutMs }) {
 
 export function chatGptGrantFromRecord(record) {
   if (record === undefined) return null;
+  if (record?.kind === 'grant' && record.payload?.schemaVersion === 2
+    && ['signed-out', 'reauthorization-required'].includes(record.payload.status)
+    && typeof record.payload.accountId === 'string' && typeof record.payload.issuedClientId === 'string') return null;
   if (record?.kind !== 'grant' || record.payload?.schemaVersion !== 1) throw oauthError('OAUTH_CREDENTIAL_INVALID');
   const grant = record.payload;
   for (const key of ['issuedClientId', 'hostId', 'issuer', 'subject', 'idToken', 'accessToken', 'refreshToken', 'tokenType', 'savedAt']) requiredString(grant[key], 'OAUTH_CREDENTIAL_INVALID');
+  if (!Number.isSafeInteger(grant.expiresIn) || grant.expiresIn < 1 || !Number.isFinite(Date.parse(grant.savedAt))) throw oauthError('OAUTH_CREDENTIAL_INVALID');
   if (!Array.isArray(grant.scopes) || grant.scopes.some(scope => typeof scope !== 'string' || !scope)) throw oauthError('OAUTH_CREDENTIAL_INVALID');
   return grant;
 }
 
+export const chatGptAccountId = (issuedClientId, subject) => `account-${createHash('sha256').update(`${issuedClientId}\0${subject}`).digest('hex').slice(0, 24)}`;
+
 export function describeChatGptGrant(record) {
   const grant = chatGptGrantFromRecord(record);
-  if (!grant) return { configured: false, directUseEnabled: false, issuedClientId: null, accountId: null, catalogStatus: 'not-requested', models: [] };
+  if (!grant) return { configured: false, directUseEnabled: false, issuedClientId: record?.payload?.issuedClientId ?? null, accountId: record?.payload?.accountId ?? null, catalogStatus: 'not-requested', models: [], status: record?.payload?.status ?? 'not-configured', failureCode: record?.payload?.failureCode ?? null, revocation: record?.payload?.revocation ?? null };
   return Object.freeze({
     configured: true,
     directUseEnabled: grant.scopes.includes(CHATGPT_DIRECT_SCOPE),
     issuedClientId: grant.issuedClientId,
-    accountId: `account-${createHash('sha256').update(`${grant.issuedClientId}\0${grant.subject}`).digest('hex').slice(0, 24)}`,
+    accountId: chatGptAccountId(grant.issuedClientId, grant.subject),
     catalogStatus: grant.catalog?.status ?? 'not-requested',
     models: structuredClone(grant.catalog?.models ?? []),
   });
@@ -216,12 +223,13 @@ export function describeChatGptGrant(record) {
 
 export function createChatGptAuthorizationFlow({
   hostId, credentialKey: key = CHATGPT_CREDENTIAL_KEY, transport, endpoints: endpointInput,
-  getExistingGrant = async () => undefined, afterCommit = async () => {}, timeoutMs = 5 * 60_000, now = Date.now,
+  getExistingGrant = async () => undefined, getRegistration = () => null, afterCommit = async () => {},
+  commitGrant = (record, session) => session.commit(record), cleanupGrant = async () => {}, timeoutMs = 5 * 60_000, now = Date.now,
 }) {
   if (!/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(hostId)) throw new TypeError('hostId must be a urn:uuid identifier');
   if (!transport?.request) throw new TypeError('transport.request is required');
   if (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 10 * 60_000) throw new TypeError('OAuth timeout is invalid');
-  const endpoints = normalizeEndpoints(endpointInput);
+  const endpoints = normalizeChatGptEndpoints(endpointInput);
   return Object.freeze({
     key,
     label: 'ChatGPT（DSH Router）',
@@ -229,17 +237,21 @@ export function createChatGptAuthorizationFlow({
     async run(session) {
       const previousRecord = await getExistingGrant();
       const existing = chatGptGrantFromRecord(previousRecord);
+      const registration = getRegistration();
+      const returningClientId = existing?.issuedClientId ?? registration?.issuedClientId;
       if (existing && existing.hostId !== hostId) throw oauthError('OAUTH_HOST_ID_MISMATCH');
       const state = randomBytes(32).toString('base64url');
       const nonce = randomBytes(32).toString('base64url');
       const verifier = randomBytes(32).toString('base64url');
       const listener = callbackListener({ signal: session.signal, timeoutMs });
       const startedAt = now();
+      let exchanged;
+      let committed = false;
       try {
         const redirectURI = await listener.start();
         const authorizationURL = new URL(endpoints.authorizationURL);
-        authorizationURL.searchParams.set('client_id', existing?.issuedClientId ?? DYNAMIC_CLIENT_ID);
-        if (!existing) authorizationURL.searchParams.set('agent_name_hint', 'DSH Router');
+        authorizationURL.searchParams.set('client_id', returningClientId ?? DYNAMIC_CLIENT_ID);
+        if (!returningClientId) authorizationURL.searchParams.set('agent_name_hint', 'DSH Router');
         authorizationURL.searchParams.set('ext_agent_host_id', hostId);
         authorizationURL.searchParams.set('response_type', 'code');
         authorizationURL.searchParams.set('redirect_uri', redirectURI);
@@ -256,9 +268,9 @@ export function createChatGptAuthorizationFlow({
         if (callback.error === 'access_denied') throw oauthError('OAUTH_ACCESS_DENIED', 'ChatGPT authorization was declined');
         if (callback.error) throw oauthError('OAUTH_PROVIDER_REJECTED');
         const code = requiredString(callback.code, 'OAUTH_CODE_MISSING');
-        const issuedClientId = existing?.issuedClientId ?? requiredString(callback.client_id, 'OAUTH_ISSUED_CLIENT_MISSING');
+        const issuedClientId = returningClientId ?? requiredString(callback.client_id, 'OAUTH_ISSUED_CLIENT_MISSING');
         if (issuedClientId === DYNAMIC_CLIENT_ID) throw oauthError('OAUTH_ISSUED_CLIENT_INVALID');
-        if (existing && callback.client_id && !safeEqual(callback.client_id, existing.issuedClientId)) throw oauthError('OAUTH_CLIENT_ID_MISMATCH');
+        if (returningClientId && callback.client_id && !safeEqual(callback.client_id, returningClientId)) throw oauthError('OAUTH_CLIENT_ID_MISMATCH');
         const deadline = startedAt + timeoutMs;
         const form = new URLSearchParams({
           grant_type: 'authorization_code', client_id: issuedClientId, code, code_verifier: verifier,
@@ -268,25 +280,32 @@ export function createChatGptAuthorizationFlow({
           method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/x-www-form-urlencoded' }, body: Buffer.from(form), deadline, signal: session.signal,
           maxUploadBytes: 16 * 1024, maxResponseBytes: 1024 * 1024,
         }, 'OAUTH_TOKEN_EXCHANGE_FAILED');
+        if (typeof token.refresh_token === 'string' && token.refresh_token) exchanged = { issuedClientId, refreshToken: token.refresh_token };
         const accessToken = requiredString(token.access_token, 'OAUTH_TOKEN_RESPONSE_INVALID');
         const refreshToken = requiredString(token.refresh_token, 'OAUTH_TOKEN_RESPONSE_INVALID');
         const idToken = requiredString(token.id_token, 'OAUTH_TOKEN_RESPONSE_INVALID');
         const tokenType = requiredString(token.token_type, 'OAUTH_TOKEN_RESPONSE_INVALID');
         if (tokenType.toLowerCase() !== 'bearer' || !Number.isSafeInteger(token.expires_in) || token.expires_in < 1) throw oauthError('OAUTH_TOKEN_RESPONSE_INVALID');
         const scopes = [...new Set(requiredString(token.scope, 'OAUTH_TOKEN_RESPONSE_INVALID').split(/\s+/u).filter(Boolean))];
-        const identity = await validateIdToken({ token: idToken, issuedClientId, nonce, transport, endpoints, deadline, signal: session.signal, now });
+        const identity = await validateChatGptIdToken({ token: idToken, issuedClientId, nonce, transport, endpoints, deadline, signal: session.signal, now });
+        if (exchanged) exchanged.accountId = chatGptAccountId(issuedClientId, identity.subject);
         if (existing && !safeEqual(existing.subject, identity.subject)) throw oauthError('OAUTH_ACCOUNT_MISMATCH');
-        const catalog = await fetchCatalog({ accessToken, transport, endpoints, deadline, signal: session.signal });
+        if (registration && registration.accountId !== chatGptAccountId(issuedClientId, identity.subject)) throw oauthError('OAUTH_ACCOUNT_MISMATCH');
+        const catalog = await fetchChatGptCatalog({ accessToken, transport, endpoints, deadline, signal: session.signal });
         const grant = {
           schemaVersion: 1, issuedClientId, hostId, issuer: identity.issuer, subject: identity.subject,
           ...(identity.email ? { email: identity.email } : {}),
           idToken, accessToken, refreshToken, tokenType, expiresIn: token.expires_in,
           ...(typeof token.earliest_refresh_at === 'string' || Number.isFinite(token.earliest_refresh_at) ? { earliestRefreshAt: token.earliest_refresh_at } : {}),
-          scopes, savedAt: new Date(now()).toISOString(), catalog,
+          scopes, savedAt: new Date(now()).toISOString(), authorizedAt: new Date(now()).toISOString(), catalog,
         };
-        await session.commit({ kind: 'grant', payload: grant });
+        await commitGrant({ kind: 'grant', payload: grant }, session);
+        committed = true;
         const description = describeChatGptGrant({ kind: 'grant', payload: grant });
         await afterCommit({ ...description, previousRecord });
+      } catch (cause) {
+        if (exchanged && !committed) await cleanupGrant(exchanged);
+        throw cause;
       } finally {
         await listener.dispose();
       }

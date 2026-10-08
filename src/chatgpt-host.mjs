@@ -2,13 +2,11 @@ import { createHash, randomUUID } from 'node:crypto';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
 import {
-  CHATGPT_CREDENTIAL_KEY,
-  CHATGPT_DIRECT_SCOPE,
-  chatGptGrantFromRecord,
   createChatGptAuthorizationFlow,
   describeChatGptGrant,
 } from './chatgpt-oauth.mjs';
 import { createSourceNetworkTransport } from './source-network.mjs';
+import { ChatGptSessions, chatGptSessionKey } from './chatgpt-sessions.mjs';
 
 const providerFor = accountId => `router-chatgpt-${accountId}`;
 const safeFailureCode = error => typeof error?.code === 'string' && /^[A-Z0-9_]{1,100}$/u.test(error.code) ? error.code : 'CHATGPT_AUTHORIZATION_FAILED';
@@ -34,6 +32,8 @@ function normalizeState(value) {
     connection: null,
     lastDetectionTaskId: null,
     inference: {},
+    registrations: [],
+    failures: {},
   };
   if (!value || !/^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(value.hostId)) throw new Error('Unsupported ChatGPT Router state');
   const account = value.account;
@@ -57,7 +57,14 @@ function normalizeState(value) {
     if (!valid) throw new Error('Unsupported ChatGPT inference state');
     inference[key] = structuredClone(record);
   }
-  return structuredClone({ hostId: value.hostId, account, connection, lastDetectionTaskId: value.lastDetectionTaskId ?? null, inference });
+  const registrations = value.registrations ?? (account ? [{ ...account, credentialId: 'legacy', label: 'ChatGPT 1' }] : []);
+  if (!Array.isArray(registrations) || registrations.some(item => typeof item?.accountId !== 'string' || !item.accountId.startsWith('account-')
+    || typeof item.issuedClientId !== 'string' || !item.issuedClientId || !Number.isSafeInteger(item.configRevision) || item.configRevision < 1
+    || (item.credentialId !== 'legacy' && !/^[0-9a-f-]{36}$/iu.test(item.credentialId ?? '')) || typeof item.label !== 'string' || !item.label)
+    || new Set(registrations.map(item => item.accountId)).size !== registrations.length
+    || new Set(registrations.map(item => item.credentialId)).size !== registrations.length) throw new Error('Unsupported ChatGPT registrations');
+  const failures = Object.fromEntries(Object.entries(value.failures ?? {}).filter(([, code]) => typeof code === 'string' && /^[A-Z0-9_]{1,100}$/u.test(code)));
+  return structuredClone({ hostId: value.hostId, account, connection, lastDetectionTaskId: value.lastDetectionTaskId ?? null, inference, registrations, failures });
 }
 
 export class ChatGptHost {
@@ -72,6 +79,12 @@ export class ChatGptHost {
   #disposeFlow = null;
   #attempt = { status: 'idle' };
   #createdState = false;
+  #sessions;
+  #flowKey = null;
+  #operations = Promise.resolve();
+  #disposed = false;
+  #authorizationEpoch = 0;
+  #flowCompletions = new Set();
   constructor(ctx, state, changed, {
     transport = createSourceNetworkTransport({ lookup }),
     endpoints,
@@ -106,22 +119,120 @@ export class ChatGptHost {
       await this.#changed();
       this.#createdState = false;
     }
+    this.#sessions = new ChatGptSessions({ credentials, transport: this.#transport, endpoints: this.#endpoints, hostId: this.#state.chatGpt.hostId });
+    await this.#sessions.recoverSignOut();
+    await this.#recoverRegistrations();
+    await this.restore();
+  }
+  async #recoverRegistrations() {
+    let changed = false;
+    for (const { key } of await this.#credentials().listRecords()) {
+      const match = /^irishwei-dsh-router\/chatgpt-oauth(?:-([0-9a-f-]{36}))?$/u.exec(key);
+      if (!match) continue;
+      const record = await this.#credentials().readRecord(key);
+      if (record?.payload?.hostId !== this.#state.chatGpt.hostId) continue;
+      let description;
+      try { description = describeChatGptGrant(record); } catch { continue; }
+      if (!description.accountId) continue;
+      const known = this.#state.chatGpt.registrations.find(item => item.accountId === description.accountId);
+      if (known) {
+        if (known.credentialId === (match[1] ?? 'legacy') || !description.configured) continue;
+        const prior = await this.#sessions.read(known);
+        const priorDescription = describeChatGptGrant(prior);
+        const authorizedAt = Date.parse(record.payload.authorizedAt ?? record.payload.savedAt);
+        const priorAuthorizedAt = Date.parse(prior?.payload?.authorizedAt ?? prior?.payload?.savedAt);
+        if (priorDescription.configured && !(authorizedAt > priorAuthorizedAt)) continue;
+        known.credentialId = match[1] ?? 'legacy';
+        known.configRevision += 1;
+        if (this.#state.chatGpt.account?.accountId === known.accountId) {
+          this.#state.chatGpt.account = { accountId: known.accountId, issuedClientId: known.issuedClientId, configRevision: known.configRevision };
+          this.#state.chatGpt.connection = null;
+          this.#state.chatGpt.inference = {};
+        }
+        changed = true;
+        continue;
+      }
+      if (this.#state.chatGpt.registrations.some(item => item.credentialId === (match[1] ?? 'legacy'))) continue;
+      this.#state.chatGpt.registrations.push({ accountId: description.accountId, issuedClientId: description.issuedClientId,
+        configRevision: 1, credentialId: match[1] ?? 'legacy', label: `ChatGPT ${this.#state.chatGpt.registrations.length + 1}` });
+      changed = true;
+    }
+    if (changed) await this.#changed();
+  }
+  #operation(run) {
+    const operation = this.#operations.then(() => {
+      if (this.#disposed) throw new TypeError('ChatGPT host is disposed');
+      return run();
+    });
+    this.#operations = operation.catch(() => {});
+    return operation;
+  }
+  #registration(account = this.#state.chatGpt.account) {
+    if (!account) return null;
+    return this.#state.chatGpt.registrations.find(item => item.accountId === account.accountId)
+      ?? { ...account, credentialId: 'legacy', label: 'ChatGPT 1' };
+  }
+  #assertCurrent(account, connection) {
+    const current = this.#state.chatGpt;
+    if (this.#disposed || current.account?.accountId !== account.accountId || current.account?.configRevision !== account.configRevision
+      || current.account?.issuedClientId !== account.issuedClientId || current.connection?.connectionId !== connection.connectionId
+      || current.connection?.configRevision !== connection.configRevision) throw Object.assign(new Error('ChatGPT authorization changed'), { code: 'AUTHORIZATION_CHANGED' });
+  }
+  async #registerFlow(registration) {
+    this.#disposeFlow?.();
+    const credentialId = registration?.credentialId ?? (this.#state.chatGpt.registrations.length ? randomUUID() : 'legacy');
+    const key = chatGptSessionKey({ credentialId });
+    const epoch = ++this.#authorizationEpoch;
+    const durableEpoch = await this.#sessions.beginAuthorization(registration);
+    let committedGrant;
+    if (epoch !== this.#authorizationEpoch || this.#disposed) {
+      await this.#sessions.finishAuthorization(durableEpoch);
+      throw Object.assign(new Error('ChatGPT authorization cancelled'), { code: 'OAUTH_CANCELLED' });
+    }
     const flow = createChatGptAuthorizationFlow({
       hostId: this.#state.chatGpt.hostId,
-      credentialKey: CHATGPT_CREDENTIAL_KEY,
+      credentialKey: key,
       transport: this.#transport,
       ...(this.#endpoints ? { endpoints: this.#endpoints } : {}),
       ...(this.#timeoutMs ? { timeoutMs: this.#timeoutMs } : {}),
-      getExistingGrant: () => credentials.readRecord(CHATGPT_CREDENTIAL_KEY),
-      afterCommit: result => this.#afterCommit(result),
+      getExistingGrant: () => this.#credentials().readRecord(key),
+      getRegistration: () => registration,
+      commitGrant: async (record, session) => {
+        await this.#sessions.commitAuthorization({
+          accountId: describeChatGptGrant(record).accountId, issuedClientId: record.payload.issuedClientId, credentialId,
+        }, record, durableEpoch, session.signal);
+        committedGrant = { issuedClientId: record.payload.issuedClientId, refreshToken: record.payload.refreshToken };
+      },
+      cleanupGrant: exchanged => this.#sessions.cleanupReceived({ accountId: exchanged.accountId ?? registration?.accountId, credentialId }, exchanged, durableEpoch),
+      afterCommit: result => this.#disposed
+        ? this.#sessions.discardAuthorization({ accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId }, durableEpoch, committedGrant)
+        : this.#operation(() => this.#afterCommit(result, credentialId, epoch, durableEpoch, committedGrant)),
     });
-    this.#disposeFlow = authorization.registerFlow(flow);
-    await this.restore();
+    this.#disposeFlow = this.#authorization().registerFlow({ ...flow, run: session => {
+      const completion = flow.run(session).finally(() => this.#sessions.finishAuthorization(durableEpoch));
+      this.#flowCompletions.add(completion);
+      completion.then(() => this.#flowCompletions.delete(completion), () => this.#flowCompletions.delete(completion));
+      return completion;
+    } });
+    this.#flowKey = key;
+    return key;
   }
-  async #afterCommit(result) {
-    const previousState = structuredClone(this.#state.chatGpt);
+  async #authorizationCommitIsCurrent(registration, epoch, durableEpoch, committedGrant) {
+    let current = false;
+    let checkFailure;
+    try { current = epoch === this.#authorizationEpoch && !this.#disposed && await this.#sessions.authorizationIsCurrent(durableEpoch); }
+    catch (cause) { checkFailure = cause; }
+    if (current) return true;
+    try { await this.#sessions.discardAuthorization(registration, durableEpoch, committedGrant); }
+    finally { if (checkFailure) throw checkFailure; }
+    return false;
+  }
+  async #afterCommit(result, credentialId, epoch, durableEpoch, committedGrant) {
     const existing = this.#state.chatGpt.account;
-    const account = { accountId: result.accountId, issuedClientId: result.issuedClientId, configRevision: (existing?.configRevision ?? 0) + 1 };
+    const priorRegistration = this.#state.chatGpt.registrations.find(item => item.accountId === result.accountId);
+    const registration = { accountId: result.accountId, issuedClientId: result.issuedClientId, credentialId };
+    if (!(await this.#authorizationCommitIsCurrent(registration, epoch, durableEpoch, committedGrant))) return;
+    const account = { accountId: result.accountId, issuedClientId: result.issuedClientId, configRevision: Math.max(existing?.configRevision ?? 0, priorRegistration?.configRevision ?? 0) + 1 };
     const connection = {
       connectionId: existing?.accountId === result.accountId && this.#state.chatGpt.connection?.accountId === result.accountId
         ? this.#state.chatGpt.connection.connectionId
@@ -129,7 +240,17 @@ export class ChatGptHost {
       accountId: result.accountId,
       configRevision: (this.#state.chatGpt.connection?.configRevision ?? 0) + 1,
     };
+    if (priorRegistration && priorRegistration.credentialId !== credentialId) {
+      // Keep the newly committed slot in place. Copying a read token to another
+      // slot could overwrite a replacement rotated by a concurrent process.
+      await this.#sessions.signOut(priorRegistration);
+    }
+    if (!(await this.#authorizationCommitIsCurrent(registration, epoch, durableEpoch, committedGrant))) return;
+    this.#state.chatGpt.registrations = this.#state.chatGpt.registrations.filter(item => item.accountId !== account.accountId);
+    this.#state.chatGpt.registrations.push({ ...account, credentialId, label: priorRegistration?.label ?? `ChatGPT ${this.#state.chatGpt.registrations.length + 1}` });
+    if (epoch !== this.#authorizationEpoch) { await this.#changed(); return; }
     this.#state.chatGpt.account = account;
+    delete this.#state.chatGpt.failures[account.accountId];
     this.#state.chatGpt.connection = result.directUseEnabled && result.catalogStatus === 'listed' && result.models.length ? connection : null;
     this.#state.chatGpt.inference = {};
     try {
@@ -140,9 +261,10 @@ export class ChatGptHost {
         await this.#changed();
       }
     } catch (error) {
+      this.#state.chatGpt.connection = null;
       await this.#unmount().catch(() => {});
-      this.#state.chatGpt = previousState;
-      await this.#credentials().modifyRecord(CHATGPT_CREDENTIAL_KEY, () => result.previousRecord).catch(() => {});
+      this.#state.chatGpt.failures[account.accountId] = safeFailureCode(error);
+      await this.#changed().catch(() => {});
       throw error;
     }
   }
@@ -151,7 +273,8 @@ export class ChatGptHost {
     const { account, connection } = this.#state.chatGpt;
     if (!account || !connection || !this.#ctx.get('credentials')) return;
     try {
-      const description = describeChatGptGrant(await this.#credentials().readRecord(CHATGPT_CREDENTIAL_KEY));
+      if (await this.#sessions.isSigningOut(this.#registration(account))) return;
+      const description = describeChatGptGrant(await this.#sessions.read(this.#registration(account)));
       if (!description.configured || !description.directUseEnabled || description.accountId !== account.accountId || description.issuedClientId !== account.issuedClientId || !description.models.length) return;
       await this.#mount(connection);
       await this.#changed();
@@ -171,38 +294,58 @@ export class ChatGptHost {
       connectionId: connection.connectionId,
       accountId: account.accountId,
       configRevision: connection.configRevision,
-      credentialKey: CHATGPT_CREDENTIAL_KEY,
+      credentialKey: chatGptSessionKey(this.#registration(account)),
       transport,
       ...(this.#endpoints?.responsesURL ? { responsesURL: this.#endpoints.responsesURL } : {}),
       getAuthorizedCredential,
       getCatalog,
       onInferenceCompleted: result => this.#markInferenceCompleted(result, { account: structuredClone(account), connection: structuredClone(connection) }),
+      onInferenceFailure: result => this.#inferenceFailure(result, { account, connection, registration: this.#registration(account) }),
     });
+    try { this.#assertCurrent(account, connection); }
+    catch (error) { await this.#unmount(); throw error; }
   }
   async #unmount() {
     const mounted = this.#mounted;
     this.#mounted = null;
     await mounted?.disconnect({ deleteCredential: false });
   }
-  async #currentGrant(account, connection) {
-    if (this.#state.chatGpt.account?.accountId !== account.accountId || this.#state.chatGpt.connection?.connectionId !== connection.connectionId) throw Object.assign(new Error('ChatGPT connection changed'), { code: 'AUTHORIZATION_CHANGED' });
-    const grant = chatGptGrantFromRecord(await this.#credentials().readRecord(CHATGPT_CREDENTIAL_KEY));
-    if (!grant) throw Object.assign(new Error('ChatGPT authorization changed'), { code: 'AUTHORIZATION_CHANGED' });
-    const description = describeChatGptGrant({ kind: 'grant', payload: grant });
-    if (!description.directUseEnabled || description.accountId !== account.accountId || grant.issuedClientId !== account.issuedClientId) throw Object.assign(new Error('ChatGPT authorization changed'), { code: 'AUTHORIZATION_CHANGED' });
-    const expiresAt = Date.parse(grant.savedAt) + grant.expiresIn * 1000;
-    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) throw Object.assign(new Error('ChatGPT access token expired; sign in again'), { code: 'TOKEN_EXPIRED' });
+  async #currentGrant(account, connection, signal) {
+    this.#assertCurrent(account, connection);
+    let grant;
+    try { grant = await this.#sessions.ensure(this.#registration(account), { signal }); }
+    catch (error) {
+      this.#assertCurrent(account, connection);
+      this.#state.chatGpt.failures[account.accountId] = safeFailureCode(error);
+      const description = describeChatGptGrant(await this.#sessions.read(this.#registration(account)));
+      if (error.code === 'CHATGPT_SIGN_OUT_PENDING' || !description.configured || !description.directUseEnabled || description.catalogStatus !== 'listed') {
+        this.#state.chatGpt.connection = null;
+        await this.#unmount();
+      }
+      await this.#changed().catch(() => {});
+      throw error;
+    }
+    this.#assertCurrent(account, connection);
+    delete this.#state.chatGpt.failures[account.accountId];
+    const mountedModels = this.#mounted?.source?.models?.map(item => item.model).sort();
+    if (mountedModels && JSON.stringify(mountedModels) !== JSON.stringify(grant.catalog.models.map(item => item.slug).sort())) {
+      this.#state.chatGpt.connection = null;
+      this.#state.chatGpt.failures[account.accountId] = 'MODEL_CATALOG_CHANGED';
+      await this.#unmount();
+      await this.#changed();
+      throw Object.assign(new Error('ChatGPT model catalog changed; reconnect to select a current model'), { code: 'MODEL_CATALOG_CHANGED' });
+    }
     return grant;
   }
   async #authorizedCredential({ provider, accountId, signal, account, connection }) {
     signal?.throwIfAborted();
     if (provider !== providerFor(account.accountId) || accountId !== account.accountId) throw Object.assign(new Error('ChatGPT connection identity mismatch'), { code: 'AUTHORIZATION_CHANGED' });
-    const grant = await this.#currentGrant(account, connection);
+    const grant = await this.#currentGrant(account, connection, signal);
     signal?.throwIfAborted();
     return { access_token: grant.accessToken, client_id: grant.issuedClientId, subject: grant.subject, scopes: [...grant.scopes] };
   }
   async #catalog({ provider, accountId, signal, account, connection }) {
-    const grant = await this.#currentGrant(account, connection);
+    const grant = await this.#currentGrant(account, connection, signal);
     signal?.throwIfAborted();
     if (provider !== providerFor(account.accountId) || accountId !== account.accountId || grant.catalog?.status !== 'listed') throw Object.assign(new Error('ChatGPT model catalog unavailable'), { code: 'MODEL_NOT_FOUND' });
     return {
@@ -221,17 +364,37 @@ export class ChatGptHost {
     this.#state.chatGpt.inference[inferenceKey(identity)] = { status: 'verified', verifiedAt: new Date().toISOString(), identity };
     await this.#changed().catch(() => {});
   }
-  async startAuthorization() {
+  async #inferenceFailure({ code, accessToken }, { account, connection, registration }) {
+    try { this.#assertCurrent(account, connection); } catch { return; }
+    code = typeof code === 'string' && /^[A-Za-z0-9_]{1,100}$/u.test(code) ? code.toLowerCase() : 'chatgpt_request_failed';
+    const terminal = ['invalid_token', 'token_expired', 'token_revoked', 'invalid_grant', 'insufficient_scope', 'subscription_sharing_missing_scope', 'chatpass_v2_scope_not_authorized', 'chatpass_v2_invalid_authorization_context'].includes(code);
+    const failureCode = /^[a-z0-9_]{1,100}$/u.test(code ?? '') ? code.toUpperCase() : 'CHATGPT_REQUEST_FAILED';
+    if (terminal && !(await this.#sessions.invalidate(registration, accessToken, failureCode))) return;
+    try { this.#assertCurrent(account, connection); } catch { return; }
+    this.#state.chatGpt.failures[account.accountId] = failureCode;
+    if (terminal || ['subscription_sharing_usage_limit_exceeded', 'subscription_sharing_user_not_eligible'].includes(code)) {
+      this.#state.chatGpt.connection = null;
+      await this.#unmount();
+    }
+    await this.#changed().catch(() => {});
+  }
+  async startAuthorization({ newAccount = false } = {}) {
     const authorization = this.#authorization();
     this.#credentials();
     if (this.#attempt.status === 'waiting') throw Object.assign(new Error('ChatGPT authorization is already in progress'), { code: 'AUTHORIZATION_IN_PROGRESS' });
     const attemptId = randomUUID();
+    this.#attempt = { status: 'waiting', attemptId, startedAt: new Date().toISOString() };
+    let key;
+    try { key = await this.#registerFlow(newAccount ? null : this.#registration()); }
+    catch (cause) {
+      this.#attempt = { status: cause.code === 'OAUTH_CANCELLED' ? 'cancelled' : 'failed', attemptId, failureCode: safeFailureCode(cause), endedAt: new Date().toISOString() };
+      throw cause;
+    }
     let noticeResolve;
     let noticeReject;
     const notice = new Promise((resolve, reject) => { noticeResolve = resolve; noticeReject = reject; });
-    this.#attempt = { status: 'waiting', attemptId, startedAt: new Date().toISOString() };
     const completion = authorization.begin({
-      key: CHATGPT_CREDENTIAL_KEY,
+      key,
       method: 'oauth',
       interaction: {
         notify(value) {
@@ -241,20 +404,33 @@ export class ChatGptHost {
       },
     });
     completion.then(
-      outcome => { this.#attempt = { status: outcome.status, attemptId, endedAt: new Date().toISOString() }; },
-      error => { this.#attempt = { status: error?.code === 'OAUTH_CANCELLED' ? 'cancelled' : 'failed', attemptId, failureCode: safeFailureCode(error), endedAt: new Date().toISOString() }; noticeReject(error); },
+      outcome => {
+        if (this.#attempt.attemptId === attemptId) this.#attempt = { status: outcome.status, attemptId, endedAt: new Date().toISOString() };
+        if (outcome.status === 'cancelled') noticeReject(Object.assign(new Error('ChatGPT authorization cancelled'), { code: 'OAUTH_CANCELLED' }));
+      },
+      error => { if (this.#attempt.attemptId === attemptId) this.#attempt = { status: error?.code === 'OAUTH_CANCELLED' ? 'cancelled' : 'failed', attemptId, failureCode: safeFailureCode(error), endedAt: new Date().toISOString() }; noticeReject(error); },
     );
     const authorizationURL = await notice;
     return { attemptId, authorizationURL };
   }
-  cancelAuthorization() {
-    this.#authorization().cancel(CHATGPT_CREDENTIAL_KEY);
+  async cancelAuthorization() {
+    this.#authorizationEpoch += 1;
+    if (this.#flowKey) this.#authorization().cancel(this.#flowKey);
+    await this.#sessions?.cancelAuthorization();
   }
-  async connect() {
-    if (this.#state.chatGpt.connection) throw new TypeError('ChatGPT account is already connected');
+  async connect() { return this.#operation(() => this.#connect()); }
+  async #connect() {
+    if (this.#state.chatGpt.connection && this.#mounted) throw new TypeError('ChatGPT account is already connected');
+    this.#state.chatGpt.connection = null;
     const account = this.#state.chatGpt.account;
     if (!account) throw new TypeError('No saved ChatGPT account');
-    const description = describeChatGptGrant(await this.#credentials().readRecord(CHATGPT_CREDENTIAL_KEY));
+    try { await this.#sessions.ensure(this.#registration(account), { refreshCatalog: true }); }
+    catch (error) {
+      this.#state.chatGpt.failures[account.accountId] = safeFailureCode(error);
+      await this.#changed().catch(() => {});
+      throw error;
+    }
+    const description = describeChatGptGrant(await this.#sessions.read(this.#registration(account)));
     if (!description.directUseEnabled || description.accountId !== account.accountId || !description.models.length) throw new TypeError('ChatGPT plan use or model catalog is unavailable');
     const connection = { connectionId: `connection-${randomUUID()}`, accountId: account.accountId, configRevision: account.configRevision + 1 };
     this.#state.chatGpt.connection = connection;
@@ -263,15 +439,51 @@ export class ChatGptHost {
     catch (error) { this.#state.chatGpt.connection = null; await this.#changed().catch(() => {}); throw error; }
   }
   async disconnect({ deleteCredential = false } = {}) {
-    this.cancelAuthorization();
+    if (deleteCredential) return this.signOut();
+    return this.#operation(() => this.#disconnect());
+  }
+  async #disconnect() {
+    const cancellation = this.cancelAuthorization();
     const previous = structuredClone(this.#state.chatGpt);
     this.#state.chatGpt.connection = null;
-    if (deleteCredential) { this.#state.chatGpt.account = null; this.#state.chatGpt.inference = {}; }
     try { await this.#changed(); }
     catch (error) { this.#state.chatGpt = previous; throw error; }
     await this.#unmount();
+    await cancellation;
     await this.#changed();
-    if (deleteCredential) await this.#credentials().deleteRecord(CHATGPT_CREDENTIAL_KEY);
+  }
+  async selectAccount({ accountId }) {
+    return this.#operation(async () => {
+      const registration = this.#state.chatGpt.registrations.find(item => item.accountId === accountId);
+      if (!registration) throw new TypeError('Unknown ChatGPT registration');
+      const cancellation = this.cancelAuthorization();
+      this.#state.chatGpt.connection = null;
+      this.#state.chatGpt.account = { accountId, issuedClientId: registration.issuedClientId, configRevision: registration.configRevision + 1 };
+      registration.configRevision += 1;
+      this.#state.chatGpt.inference = {};
+      await this.#unmount();
+      await cancellation;
+      await this.#changed();
+      const description = describeChatGptGrant(await this.#sessions.read(registration));
+      if (description.configured && description.directUseEnabled) await this.#connect();
+    });
+  }
+  async signOut() {
+    return this.#operation(async () => {
+      const cancellation = this.cancelAuthorization();
+      const registration = this.#registration();
+      if (!registration) { await cancellation; return; }
+      this.#state.chatGpt.connection = null;
+      this.#state.chatGpt.inference = {};
+      let persistenceError;
+      await this.#unmount().catch(error => { persistenceError = error; });
+      await this.#changed().catch(error => { persistenceError = error; });
+      await cancellation;
+      await this.#sessions.signOutRegistration(registration);
+      delete this.#state.chatGpt.failures[registration.accountId];
+      await this.#changed().catch(error => { persistenceError = error; });
+      if (persistenceError) throw persistenceError;
+    });
   }
   async claimDetectionTask() {
     if (this.#state.chatGpt.lastDetectionTaskId) throw new TypeError('The authorized ChatGPT validation Task has already been used');
@@ -291,8 +503,9 @@ export class ChatGptHost {
     const { account, connection, hostId, lastDetectionTaskId } = this.#state.chatGpt;
     let credential = { configured: false, directUseEnabled: false, catalogStatus: 'not-requested', models: [] };
     if (this.#ctx.get('credentials')) {
-      try { credential = describeChatGptGrant(await this.#credentials().readRecord(CHATGPT_CREDENTIAL_KEY)); } catch { /* redacted unavailable state */ }
+      try { if (account) credential = describeChatGptGrant(await this.#sessions.read(this.#registration(account))); } catch { /* redacted unavailable state */ }
     }
+    if (this.#sessions) credential = { ...credential, revocation: await this.#sessions.revocation(this.#registration(account), credential.revocation ?? null) };
     const inferenceEntries = [];
     if (account && connection) for (const record of Object.values(this.#state.chatGpt.inference)) {
       const expected = inferenceIdentity(account, connection, record.identity.model);
@@ -303,7 +516,13 @@ export class ChatGptHost {
       hostId,
       servicesAvailable: Boolean(this.#ctx.get('credentials') && this.#ctx.get('authorization')),
       account: account ? { accountId: account.accountId, issuedClientId: account.issuedClientId, configured: credential.configured, directUseEnabled: credential.directUseEnabled } : null,
-      connection: connection ? { connectionId: connection.connectionId, accountId: connection.accountId, provider: providerFor(connection.accountId), available: Boolean(this.#mounted) } : null,
+      registrations: await Promise.all(this.#state.chatGpt.registrations.map(async registration => {
+        let description;
+        try { description = describeChatGptGrant(await this.#sessions.read(registration)); } catch { description = { configured: false }; }
+        return { accountId: registration.accountId, issuedClientId: registration.issuedClientId, label: registration.label, configured: description.configured, selected: account?.accountId === registration.accountId };
+      })),
+      lifecycle: { status: credential.status ?? (credential.configured ? 'authorized' : 'not-configured'), failureCode: account ? this.#state.chatGpt.failures[account.accountId] ?? credential.failureCode ?? null : null, revocation: credential.revocation ?? null },
+      connection: connection ? { connectionId: connection.connectionId, accountId: connection.accountId, provider: providerFor(connection.accountId), available: Boolean(this.#mounted && credential.configured && credential.directUseEnabled && credential.catalogStatus === 'listed') } : null,
       catalog: { status: credential.catalogStatus, models: credential.models },
       authorization: structuredClone(this.#attempt),
       inference: structuredClone(inference),
@@ -311,7 +530,11 @@ export class ChatGptHost {
     });
   }
   async dispose() {
-    this.#ctx.get('authorization')?.cancel(CHATGPT_CREDENTIAL_KEY);
+    this.#disposed = true;
+    this.#authorizationEpoch += 1;
+    if (this.#flowKey) this.#ctx.get('authorization')?.cancel(this.#flowKey);
+    await this.#operations;
+    await Promise.allSettled([...this.#flowCompletions]);
     this.#disposeFlow?.();
     this.#disposeFlow = null;
     await this.#unmount();

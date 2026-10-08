@@ -450,7 +450,8 @@ for (const concurrent of [false, true]) test(`a partial money forecast counts it
     ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
     const { sessionId } = await ctx.sessionController.create({ cwd: home });
     run = submit(ctx, sessionId, '[router:tool]\nReply PARTIAL_MONEY');
-    const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.calls.filter(call => call.purpose === 'consultation').length >= (concurrent ? 2 : 1))).tasks.at(-1);
+    const waiting = (await waitFor(ctx, state => state.tasks.at(-1)?.lifecycle === 'waiting-budget'
+      && state.tasks.at(-1)?.calls.filter(call => call.purpose === 'consultation').length >= (concurrent ? 2 : 1))).tasks.at(-1);
     assert.equal(waiting.lifecycle, 'waiting-budget');
     assert.equal(waiting.budget.waiting.proposedMoney.amount, null);
     assert.ok(Math.abs(waiting.budget.waiting.proposedMoney.knownSubtotal - (concurrent ? 0.00002 : 0.00026)) < 1e-15);

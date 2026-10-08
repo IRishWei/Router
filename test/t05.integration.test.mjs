@@ -319,7 +319,7 @@ test('the Task deadline also aborts an owned title stream after the native turn 
     await ctx.plugin(SessionTitle, { fallbackMaxWords: 8, fallbackMaxBytes: 120, maxTitleBytes: 120 });
     await ctx.plugin(FirstPromptTitle, { targetWords: 8, targetCjkCharacters: 16, maxInputBytes: 4096, maxOutputTokens: 128, timeoutMs: 2_000 });
     const candidate = (await ctx.router.snapshot()).models.find(model => model.source === 'deepseek-official-api' && model.model === 'deepseek-flash');
-    const snapshot = await ctx.router.deepSeekRunDetection({ candidateId: candidate.candidateId, budget: { tokens: 4096, durationMs: 250 } });
+    const snapshot = await ctx.router.deepSeekRunDetection({ candidateId: candidate.candidateId, budget: { tokens: 4096, durationMs: 1_500 } });
     const task = snapshot.tasks.find(item => item.id === snapshot.deepSeek.lastDetectionTaskId);
     assert.equal(task.lifecycle, 'paused');
     assert.equal(posts, 2);

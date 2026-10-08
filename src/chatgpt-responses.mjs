@@ -45,7 +45,7 @@ function credentialError(error) {
     const descriptor = error instanceof Error ? Object.getOwnPropertyDescriptor(error, 'code') : undefined;
     code = descriptor && 'value' in descriptor ? descriptor.value : undefined;
   } catch { /* Unknown callback failures remain unknown at the native boundary. */ }
-  if (code === 'TOKEN_EXPIRED') return new LlmError('ChatGPT access token expired; sign in again', 'TOKEN_EXPIRED');
+  if (typeof code === 'string' && /^[A-Z0-9_]{1,100}$/u.test(code)) return new LlmError('ChatGPT session is unavailable; see connection settings', code);
   return error;
 }
 
@@ -665,6 +665,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
       transport: spec.transport,
       responsesURL: responsesURL.href,
       onInferenceCompleted: spec.onInferenceCompleted,
+      onInferenceFailure: spec.onInferenceFailure,
     });
     for (const name of ['getAuthorizedCredential', 'getCatalog', 'transport']) {
       if (typeof this.#spec[name] !== 'function') throw new TypeError(`${name} must be a function`);
@@ -672,6 +673,7 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
     if (this.#spec.onInferenceCompleted !== undefined && typeof this.#spec.onInferenceCompleted !== 'function') {
       throw new TypeError('onInferenceCompleted must be a function');
     }
+    if (this.#spec.onInferenceFailure !== undefined && typeof this.#spec.onInferenceFailure !== 'function') throw new TypeError('onInferenceFailure must be a function');
   }
 
   providerInfo(provider) {
@@ -694,7 +696,9 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
     }
     const credential = credentialSnapshot(rawCredential);
     checkAbort(signal);
-    const catalog = catalogSnapshot(await this.#spec.getCatalog({ provider: this.#spec.provider, accountId: this.#spec.accountId, signal }), credential);
+    let catalog;
+    try { catalog = catalogSnapshot(await this.#spec.getCatalog({ provider: this.#spec.provider, accountId: this.#spec.accountId, signal }), credential); }
+    catch (error) { throw credentialError(error); }
     checkAbort(signal);
     return { credential, catalog };
   }
@@ -794,6 +798,10 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
       } catch (error) {
         throw transportError(error, options.signal, requestId);
       }
+    } catch (error) {
+      try { await this.#spec.onInferenceFailure?.({ code: error.code, accessToken: current.credential.accessToken }); }
+      catch { /* Preserve the original request failure. */ }
+      throw error;
     } finally {
       await response?.close?.();
     }

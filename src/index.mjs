@@ -872,7 +872,20 @@ export class RouterService extends TypertRemoteService {
     return this.snapshot();
   }
   async chatGptStartAuthorization() { return this.#chatGpt.startAuthorization(); }
-  async chatGptCancelAuthorization() { this.#chatGpt.cancelAuthorization(); return this.snapshot(); }
+  async chatGptAddAccount() { return this.#chatGpt.startAuthorization({ newAccount: true }); }
+  async chatGptSelectAccount(request) {
+    await this.#chatGpt.selectAccount(request);
+    await this.#connections.refresh();
+    this.#persist(); await this.flush();
+    return this.snapshot();
+  }
+  async chatGptSignOut() {
+    await this.#chatGpt.signOut();
+    await this.#connections.refresh();
+    this.#persist(); await this.flush();
+    return this.snapshot();
+  }
+  async chatGptCancelAuthorization() { await this.#chatGpt.cancelAuthorization(); return this.snapshot(); }
   async chatGptConnect() {
     await this.#chatGpt.connect();
     await this.#connections.refresh();
