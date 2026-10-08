@@ -163,6 +163,66 @@ test('the native retry plugin honors the ChatGPT zero-retry policy for a retryab
   }
 });
 
+test('an expired ChatGPT grant retains TOKEN_EXPIRED without dispatch, retry, or billing fallback', async () => {
+  const remote = await endpoint(() => finalEvents());
+  const home = await mkdtemp(join(tmpdir(), 'router-t09-expired-grant-'));
+  let ctx;
+  try {
+    const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
+    ctx = connectedHost.ctx;
+    await ctx.plugin(LlmRetry);
+    await ctx.credentials.modifyRecord(CHATGPT_CREDENTIAL_KEY, record => ({
+      ...record,
+      payload: { ...record.payload, savedAt: '2000-01-01T00:00:00.000Z', expiresIn: 1 },
+    }));
+    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(remote.requests.length, 0);
+    assert.equal(task.calls.length, 1);
+    assert.equal(task.calls[0].dispatchStarted, false);
+    assert.equal(task.calls[0].dispatchState, 'proposed');
+    assert.equal(task.calls[0].reservation.state, 'released');
+    assert.equal(task.calls[0].usage, null);
+    assert.equal(task.calls.some(call => call.purpose === 'retry'), false);
+    assert.equal(task.calls[0].selection.provider, `router-chatgpt-${connectedHost.candidate.accountId}`);
+    assert.equal(task.calls[0].selection.accountId, connectedHost.candidate.accountId);
+    assert.equal(task.calls[0].selection.billingPath, 'chatgpt-subscription');
+    assert.equal(task.nativePauseReason, 'TOKEN_EXPIRED');
+    assert.equal(task.pauseReason, 'TOKEN_EXPIRED');
+    assert.equal(task.fault.code, 'TOKEN_EXPIRED');
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await remote.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
+test('an unrecognized credential callback failure remains UNKNOWN and does not dispatch', async () => {
+  const remote = await endpoint(() => finalEvents());
+  const home = await mkdtemp(join(tmpdir(), 'router-t09-unknown-credential-'));
+  let ctx;
+  try {
+    const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
+    ctx = connectedHost.ctx;
+    await ctx.plugin(LlmRetry);
+    await ctx.credentials.modifyRecord(CHATGPT_CREDENTIAL_KEY, () => ({ kind: 'grant', payload: { schemaVersion: 1 } }));
+    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+    assert.equal(remote.requests.length, 0);
+    assert.equal(task.calls.length, 1);
+    assert.equal(task.calls[0].dispatchStarted, false);
+    assert.equal(task.calls[0].reservation.state, 'released');
+    assert.equal(task.calls.some(call => call.purpose === 'retry'), false);
+    assert.equal(task.nativePauseReason, 'UNKNOWN');
+    assert.equal(task.pauseReason, 'UNKNOWN');
+  } finally {
+    if (ctx) await ctx.fiber.dispose();
+    await remote.close();
+    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+  }
+});
+
 test('a native session-title call consumes the second authorized request without being recorded as a retry', async () => {
   const remote = await endpoint(() => finalEvents());
   const home = await mkdtemp(join(tmpdir(), 'router-t09-title-'));
