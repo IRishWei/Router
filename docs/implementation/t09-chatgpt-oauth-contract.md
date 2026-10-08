@@ -6,7 +6,7 @@
 
 使用插件自身的开源应用动态注册和 ChatGPT 套餐授权，不要求 API Key。首次注册使用官方入口，随后按已验证账号和 issued client 身份恢复；稳定 host 标识独立持久化。只使用 DSH Host 凭据服务保存 token，普通 Router 状态、RPC、日志及导出不得包含 token、code、PKCE verifier 或完整授权 URL。Codex 配置、认证和环境 Key 不读取或修改。
 
-浏览器操作由用户完成。监听仅绑定 `127.0.0.1`，启动成功后才打开系统浏览器；每次授权生成新的 state、nonce、S256 PKCE。回调必须一次性消费，核对 state、返回 client 与待授权身份，校验 ID token 的 JWKS 签名、issuer、audience、有效期、nonce 和 subject。持久化失败不启用连接。取消、超时、拒绝授权和非法回调保持可恢复状态，不能由登录成功推断推理权限。
+浏览器操作由用户完成。监听仅绑定 `127.0.0.1`，启动成功后才打开系统浏览器；每次授权生成新的 state、nonce、S256 PKCE。专用授权开始 RPC 可在事务内返回导航 URL，客户端随即打开浏览器，不存入页面状态；返回登录不发送可选的 `id_token_hint` 或 email `login_hint`，由官方账号选择页及回调身份校验完成绑定，避免凭据进入 URL。回调必须一次性消费，核对 state、返回 client 与待授权身份，校验 ID token 的 JWKS 签名、issuer、audience、有效期、nonce 和 subject。持久化失败不启用连接。取消、超时、拒绝授权和非法回调保持可恢复状态，不能由登录成功推断推理权限。
 
 依据：[注册与登录](https://developers.openai.com/siwc/token-sharing-open-source/sign-in)、[账号及凭据](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions)。
 
