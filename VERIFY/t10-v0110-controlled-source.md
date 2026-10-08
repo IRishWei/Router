@@ -3,7 +3,7 @@
 基线 `9a392a93eb280fefcca99cd292ec85de26befd49`，2026-10-09。此记录只证明源码阶段；目标 Desktop 安装、真实 OAuth 生命周期及独立双轴结果待单独归档，#11 保持打开。
 
 - `npm run build`、`npm run check` 通过。
-- `npm test`（`node --test --test-concurrency=4 test/*.test.mjs`）：394/394 通过。49项新增测试覆盖公开 Controller/Renderer、多进程凭据锁、账号切换、串行续期、权限/额度错误、退出及重启恢复。
+- `npm test`（`node --test --test-concurrency=4 test/*.test.mjs`）：396/396 通过。51项新增测试覆盖公开 Controller/Renderer、多进程凭据锁、账号切换、串行续期、权限/额度错误、退出及重启恢复。
 - 原生 Task 到期后仅续期一次，使用替换 token 完成；切换后目录及候选身份隔离、新候选默认禁用；撤销/权限失败/额度限制各仅一次 Responses 请求，Task 暂停，未知用量不记零，无 API Key fallback 或透明重试。
 - 两个实际子进程同时对同一凭据文件续期，仅一个 token 请求；取消、切换、退出不丢弃已接收替换。目录失败与 OIDC 暂时失败均保留替换，后者先隔离，再验证，不再次轮换旧 token。
 - 两个账号退出互不影响；发现的撤销 endpoint 必须同认证 origin，跨域拒绝且无凭据派发；空 HTTP 200 确认撤销，503/不可信 metadata 为未确认但本地 token 清除。退出保留 issued client/host 注册，重新登录身份受校验。
@@ -24,4 +24,6 @@
 
 第六轮 `2e34b0e` 双轴未通过：另一 Host 推进代次后，持久有效性检查本身 EACCES 仍会跳过清理；两代授权共用 slot 时，新代次 tombstone 也不能证明旧代次已撤销。现统一两处有效性检查的异常清理，保留合法提交后 Router 状态故障恢复行为；撤销 tombstone 记录精确已尝试代次，只有相同代次才跳过，不同代次清理私有 fallback 且保留新记录。本地中断恢复不写已尝试撤销标记。两个独立原始复现及新增双 Host 回归通过。
 
-最终源码日志：`C:/Users/a1500/AppData/Local/Temp/router-implementation/t10-v0110-full-test-20261009-h.log`。旧 b.log（375项）、c.log（380项）、d.log（386项）、e.log（388项）、f.log（391项）、g.log（392项）通过记录保留。没有执行真实 OAuth、模型请求或读取/修改 Codex 认证配置；Astra 的原真实调用许可已耗尽。
+第七轮 `b7599dc` 双轴确认中断退出恢复会覆盖已有撤销代次记录，引发迟到回调重复撤销。现只对同身份 schema2 tombstone 保留已有 marker；活动 grant 的纯本地恢复仍不新增已尝试标记。HTTP200/503 两种已尝试结果都不重放，两个独立原始复现通过。
+
+最终源码日志：`C:/Users/a1500/AppData/Local/Temp/router-implementation/t10-v0110-full-test-20261009-i.log`。旧 b.log（375项）、c.log（380项）、d.log（386项）、e.log（388项）、f.log（391项）、g.log（392项）、h.log（394项）通过记录保留。没有执行真实 OAuth、模型请求或读取/修改 Codex 认证配置；Astra 的原真实调用许可已耗尽。

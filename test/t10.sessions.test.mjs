@@ -220,6 +220,7 @@ test('restart after sign-out dies in revocation clears locally, reports unconfir
     const record = await sessions.read(f.registration);
     assert.equal(record.payload.accessToken, undefined);
     assert.equal(record.payload.refreshToken, undefined);
+    assert.equal(record.payload.revocationAuthorizationId, undefined);
     assert.equal((await sessions.revocation(f.registration, record.payload.revocation)).status, 'unconfirmed');
     const epoch = await sessions.beginAuthorization(f.registration);
     await sessions.finishAuthorization(epoch);
@@ -288,3 +289,28 @@ test('a stale upstream revocation cannot clear a later successful rotation', asy
     await assert.rejects(f.sessions.ensure(f.registration), cause => cause.code === 'TOKEN_REVOKED');
   } finally { await f.close(); }
 });
+
+for (const status of [200, 503]) {
+  test(`interrupted exit recovery retains the already attempted generation (HTTP ${status})`, async () => {
+    const f = await fixture({ onRevoke: () => ({ status }) });
+    try {
+      const epoch = await f.sessions.beginAuthorization(f.registration);
+      await f.sessions.commitAuthorization(f.registration, f.record, epoch, new AbortController().signal);
+      await f.sessions.signOut(f.registration);
+      assert.equal((await f.sessions.read(f.registration)).payload.revocationAuthorizationId, epoch);
+      const controlKey = `irishwei-dsh-router/chatgpt-control-${f.record.payload.hostId.slice(9)}`;
+      await f.ctx.credentials.modifyRecord(controlKey, current => ({ kind: 'grant', payload: { ...current.payload,
+        epoch: randomUUID(), signingOut: { operationId: randomUUID(), accountId: f.registration.accountId, slots: [f.registration],
+          owner: { pid: process.pid, instance: 'controlled-expired-owner', deadline: Date.now() - 1 } } } }));
+      await f.sessions.recoverSignOut();
+      const recovered = await f.sessions.read(f.registration);
+      assert.equal(recovered.payload.revocationAuthorizationId, epoch);
+      assert.equal(recovered.payload.revocation.status, 'unconfirmed');
+      await f.sessions.discardAuthorization(f.registration, epoch, {
+        issuedClientId: f.record.payload.issuedClientId, refreshToken: f.record.payload.refreshToken,
+      });
+      assert.equal(f.remote.requests.filter(item => item.path === '/revoke').length, 1);
+      assert.equal(f.remote.failures.length, 0);
+    } finally { await f.close(); }
+  });
+}

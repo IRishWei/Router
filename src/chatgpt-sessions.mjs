@@ -225,7 +225,10 @@ export class ChatGptSessions {
         if (current?.payload?.hostId !== this.#hostId) return undefined;
         const description = describeChatGptGrant(current);
         if (description.accountId !== pending.accountId) return undefined;
-        return clearedRecord(registration, this.#hostId, 'signed-out', { revocation });
+        const revocationAuthorizationId = current.kind === 'grant' && current.payload.schemaVersion === 2
+          ? current.payload.revocationAuthorizationId : undefined;
+        return clearedRecord(registration, this.#hostId, 'signed-out', { revocation,
+          ...(typeof revocationAuthorizationId === 'string' ? { revocationAuthorizationId } : {}) });
       });
     }
     await this.#credentials.modifyRecord(this.#controlKey(), current => {
