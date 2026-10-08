@@ -1,10 +1,10 @@
 # DSH Router
 
-免费、开源、本地运行的 DSH 插件。当前提供两个本地可控模型，并可通过公开宿主契约发现、主动启用和引用已有 DSH 连接；同时提供模型池、固定执行、任务账本和预算等待。目标宿主是 Windows DSH Desktop **0.2.0-rc.2**，Cordis **4.0.4**。真实远端账号接入、评分策略及效果收益尚未验证。
+免费、开源、本地运行的 DSH 插件。当前提供两个本地可控模型、DeepSeek API 连接和独立 ChatGPT OAuth 连接，并可通过公开宿主契约发现、主动启用和引用已有 DSH 连接；同时提供模型池、固定执行、任务账本和预算等待。目标宿主是 Windows DSH Desktop **0.2.0-rc.2**，Cordis **4.0.4**。真实 ChatGPT 账号推理仍需用户完成有界验收；评分策略及效果收益尚未验证。
 
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.9.3.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.10.0.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。
@@ -15,6 +15,10 @@
 可控模型只产生本地 fixture 响应；不会连接模型服务或产生真实费用，token 也是固定测试数据。响应完成的验收状态保持“无法确认”。插件不读写 Codex 配置或认证。
 
 **连接与模型 → DeepSeek API**可在密码输入框中保存新凭据、连接账号、主动启用候选并运行有限预算的连接检测。凭据只进入 Router 自有 credential store；同名模型以连接、账号和计费来源区分，默认不启用。检测沿用独立真实 Task 的预算与账本，不改变全局默认、固定或自动选择。预算不足时先等待，可在任务记录中扩展或停止；实际系统输入较大时，初始4096 token上限可能不足。0.7.4 已验证连接管理、零派发预算等待和重启，真实官方 API 仍需用户凭据与授权，见 [安装证据](docs/implementation/t05-installed-host-evidence.md)。
+
+**连接与模型 → ChatGPT OAuth**使用 Router 自己的官方动态客户端登录，不读取或复用 Codex 认证，也不需要 OpenAI API Key。OAuth token、授权码、cookie、完整授权地址和账号原始标识只经过 Host credential 与一次性授权通道，不进入普通状态、日志或任务记录。只有当前账号授予 `chatgpt.tokens.use.direct` 且目录列出模型后才建立连接；目录可见只证明该账号可选，推理状态在 `response.completed` 后才标记已验证。候选默认不启用，断开后禁止新调用。
+
+ChatGPT 有界验收最多创建一个 Task，并在统一派发入口限制最多两次模型请求，包括工具后续步骤或标题等辅助调用。它使用完整输入和保守输出预留、绝对时限与取消控制；官方 preview 当前没有服务端输出 token 硬上限，因此页面不会宣称硬截断。模型上下文容量、API 现金价格与 ChatGPT 套餐现金消耗保持未知；账本记录官方返回的输入、输出、缓存和推理用量，但不把缓存或推理子项重复加入总量。`response.incomplete`、`response.failed` 和断流均失败并保留已知用量，不自动重试、不切换账号或 API 计费来源。
 
 ## 明确要求验收
 

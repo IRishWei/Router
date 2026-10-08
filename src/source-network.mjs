@@ -278,6 +278,185 @@ const resolveWithDoh = async ({ hostname, proxy, deadline, signal, transferBudge
   return payload.Answer.filter(answer => answer?.type === 1 && typeof answer.data === 'string').map(answer => ({ address: answer.data, family: 4 }));
 };
 
+const routeFor = async (url, {
+  lookup, proxyDiscovery, proxyResolver, explicitProxyDiscovery, directOnly,
+  authorizeAddress, deadline, signal, transferBudget, tlsOptions,
+}) => {
+  if (isIP(url.hostname) && !(authorizeAddress ? authorizeAddress({ url: new URL(url), address: url.hostname, family: isIP(url.hostname) }) === true : publicSourceAddress(url.hostname))) {
+    throw codedError('SOURCE_ADDRESS_NOT_AUTHORIZED');
+  }
+  let policy;
+  try {
+    policy = directOnly || authorizeAddress && !explicitProxyDiscovery
+      ? { kind: 'direct' }
+      : parseProxy(await boundedOperation(() => proxyDiscovery(new URL(url), { deadline, signal }), { deadline, signal }));
+  } catch (error) {
+    throw normalizeFailure(error, signal, 'SOURCE_PROXY_UNAVAILABLE');
+  }
+
+  let nativeAddresses;
+  try {
+    nativeAddresses = isIP(url.hostname)
+      ? [{ address: url.hostname, family: isIP(url.hostname) }]
+      : await boundedOperation(() => lookup(url.hostname, { all: true, verbatim: true }), { deadline, signal });
+  } catch (error) {
+    if (policy.kind === 'direct') throw normalizeFailure(error, signal, 'SOURCE_DNS_UNAVAILABLE');
+    nativeAddresses = [];
+  }
+  const authorized = address => (authorizeAddress
+    ? authorizeAddress({ url: new URL(url), address: address.address, family: address.family }) === true
+    : publicSourceAddress(address.address));
+  let address = nativeAddresses.find(authorized);
+  if (!address && policy.kind === 'proxy') {
+    try {
+      const resolved = await boundedOperation(() => proxyResolver({ hostname: url.hostname, proxy: policy.url, deadline, signal, transferBudget, tlsOptions }), { deadline, signal });
+      address = Array.isArray(resolved) ? resolved.find(authorized) : null;
+    } catch (error) {
+      throw normalizeFailure(error, signal, 'SOURCE_DNS_UNAVAILABLE');
+    }
+  }
+  if (!address) throw codedError('SOURCE_ADDRESS_NOT_AUTHORIZED');
+  return policy.kind === 'proxy' ? { kind: 'proxy', proxy: policy.url, address } : { kind: 'direct', address };
+};
+
+const streamingResponse = (url, route, {
+  method, headers, body, deadline, signal, maxResponseBytes, transferBudget, tlsOptions,
+}) => new Promise((resolve, reject) => {
+  let timeoutMs;
+  try { timeoutMs = remainingTime(deadline); }
+  catch (error) { reject(error); return; }
+  const transport = url.protocol === 'https:' ? httpsRequest : httpRequest;
+  const Agent = url.protocol === 'https:' ? HttpsAgent : HttpAgent;
+  const agent = new Agent({ keepAlive: false });
+  if (route.kind === 'direct') {
+    agent.createConnection = (options, callback) => Agent.prototype.createConnection.call(agent, {
+      ...options,
+      lookup: (_hostname, lookupOptions, done) => {
+        const pinned = { address: route.address.address, family: route.address.family };
+        if (lookupOptions && typeof lookupOptions === 'object' && lookupOptions.all === true) done(null, [pinned]);
+        else done(null, pinned.address, pinned.family);
+      },
+    }, callback);
+  } else {
+    agent.createConnection = (_options, callback) => {
+      createTunnel(route.proxy, {
+        address: route.address.address,
+        port: Number(url.port) || (url.protocol === 'https:' ? 443 : 80),
+      }, { deadline, signal, servername: url.hostname, secure: url.protocol === 'https:', tlsOptions }).then(socket => callback(null, socket), callback);
+    };
+  }
+  let response;
+  let settled = false;
+  let timer;
+  const finishRequest = (handler, value) => {
+    if (settled) return;
+    settled = true;
+    signal?.removeEventListener('abort', abort);
+    if (handler === reject) {
+      clearTimeout(timer);
+      agent.destroy();
+    }
+    handler(value);
+  };
+  const stop = code => {
+    const error = codedError(code);
+    response?.destroy(error);
+    request.destroy(error);
+    if (!response) finishRequest(reject, error);
+  };
+  const abort = () => stop('CANCELED');
+  const request = transport(url, {
+    method,
+    agent,
+    headers,
+    signal,
+  }, incoming => {
+    response = incoming;
+    const stream = async function* () {
+      let bytes = 0;
+      try {
+        for await (const chunk of incoming) {
+          bytes += chunk.length;
+          if (bytes > maxResponseBytes || !transferBudget.consume(chunk.length)) {
+            const error = codedError('SOURCE_RESPONSE_TOO_LARGE');
+            incoming.destroy(error);
+            request.destroy(error);
+            throw error;
+          }
+          yield chunk;
+        }
+      } catch (error) {
+        throw normalizeFailure(error, signal, route.kind === 'proxy' ? 'SOURCE_PROXY_UNAVAILABLE' : 'SOURCE_UNAVAILABLE');
+      } finally {
+        clearTimeout(timer);
+        signal?.removeEventListener('abort', abort);
+        incoming.destroy();
+        request.destroy();
+        agent.destroy();
+      }
+    };
+    finishRequest(resolve, {
+      statusCode: incoming.statusCode,
+      headers: incoming.headers,
+      body: stream(),
+      close() { incoming.destroy(); request.destroy(); agent.destroy(); },
+    });
+  });
+  timer = setTimeout(() => stop('SOURCE_TIMEOUT'), timeoutMs);
+  timer.unref?.();
+  request.once('error', error => {
+    if (response) return;
+    finishRequest(reject, normalizeFailure(error, signal, route.kind === 'proxy' ? 'SOURCE_PROXY_UNAVAILABLE' : 'SOURCE_UNAVAILABLE'));
+  });
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) abort();
+  else request.end(body);
+});
+
+/**
+ * Create a DNS-pinned, proxy-aware HTTP transport for fixed-origin protocol clients.
+ * It never follows redirects and keeps the absolute deadline through body iteration.
+ */
+export function createSourceNetworkTransport({ lookup, discoverProxy, resolveProxyAddresses, platform = process.platform, tlsOptions = {}, directOnly = false } = {}) {
+  if (typeof lookup !== 'function') throw new TypeError('lookup is required');
+  const explicitProxyDiscovery = typeof discoverProxy === 'function';
+  const proxyDiscovery = discoverProxy ?? ((url, context) => discoverWindowsProxy(url, { ...context, platform }));
+  const proxyResolver = resolveProxyAddresses ?? resolveWithDoh;
+  return Object.freeze({
+    async request(input, options = {}) {
+      const url = input instanceof URL ? new URL(input) : new URL(input);
+      if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.hash) throw codedError('SOURCE_URL_INVALID');
+      const method = options.method ?? 'GET';
+      if (!['GET', 'POST'].includes(method)) throw codedError('SOURCE_METHOD_UNSUPPORTED');
+      const body = options.body === undefined ? Buffer.alloc(0) : Buffer.from(options.body);
+      const maxUploadBytes = options.maxUploadBytes;
+      const maxResponseBytes = options.maxResponseBytes;
+      if (!Number.isSafeInteger(maxUploadBytes) || maxUploadBytes < 0 || !Number.isSafeInteger(maxResponseBytes) || maxResponseBytes < 1) throw new TypeError('transport byte limits are required');
+      if (body.length > maxUploadBytes) throw codedError('SOURCE_UPLOAD_TOO_LARGE');
+      const deadline = options.deadline;
+      remainingTime(deadline);
+      const transferBudget = options.transferBudget ?? { used: 0, remaining: maxResponseBytes, consume(bytes) { if (bytes > this.remaining) return false; this.used += bytes; this.remaining -= bytes; return true; } };
+      const headers = {};
+      for (const [name, value] of Object.entries(options.headers ?? {})) {
+        const lower = name.toLowerCase();
+        if (['connection', 'content-length', 'host', 'transfer-encoding'].includes(lower)) throw codedError('SOURCE_HEADER_UNSUPPORTED');
+        headers[lower] = value;
+      }
+      headers.connection = 'close';
+      headers['content-length'] = String(body.length);
+      const route = await routeFor(url, {
+        lookup, proxyDiscovery, proxyResolver, explicitProxyDiscovery, directOnly,
+        authorizeAddress: options.authorizeAddress, deadline, signal: options.signal,
+        transferBudget, tlsOptions,
+      });
+      return streamingResponse(url, route, {
+        method, headers, body, deadline, signal: options.signal, maxResponseBytes,
+        transferBudget, tlsOptions,
+      });
+    },
+  });
+}
+
 export function createSourceNetworkReader({ lookup, discoverProxy, resolveProxyAddresses, platform = process.platform, tlsOptions = {}, directOnly = false } = {}) {
   if (typeof lookup !== 'function') throw new TypeError('lookup is required');
   const explicitProxyDiscovery = typeof discoverProxy === 'function';

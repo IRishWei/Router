@@ -3,7 +3,7 @@ import { build } from 'esbuild';
 await mkdir('lib', { recursive: true });
 await mkdir('artifacts', { recursive: true });
 await mkdir('companion/native-provider/lib', { recursive: true });
-const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'").replace("'./routing.mjs'", "'./routing.js'").replace("'./acceptance.mjs'", "'./acceptance.js'").replace("'./coordination.mjs'", "'./coordination.js'").replace("'./program-checks.mjs'", "'./program-checks.js'").replace("'./deepseek-host.mjs'", "'./deepseek-host.js'").replace("'./deepseek-deadline.mjs'", "'./deepseek-deadline.js'").replace("'./research-acceptance.mjs'", "'./research-acceptance.js'").replace("'./research-contribution.mjs'", "'./research-contribution.js'");
+const host = (await readFile('src/index.mjs', 'utf8')).replace("'./protocol.mjs'", "'./protocol.js'").replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'").replace("'./routing.mjs'", "'./routing.js'").replace("'./acceptance.mjs'", "'./acceptance.js'").replace("'./coordination.mjs'", "'./coordination.js'").replace("'./program-checks.mjs'", "'./program-checks.js'").replace("'./deepseek-host.mjs'", "'./deepseek-host.js'").replace("'./chatgpt-host.mjs'", "'./chatgpt-host.js'").replace("'./chatgpt-router.mjs'", "'./chatgpt-router.js'").replace("'./deepseek-deadline.mjs'", "'./deepseek-deadline.js'").replace("'./research-acceptance.mjs'", "'./research-acceptance.js'").replace("'./research-contribution.mjs'", "'./research-contribution.js'");
 await writeFile('lib/index.js', host);
 await writeFile('lib/ledger.js', await readFile('src/ledger.mjs', 'utf8'));
 await writeFile('lib/connections.js', (await readFile('src/connections.mjs', 'utf8')).replace("'./native-connections.mjs'", "'./native-connections.js'"));
@@ -17,6 +17,10 @@ await writeFile('lib/deepseek-catalog.js', await readFile('src/deepseek-catalog.
 await writeFile('lib/deepseek-router.js', (await readFile('src/deepseek-router.mjs', 'utf8')).replace("'./deepseek-connections.mjs'", "'./deepseek-connections.js'"));
 await writeFile('lib/deepseek-host.js', (await readFile('src/deepseek-host.mjs', 'utf8')).replace("'./deepseek-connections.mjs'", "'./deepseek-connections.js'").replace("'./deepseek-router.mjs'", "'./deepseek-router.js'"));
 await writeFile('lib/deepseek-deadline.js', await readFile('src/deepseek-deadline.mjs', 'utf8'));
+await writeFile('lib/chatgpt-oauth.js', (await readFile('src/chatgpt-oauth.mjs', 'utf8')).replace("'./source-network.mjs'", "'./source-network.js'"));
+await writeFile('lib/chatgpt-responses.js', await readFile('src/chatgpt-responses.mjs', 'utf8'));
+await writeFile('lib/chatgpt-router.js', (await readFile('src/chatgpt-router.mjs', 'utf8')).replace("'./chatgpt-responses.mjs'", "'./chatgpt-responses.js'"));
+await writeFile('lib/chatgpt-host.js', (await readFile('src/chatgpt-host.mjs', 'utf8')).replace("'./chatgpt-oauth.mjs'", "'./chatgpt-oauth.js'").replace("'./source-network.mjs'", "'./source-network.js'"));
 await writeFile('lib/research-artifact.js', await readFile('src/research-artifact.mjs', 'utf8'));
 await writeFile('lib/research-acceptance.js', (await readFile('src/research-acceptance.mjs', 'utf8')).replace("'./research-artifact.mjs'", "'./research-artifact.js'").replace("'./source-network.mjs'", "'./source-network.js'"));
 await writeFile('lib/source-network.js', await readFile('src/source-network.mjs', 'utf8'));
@@ -29,5 +33,6 @@ await writeFile('companion/native-provider/lib/index.js', await readFile('compan
 // Bundle the codec only. The host's ModuleLoader supplies React and the Cordis runtime.
 const inline = protocol.replace("import { z } from 'zod';", '').replaceAll('export const ', 'const ');
 const deepSeekClient = (await readFile('src/deepseek-client.mjs', 'utf8')).replaceAll('export function ', 'function ');
-const client = `${deepSeekClient}\n${await readFile('src/client.js', 'utf8')}`.replace('const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;', `${inline}\nconst remoteDescriptors = descriptors;`).replace('package: \'@irishwei/dsh-router\', descriptors }),', 'package: \'@irishwei/dsh-router\', descriptors: remoteDescriptors }),');
+const chatGptClient = (await readFile('src/chatgpt-client.mjs', 'utf8')).replaceAll('export function ', 'function ');
+const client = `${deepSeekClient}\n${chatGptClient}\n${await readFile('src/client.js', 'utf8')}`.replace('const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;', `${inline}\nconst remoteDescriptors = descriptors;`).replace('package: \'@irishwei/dsh-router\', descriptors }),', 'package: \'@irishwei/dsh-router\', descriptors: remoteDescriptors }),');
 await build({ stdin: { contents: `import { z } from 'zod';\n${client}`, resolveDir: process.cwd() }, outfile: 'lib/client.js', bundle: true, platform: 'browser', format: 'iife', target: 'es2022', minify: true });
