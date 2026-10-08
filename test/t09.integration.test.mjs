@@ -80,33 +80,48 @@ const finalEvents = () => [
   { type: 'response.completed', response: { id: 'resp-final', status: 'completed', output: [{ type: 'message', id: 'msg-2', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'CHATGPT_CONNECTION_OK' }] }], usage: { input_tokens: 16, input_tokens_details: { cached_tokens: 3 }, output_tokens: 2, output_tokens_details: { reasoning_tokens: 1 }, total_tokens: 18 } } },
 ];
 
-test('one bounded ChatGPT validation Task completes an unlabelled native tool round trip in exactly two requests', async () => {
-  const remote = await endpoint(index => index === 1 ? toolEvents() : finalEvents(), { contentType: null });
-  const home = await mkdtemp(join(tmpdir(), 'router-t09-task-'));
-  let ctx;
-  try {
-    ({ ctx } = await connected(home, remote, { sessionControllerAsPlugin: true }));
-    ctx.tools.register({ name: 'router_test_echo', description: 'Return a controlled result', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() { return 'TOOL_OK'; } });
-    ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
-    const candidate = (await ctx.router.snapshot()).models.find(model => model.source === 'openai-chatgpt-oauth');
-    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
-    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
-    assert.equal(task.lifecycle, 'completed', JSON.stringify({ pauseReason: task.pauseReason, calls: task.calls, timeline: task.timeline }));
-    assert.equal(task.result, 'CHATGPT_CONNECTION_OK');
-    assert.equal(task.calls.length, 2);
-    assert.equal(task.calls.every(call => call.taskId === task.id && call.candidateId === candidate.candidateId && call.status === 'completed'), true);
-    assert.equal(remote.requests.length, 2);
-    assert.equal(remote.requests.every(item => item.headers.authorization === 'Bearer access-sensitive'), true);
-    assert.match(JSON.stringify(remote.requests[1].body), /TOOL_OK/u);
-    assert.equal(remote.requests.every(item => item.body.store === false && item.body.stream === true && item.body.max_output_tokens === undefined), true);
-    assert.equal(JSON.stringify(snapshot).includes('access-sensitive'), false);
-    assert.equal(task.ledger.callCount, 2);
-  } finally {
-    if (ctx) await ctx.fiber.dispose();
-    await remote.close();
-    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
-  }
-});
+for (const terminalEnvelope of [false, true]) {
+  test(`one bounded ChatGPT validation Task completes an unlabelled native tool round trip in exactly two requests (terminal envelope: ${terminalEnvelope})`, async () => {
+    const remote = await endpoint(index => {
+      const events = index === 1 ? toolEvents() : finalEvents();
+      if (terminalEnvelope) {
+        const terminal = events.at(-1);
+        for (const [output_index, item] of terminal.response.output.entries()) {
+          if (!events.some(event => event.type === 'response.output_item.done' && event.output_index === output_index)) {
+            events.splice(events.length - 1, 0, { type: 'response.output_item.done', output_index, item });
+          }
+        }
+        terminal.response.output = [];
+      }
+      return events;
+    }, { contentType: null });
+    const home = await mkdtemp(join(tmpdir(), 'router-t09-task-'));
+    let ctx;
+    try {
+      ({ ctx } = await connected(home, remote, { sessionControllerAsPlugin: true }));
+      ctx.tools.register({ name: 'router_test_echo', description: 'Return a controlled result', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] }, async execute() { return 'TOOL_OK'; } });
+      ctx.systemPrompt.tools(() => ({ schemas: ctx.tools.schemas() }));
+      const candidate = (await ctx.router.snapshot()).models.find(model => model.source === 'openai-chatgpt-oauth');
+      const snapshot = await ctx.router.chatGptRunDetection({ candidateId: candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+      const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+      assert.equal(task.lifecycle, 'completed', JSON.stringify({ pauseReason: task.pauseReason, calls: task.calls, timeline: task.timeline }));
+      assert.equal(task.result, 'CHATGPT_CONNECTION_OK');
+      assert.equal(task.calls.length, 2);
+      assert.equal(task.calls.every(call => call.taskId === task.id && call.candidateId === candidate.candidateId && call.status === 'completed'), true);
+      assert.equal(remote.requests.length, 2);
+      assert.equal(remote.requests.every(item => item.headers.authorization === 'Bearer access-sensitive'), true);
+      assert.match(JSON.stringify(remote.requests[1].body), /TOOL_OK/u);
+      assert.equal(remote.requests.every(item => item.body.store === false && item.body.stream === true && item.body.max_output_tokens === undefined), true);
+      assert.equal(JSON.stringify(snapshot).includes('access-sensitive'), false);
+      assert.equal(task.ledger.callCount, 2);
+    } finally {
+      if (ctx) await ctx.fiber.dispose();
+      await remote.close();
+      await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    }
+  });
+
+}
 
 for (const [contentType, failureCode] of [['application/json', 'INVALID_RESPONSE'], [null, 'STREAM_CLOSED']]) {
   test(`a native ChatGPT validation preserves HTTP 200 non-SSE ${failureCode} without retrying or inventing usage`, async () => {

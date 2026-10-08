@@ -473,6 +473,7 @@ function comparisonDetails(streamed, authoritative) {
 
 async function* translateEvents(events, { model, requestId, onCompleted }) {
   const blocks = new Map();
+  const outputItems = new Map();
   let nextIndex = 0;
   let completed;
   let toolCalls = false;
@@ -486,6 +487,19 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
   for await (const event of events) {
     checkAbort(event?.signal);
     if (!event || typeof event.type !== 'string') throw new LlmError('Responses stream contains an invalid event', 'MALFORMED_RESPONSE');
+    if (event.type === 'response.output_item.added' || event.type === 'response.output_item.done') {
+      const index = event.output_index;
+      const item = event.item;
+      const previous = outputItems.get(index);
+      const done = event.type === 'response.output_item.done';
+      if (!Number.isSafeInteger(index) || index < 0 || !item || typeof item.id !== 'string' || !item.id
+        || typeof item.type !== 'string' || (previous && (!done || previous.done
+          || previous.item.id !== item.id || previous.item.type !== item.type))
+        || [...outputItems].some(([otherIndex, value]) => otherIndex !== index && value.item.id === item.id)) {
+        throw new LlmError('Responses output item lifecycle is invalid', 'MALFORMED_RESPONSE');
+      }
+      outputItems.set(index, { item: structuredClone(item), done });
+    }
     if (event.type === 'response.output_text.delta') {
       if (typeof event.delta !== 'string') throw new LlmError('Responses text delta is invalid', 'MALFORMED_RESPONSE');
       const current = block(`text:${event.item_id}:${event.content_index ?? 0}`, 'text');
@@ -564,6 +578,16 @@ async function* translateEvents(events, { model, requestId, onCompleted }) {
         for (const current of blocks.values()) if (!current.closed) throw new LlmError('response.completed arrived with unfinished output blocks', 'MALFORMED_RESPONSE');
         completed = event.response;
         replay = safeReplayItems(completed.output);
+        // ChatGPT may send an empty terminal envelope. Final item events retain
+        // the complete output, including encrypted reasoning and message phase.
+        if (replay.length === 0 && outputItems.size > 0) {
+          const finalized = [...outputItems].sort(([left], [right]) => left - right);
+          if (finalized.some(([index, value], position) => index !== position || !value.done
+            || (value.item.status !== undefined && value.item.status !== 'completed'))) {
+            throw new LlmError('Responses terminal envelope has unfinished output items', 'MALFORMED_RESPONSE');
+          }
+          replay = safeReplayItems(finalized.map(([, value]) => value.item));
+        }
         const authoritative = visibleBlocks(replay);
         const streamed = [...blocks.values()].sort((a, b) => a.index - b.index).map(current => current.type === 'text'
           ? { type: 'text', text: current.text }

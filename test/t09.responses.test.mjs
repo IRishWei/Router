@@ -594,3 +594,57 @@ test('completion verification runs only after response.completed and cannot rewr
     usage: { inputTokens: 2, outputTokens: 1, totalTokens: 3 },
   }]);
 });
+
+test('ChatGPT terminal envelope uses finalized output items without losing replay metadata', async () => {
+  const reasoning = { type: 'reasoning', id: 'rs-final', summary: [], encrypted_content: 'opaque-final-reasoning' };
+  const message = { type: 'message', id: 'msg-final', role: 'assistant', status: 'completed', phase: 'final_answer', content: [{ type: 'output_text', text: 'CHATGPT_CONNECTION_OK', annotations: [] }] };
+  const completedCalls = [];
+  const { adapter, requests } = fixture({ events: [
+    { type: 'response.output_item.added', output_index: 0, item: { ...reasoning, encrypted_content: 'incomplete' } },
+    { type: 'response.output_item.done', output_index: 0, item: reasoning },
+    { type: 'response.output_item.added', output_index: 1, item: { ...message, status: 'in_progress', content: [] } },
+    { type: 'response.output_text.delta', item_id: message.id, output_index: 1, content_index: 0, delta: 'CHATGPT_CONNECTION_OK' },
+    { type: 'response.output_text.done', item_id: message.id, output_index: 1, content_index: 0, text: 'CHATGPT_CONNECTION_OK' },
+    { type: 'response.output_item.done', output_index: 1, item: message },
+    { type: 'response.completed', response: { id: 'resp-envelope', status: 'completed', output: [] } },
+  ], onInferenceCompleted: value => completedCalls.push(value) });
+  const chunks = await collect(adapter.stream({ provider: 'router-chatgpt-account-1', model: 'gpt-test', messages: [createUserMessage({ content: [{ type: 'text', text: 'connection check' }] })] }));
+  assert.equal(requests.length, 1);
+  assert.deepEqual(chunks.filter(chunk => chunk.type === 'block-end').map(chunk => chunk.block), [{ type: 'text', text: 'CHATGPT_CONNECTION_OK' }]);
+  assert.deepEqual(chunks.at(-1).replayState.response.items, [reasoning, message]);
+  assert.equal(chunks.at(-1).type, 'finish');
+  assert.equal(chunks.at(-1).reason.kind, 'stop');
+  assert.equal(chunks.some(chunk => chunk.type === 'usage'), false);
+  assert.equal(completedCalls.length, 1);
+  assert.equal(completedCalls[0].usage, undefined);
+});
+
+test('terminal envelopes reject incomplete, conflicting and malformed final item records', async () => {
+  const item = { type: 'message', id: 'msg-final', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'OK' }] };
+  const done = { type: 'response.output_item.done', output_index: 0, item };
+  const scenarios = [
+    [{ type: 'response.output_item.added', output_index: 0, item }],
+    [{ ...done, output_index: 1 }],
+    [{ ...done, item: { ...item, status: 'in_progress' } }],
+    [{ ...done, item: { ...item, content: [{ type: 'output_text', text: 'WRONG' }] } }],
+    [done, done],
+    [{ ...done, output_index: -1 }],
+    [{ type: 'response.output_item.added', output_index: 0, item: { ...item, id: 'different-id' } }, done],
+    [done, { ...done, output_index: 1 }],
+  ];
+  for (const itemEvents of scenarios) {
+    let completions = 0;
+    const { adapter, requests } = fixture({ events: [
+      { type: 'response.output_text.done', item_id: item.id, output_index: 0, content_index: 0, text: 'OK' },
+      ...itemEvents,
+      { type: 'response.completed', response: { status: 'completed', output: [] } },
+    ], onInferenceCompleted: () => { completions += 1; } });
+    const chunks = [];
+    await assert.rejects(async () => {
+      for await (const chunk of adapter.stream({ provider: 'router-chatgpt-account-1', model: 'gpt-test', messages: [createUserMessage({ content: [{ type: 'text', text: 'check consistency' }] })] })) chunks.push(chunk);
+    }, error => error.failure.code === 'MALFORMED_RESPONSE');
+    assert.equal(chunks.some(chunk => chunk.type === 'finish' || chunk.type === 'usage'), false);
+    assert.equal(completions, 0);
+    assert.equal(requests.length, 1);
+  }
+});
