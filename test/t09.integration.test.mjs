@@ -25,7 +25,7 @@ async function endpoint(respond, { statusCode = 200, contentType = 'text/event-s
     const body = [];
     for await (const chunk of request) body.push(chunk);
     requests.push({ headers: request.headers, body: JSON.parse(Buffer.concat(body).toString('utf8')) });
-    response.writeHead(statusCode, { 'content-type': contentType, 'x-request-id': `req-${requests.length}` });
+    response.writeHead(statusCode, { ...(contentType === null ? {} : { 'content-type': contentType }), 'x-request-id': `req-${requests.length}` });
     response.end(encode(respond(requests.length)));
   });
   await new Promise((resolve, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', resolve); });
@@ -80,8 +80,8 @@ const finalEvents = () => [
   { type: 'response.completed', response: { id: 'resp-final', status: 'completed', output: [{ type: 'message', id: 'msg-2', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: 'CHATGPT_CONNECTION_OK' }] }], usage: { input_tokens: 16, input_tokens_details: { cached_tokens: 3 }, output_tokens: 2, output_tokens_details: { reasoning_tokens: 1 }, total_tokens: 18 } } },
 ];
 
-test('one bounded ChatGPT validation Task completes a native tool round trip in exactly two requests', async () => {
-  const remote = await endpoint(index => index === 1 ? toolEvents() : finalEvents());
+test('one bounded ChatGPT validation Task completes an unlabelled native tool round trip in exactly two requests', async () => {
+  const remote = await endpoint(index => index === 1 ? toolEvents() : finalEvents(), { contentType: null });
   const home = await mkdtemp(join(tmpdir(), 'router-t09-task-'));
   let ctx;
   try {
@@ -108,33 +108,35 @@ test('one bounded ChatGPT validation Task completes a native tool round trip in 
   }
 });
 
-test('a native ChatGPT validation preserves an HTTP 200 non-SSE INVALID_RESPONSE without retrying or inventing usage', async () => {
-  const remote = await endpoint(
-    () => ({ error: { message: 'controlled non-event-stream response' } }),
-    { contentType: 'application/json', encode: JSON.stringify },
-  );
-  const home = await mkdtemp(join(tmpdir(), 'router-t09-invalid-response-'));
-  let ctx;
-  try {
-    const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
-    ctx = connectedHost.ctx;
-    await ctx.plugin(LlmRetry);
-    const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
-    const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
-    assert.equal(task.lifecycle, 'paused');
-    assert.equal(remote.requests.length, 1);
-    assert.equal(task.calls.length, 1);
-    assert.equal(task.calls[0].failureCode, 'INVALID_RESPONSE');
-    assert.equal(task.calls[0].usage, null);
-    assert.equal(task.ledger.tokens.total, null);
-    assert.equal(task.ledger.unknownTokenCalls.total, 1);
-    assert.equal(task.pauseReason, 'INVALID_RESPONSE');
-  } finally {
-    if (ctx) await ctx.fiber.dispose();
-    await remote.close();
-    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
-  }
-});
+for (const [contentType, failureCode] of [['application/json', 'INVALID_RESPONSE'], [null, 'STREAM_CLOSED']]) {
+  test(`a native ChatGPT validation preserves HTTP 200 non-SSE ${failureCode} without retrying or inventing usage`, async () => {
+    const remote = await endpoint(
+      () => ({ error: { message: 'controlled non-event-stream response' } }),
+      { contentType, encode: JSON.stringify },
+    );
+    const home = await mkdtemp(join(tmpdir(), 'router-t09-invalid-response-'));
+    let ctx;
+    try {
+      const connectedHost = await connected(home, remote, { sessionControllerAsPlugin: true });
+      ctx = connectedHost.ctx;
+      await ctx.plugin(LlmRetry);
+      const snapshot = await ctx.router.chatGptRunDetection({ candidateId: connectedHost.candidate.candidateId, budget: { tokens: 65_536, durationMs: 5_000 } });
+      const task = snapshot.tasks.find(item => item.id === snapshot.chatGpt.lastDetectionTaskId);
+      assert.equal(task.lifecycle, 'paused');
+      assert.equal(remote.requests.length, 1);
+      assert.equal(task.calls.length, 1);
+      assert.equal(task.calls[0].failureCode, failureCode);
+      assert.equal(task.calls[0].usage, null);
+      assert.equal(task.ledger.tokens.total, null);
+      assert.equal(task.ledger.unknownTokenCalls.total, 1);
+      assert.equal(task.pauseReason, failureCode);
+    } finally {
+      if (ctx) await ctx.fiber.dispose();
+      await remote.close();
+      await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
+    }
+  });
+}
 
 test('the native retry plugin honors the ChatGPT zero-retry policy for a retryable SERVER failure', async () => {
   const remote = await endpoint(
