@@ -209,7 +209,43 @@ test('structured admission errors preserve exact code, status, request id, and z
   });
   assert.equal(requests, 1);
   assert.equal(closes, 1);
-  assert.equal(adapter.providerRetryPolicy('router-chatgpt-account-1').maxRetries, 0);
+  assert.deepEqual(adapter.providerRetryPolicy('router-chatgpt-account-1'), {
+    mode: 'normal',
+    maxRetries: 0,
+    retryableCodes: ['EMPTY_RESPONSE', 'RATE_LIMIT', 'SERVER', 'TIMEOUT', 'TRANSPORT'],
+    initialDelayMs: 500,
+    maxDelayMs: 10_000,
+    jitterRatio: 0.1,
+  });
+});
+
+test('HTTP 200 non-SSE failures expose only a bounded content-type classification', async () => {
+  for (const scenario of [
+    { header: 'application/json; charset=utf-8', classification: 'application/json' },
+    { header: 'text/html', classification: 'text/html' },
+    { header: undefined, classification: 'missing' },
+    { header: 'image/png; private=secret-value', classification: 'other' },
+  ]) {
+    const adapter = createChatGptResponsesAdapter({
+      provider: 'router-chatgpt-account-1', accountId: 'account-1',
+      getAuthorizedCredential: async () => ({ access_token: 'token', client_id: 'client-1', subject: 'subject-1', scopes: DIRECT_SCOPES }),
+      getCatalog: async () => ({ identity: { client_id: 'client-1', subject: 'subject-1' }, models: [{ slug: 'gpt-test', display_name: 'GPT Test' }] }),
+      transport: async () => ({
+        statusCode: 200,
+        headers: scenario.header === undefined ? {} : { 'content-type': scenario.header },
+        body: (async function* () { throw new Error('non-SSE body must not be read'); })(),
+      }),
+    });
+    await assert.rejects(async () => collect(adapter.stream({
+      provider: 'router-chatgpt-account-1', model: 'gpt-test', messages: [createUserMessage({ content: [{ type: 'text', text: 'one attempt' }] })],
+    })), error => {
+      assert.equal(error.failure.code, 'INVALID_RESPONSE');
+      assert.equal(error.failure.status, 200);
+      assert.equal(error.failure.message, `Responses endpoint did not return an event stream (content type: ${scenario.classification})`);
+      assert.equal(error.failure.message.includes('secret-value'), false);
+      return true;
+    });
+  }
 });
 
 test('an in-stream failure emits known usage before preserving its exact error', async () => {
