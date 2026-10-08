@@ -6,6 +6,7 @@ import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema, coordinationPolicySchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
+import { isChatGptSubscription } from './subscription-reference.mjs';
 import { runInitialAssessment, selectInitialRoute } from './routing.mjs';
 import { AcceptanceCoordinator } from './acceptance.mjs';
 import { createNodeProgramChecks } from './program-checks.mjs';
@@ -997,6 +998,7 @@ export class RouterService extends TypertRemoteService {
     if (legacyQuote !== undefined && candidateId === CONTROLLED_PROVIDER) { candidateId = quote; quote = legacyQuote; }
     const candidate = this.#connections.resolve(candidateId);
     const parsed = quote === null ? null : quoteSchema().parse(quote);
+    if (isChatGptSubscription(candidate) && parsed) throw new TypeError('ChatGPT subscription reference prices require a reviewed official model mapping');
     if (candidate.provider === CONTROLLED_PROVIDER && parsed && parsed.kind !== 'fixture-reference') throw new TypeError('Controlled prices are fixture reference values only');
     const prices = this.#state.config.prices.filter(item => item.candidateId !== candidate.candidateId && !sameIdentity(item, candidate));
     if (parsed) prices.push({ candidateId: candidate.candidateId, ...identityOf(candidate), quoteVersion: randomUUID(), quote: parsed });
@@ -1024,8 +1026,10 @@ export class RouterService extends TypertRemoteService {
     }
     const snapshot = structuredClone(details.routerSnapshot ?? this.#state.config);
     const priced = (snapshot.prices ?? []).find(item => details.candidateId ? item.candidateId === details.candidateId : sameIdentity(item, identity));
-    const priceQuote = details.selectionSnapshot?.quote ?? priced?.quote ?? null;
-    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v2', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, ...(details.candidateId ? { candidateId: details.candidateId, selectionSnapshot: structuredClone(details.selectionSnapshot) } : {}), quoteVersion: details.selectionSnapshot?.quoteVersion ?? priced?.quoteVersion ?? null, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
+    const routeCandidate = this.#connections.candidateForRoute(identity);
+    const pricingCapture = details.selectionSnapshot ?? (routeCandidate && sameIdentity(routeCandidate, identity) ? this.#connections.capture(routeCandidate.candidateId, snapshot) : null);
+    const priceQuote = pricingCapture ? pricingCapture.quote : priced?.quote ?? null;
+    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v2', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, ...(details.candidateId ? { candidateId: details.candidateId, selectionSnapshot: structuredClone(details.selectionSnapshot) } : {}), ...(pricingCapture?.subscription ? { subscription: structuredClone(pricingCapture.subscription) } : {}), quoteVersion: pricingCapture ? pricingCapture.quoteVersion : priced?.quoteVersion ?? null, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
     task.calls.push(call);
     if (details.nativePurpose !== undefined) call.nativePurpose = details.nativePurpose;
     this.#callSignals.set(call.id, signal);
@@ -1077,12 +1081,19 @@ export class RouterService extends TypertRemoteService {
     this.#callSignals.delete(call.id);
     this.#unboundAbortDisposers.get(call.id)?.(); this.#unboundAbortDisposers.delete(call.id);
     call.usage = settlement.usage ? Object.fromEntries(Object.entries(settlement.usage).filter(([key, value]) => ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'totalTokens'].includes(key) && Number.isSafeInteger(value) && value >= 0)) : null;
+    if (call.usage && call.subscription?.usageFormat === 'openai-responses' && call.usage.inputTokens !== undefined) {
+      const aggregateInputTokens = call.usage.inputTokens + (call.usage.cacheReadTokens ?? 0) + (call.usage.cacheWriteTokens ?? 0);
+      if (Number.isSafeInteger(aggregateInputTokens)) call.usageAccounting = { aggregateInputTokens, source: 'openai-responses-usage', inputPartitions: ['cacheReadTokens', 'cacheWriteTokens'].every(key => call.usage[key] !== undefined) ? 'complete' : 'incomplete' };
+    }
+    // Responses folds cache reads/writes into its prompt. If either detail was
+    // omitted, the adapter's residual input cannot prove ordinary input usage.
+    if (call.usage && call.subscription?.usageFormat === 'openai-responses' && ['cacheReadTokens', 'cacheWriteTokens'].some(key => call.usage[key] === undefined)) delete call.usage.inputTokens;
     if (settlement.seq !== undefined) call.settlementSeq = settlement.seq;
     call.finishReason = settlement.finishReason;
     if (settlement.failureCode) call.failureCode = settlement.failureCode;
     call.settledAt = new Date().toISOString();
     call.elapsedMs = call.dispatchedAt ? Math.max(0, Date.parse(call.settledAt) - Date.parse(call.dispatchedAt)) : null;
-    call.cost = !possiblyDispatched(call) && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote);
+    call.cost = !possiblyDispatched(call) && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote, call.usageAccounting);
     call.reservation.state = !possiblyDispatched(call) && !call.usage ? 'released' : 'settled';
     if (call.candidateId && settlement.status === 'completed') this.#connections.markInference(call.candidateId, 'verified');
     call.overEstimate = [];

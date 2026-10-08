@@ -76,7 +76,7 @@ export async function lifecycleServer(options = {}) {
         const result = await options.onResponse?.({ ...entry, input: JSON.parse(body), identity: tokens.get(request.headers.authorization?.replace(/^Bearer /u, '')) });
         response.statusCode = result?.status ?? 200;
         response.setHeader('content-type', result?.status ? 'application/json' : 'text/event-stream');
-        response.end(result?.status ? JSON.stringify(result.payload) : textEvents(result?.text ?? 'LIFECYCLE_OK')); return;
+        response.end(result?.status ? JSON.stringify(result.payload) : result?.events ? result.events.map(event => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`).join('') : textEvents(result?.text ?? 'LIFECYCLE_OK')); return;
       }
       response.writeHead(404).end();
     } catch (cause) { failures.push(cause); response.writeHead(500).end('{}'); }

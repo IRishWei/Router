@@ -62,10 +62,20 @@ window.__ModuleLoader__.load({
       ASSESSMENT_EVIDENCE_INSUFFICIENT: '语义判断证据不足，未改变候选资格。',
     };
     const objectiveName = value => ({ balanced: '均衡', cost: '费用', tokens: 'token', speed: '速度', quality: '质量' })[value] ?? value;
-    const amountKind = kind => ({ 'api-calculated': '计算费用', 'subscription-reference': '订阅参考价值', 'fixture-reference': '本地 fixture 参考值' })[kind] ?? '未知费用';
+    const amountKind = kind => ({ 'api-calculated': 'API 费用计算', 'subscription-reference': '订阅参考价值', 'fixture-reference': '本地 fixture 参考值' })[kind] ?? '未知费用';
     const budgetReason = value => value.resource === 'tokens' ? 'token 上限' : value.resource === 'durationMs' ? '耗时上限' : value.resource === 'money' ? `${value.currency} ${amountKind(value.kind)}上限` : '预算限制';
     const budgetWarning = value => value.reason === 'UNKNOWN_USAGE_OR_FORECAST' ? 'token 用量或预测不完整，只能检查已知消耗。' : value.reason === 'UNKNOWN_NEXT_CALL_DURATION' ? '下一次调用耗时未知，只能检查已耗用时间；运行中的调用可能超过估算。' : value.reason === 'UNKNOWN_PRICE_USAGE_OR_CURRENCY' ? `${value.currency} ${amountKind(value.kind)}缺少适用报价、完整用量或同币种预测，无法完整执行金额上限。` : '旧记录的预算限制无法确认。';
     const number = value => value === null || value === undefined ? '未知' : String(value);
+    function SubscriptionReference({ subscription, quote, cost }) {
+      if (!subscription) return null;
+      const mapped = subscription.referenceStatus === 'mapped';
+      return h('div', null,
+        h('p', null, mapped ? `价格映射：${subscription.mapping.catalogModel} → ${subscription.mapping.apiModel}（精确同名；${subscription.mapping.date}）` : '订阅参考价值未知：尚未确认此模型或别名对应的 API 价格映射。'),
+        mapped && quote ? h('p', null, '按 Standard API 文本 token 价格作参考，实际套餐服务档位未知；不含工具等其他收费。', h('a', { href: quote.source, target: '_blank', rel: 'noreferrer' }, '官方价格来源')) : null,
+        cost?.amount === null && mapped ? h('p', null, cost.reason === 'USAGE_INCONSISTENT' ? '参考价值未知：返回用量互相矛盾，未按零计算。' : '参考价值未知：输入、缓存或输出用量不完整，无法确认完整参考值。') : null,
+        cost?.amount === null && cost.knownSubtotal !== null && cost.knownSubtotal !== undefined ? h('p', null, `可证明的参考小计：${cost.currency} ${cost.knownSubtotal}，仍计入同口径预算下界。${cost.basis?.subtotalBasis === 'minimum-context-rates' ? '上下文档位未知，小计按可确认的最低费率计算。' : ''}`) : null,
+        cost?.basis?.contextBand && cost.basis.contextBand !== 'unknown' ? h('p', null, `本次按${cost.basis.contextBand === 'long' ? '长' : '短'}上下文参考价计算；完整输入含缓存读写，推理已包含于输出。`) : null);
+    }
     const field = (label, value, update, disabled, props = {}) => h('label', { style: { display: 'block', margin: '8px 0' } }, `${label} `, h('input', { 'aria-label': label, value, disabled, onChange: event => update(event.target.value), ...props }));
     function BudgetEditor({ budget, disabled, save }) {
       const empty = { tokens: null, durationMs: null, money: [] };
@@ -118,12 +128,16 @@ window.__ModuleLoader__.load({
         h('p', null, `耗时：${(ledger.elapsedMs / 1000).toFixed(3)} 秒 · 记账调用 ${ledger.callCount}`),
         task.nativeLifecycle === 'completed' && ['running', 'waiting-budget'].includes(task.lifecycle) ? h('p', null, '原生 turn 已完成，所属辅助调用仍在处理；任务预算继续生效。') : null,
         ledger.uncertainDispatchCalls ? h('p', null, `${ledger.uncertainDispatchCalls} 次调用仅保留可能派发的意图；是否实际发送及消耗未知，不能按零计算。`) : null,
-        ...ledger.money.map(item => h('p', { key: `${item.currency}:${item.kind}` }, `${amountKind(item.kind)}：${item.currency} ${number(item.amount)}${item.amount === null ? `（已知部分 ${item.knownSubtotal}；${item.unknownCalls} 次用量未完整）` : ''} · 估算，账单未确认`)),
+        h('p', null, '实际账单支出：未知，尚无已确认账单；API 费用计算和订阅参考价值分别统计，不能据此证明现金节省。'),
+        ...ledger.money.map(item => h('p', { key: `${item.currency}:${item.kind}` }, `${amountKind(item.kind)}：${item.currency} ${number(item.amount)}${item.amount === null ? `（已知部分 ${number(item.knownSubtotal)}；${item.unknownCalls} 次报价或用量未完整）` : ''} · 估算，账单未确认`)),
+        ...(ledger.subscriptionQuota ?? []).map(item => h('p', { key: item.accountId }, `套餐额度占比：未知；重置时间：未知。账号 ${item.accountId} 没有公开可信额度契约，本地 token 不代表账号整体消耗，未用于稀缺性排序。`)),
         ledger.unknownPriceCalls ? h('p', null, `${ledger.unknownPriceCalls} 次调用缺少价格，费用未知，不能按零支出或执行完整金额上限。`) : null,
         ...task.calls.map(call => h('details', { key: call.id }, h('summary', null, `${call.purpose}${call.nativePurpose ? ` (${call.nativePurpose})` : ''} · ${call.selection.provider}/${call.selection.model} · ${call.status}`),
           call.priceQuote ? h('p', null, `${amountKind(call.priceQuote.kind)}报价来源：${call.priceQuote.source} · ${call.priceQuote.date} · ${call.priceQuote.currency} · ${confidence(call.priceQuote.confidence)} · ${call.priceQuote.reasoning === 'included-in-output' ? '推理已含于输出，不重复计价' : call.priceQuote.reasoning === 'separate' ? '推理单独计价' : '推理重叠关系未知'}`) : h('p', null, '价格未知'),
+          h(SubscriptionReference, { subscription: call.subscription, quote: call.priceQuote, cost: call.cost }),
+          call.usageAccounting ? h('p', null, `官方聚合输入：${call.usageAccounting.aggregateInputTokens} token，包含缓存读写，不另加到 token 总量或重复计价。${call.usageAccounting.inputPartitions === 'incomplete' ? '缓存分项不完整，普通输入仍为未知。' : ''}`) : null,
           call.overEstimate?.length ? h('p', null, '实际用量超过预留；单次请求可能超出预算估算。') : null,
-          h('pre', null, JSON.stringify({ selection: call.selection, reservation: call.reservation, usage: call.usage, cost: call.cost, priceQuote: call.priceQuote }, null, 2)))));
+          h('pre', null, JSON.stringify({ selection: call.selection, subscription: call.subscription, reservation: call.reservation, usage: call.usage, usageAccounting: call.usageAccounting, cost: call.cost, priceQuote: call.priceQuote }, null, 2)))));
     }
     function RoutingDecision({ task }) {
       if (!task.routing) return h('p', null, '此任务没有起始路由记录。');
@@ -227,6 +241,8 @@ window.__ModuleLoader__.load({
         h('strong', null, model.name),
         h('p', null, `${model.connectionId} · ${model.ownership === 'native-reference' ? '宿主原生引用' : 'Router 自有'} · ${model.available ? '当前可用' : '已断开'} · ${model.inPool ? '在模型池中' : '未加入模型池'} · ${model.enabled ? '已启用' : '未启用'}`),
         h('p', null, `账号 ${model.accountId === 'unknown' ? '未知' : model.accountId} · 计费来源 ${model.billingPath === 'unknown' ? '未知' : model.billingPath} · Router 使用许可 ${model.routerAuthorization?.status === 'enabled' ? '已启用' : '未启用'} · provider 授权 ${model.providerAuthorization?.status === 'unknown' ? '未知，目录可见不代表推理已验证' : model.providerAuthorization?.status ?? '未知'}`),
+        h(SubscriptionReference, { subscription: model.subscription, quote: model.quote }),
+        model.subscription ? h('p', null, '套餐额度占比与重置时间未知；本地 token 不换算为套餐百分比。') : null,
         h('label', null, h('input', { type: 'checkbox', 'aria-label': `启用 ${model.name}`, checked: model.enabled, disabled: disabled || !model.inPool || !model.available, onChange: event => change(() => api.setModelEnabled(model.candidateId ?? model.id, event.target.checked)) }), '启用'),
         h('button', { type: 'button', disabled: disabled || !model.available, onClick: () => change(() => model.inPool ? api.removeModel(model.candidateId ?? model.id) : api.setModelEnabled(model.candidateId ?? model.id, true)) }, `${model.inPool ? '移除' : '加入模型池'} ${model.name}`),
         h('p', null, Object.entries(model.capability).map(([name, fact]) => `${({ text: '文本', image: '图像', tools: '工具' })[name]}：${fact.supported === null ? '尚未确认' : fact.supported ? '支持' : '不支持'}（${confidence(fact.confidence)}）`).join(' · ')),
