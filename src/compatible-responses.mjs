@@ -12,7 +12,7 @@ export function compatibleEndpoint(value) {
   if (typeof value !== 'string') throw new TypeError('A compatible API base URL is required');
   let url; try { url = new URL(value); } catch { throw new TypeError('A compatible API base URL is required'); }
   const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
-  if (value.length > 2000 || url.username || url.password || url.search || url.hash || (url.protocol !== 'https:' && !(loopback && url.protocol === 'http:'))
+  if (value.length > 2000 || url.hostname.endsWith('.') || url.username || url.password || url.search || url.hash || (url.protocol !== 'https:' && !(loopback && url.protocol === 'http:'))
     || ['api.openai.com', 'chatgpt.com', 'auth.openai.com'].includes(url.hostname) || /\/(?:responses|chat\/completions|models)\/?$/u.test(url.pathname)) throw new TypeError('Use an API base URL; official API and OAuth connections have separate entries');
   return url.href.replace(/\/+$/u, '');
 }
@@ -65,14 +65,17 @@ export class CompatibleResponsesAdapter extends LlmAdapter {
       response = await this.#spec.transport.request(this.#spec.endpoint + '/responses', { method: 'POST', headers: { ...attributionHeaders({ product: 'irishwei-dsh-router', version, url: 'https://github.com/IRishWei/Router' }), 'x-opencode-session': options.sessionId, authorization: `Bearer ${credential.key}`, 'content-type': 'application/json', accept: 'text/event-stream' }, body, signal: options.signal, deadline: Date.now() + 60000, maxUploadBytes: 256 * 1024, maxResponseBytes: 4 * 1024 * 1024 });
       checkStatus(response);
       if (headerValue(response.headers, 'content-type')?.split(';', 1)[0].trim().toLowerCase() !== 'text/event-stream') throw new LlmError('This route requires streaming Responses SSE; Chat Completions is not supported', 'INVALID_RESPONSE');
-      yield* translateEvents(sseEvents(response.body, options.signal), { model: this.#spec.model, onCompleted: async () => {} });
+      for await (const chunk of translateEvents(sseEvents(response.body, options.signal), { model: this.#spec.model, onCompleted: async () => {} })) {
+        if (!this.#spec.tools && (chunk.blockType === 'tool-call' || chunk.type === 'tool-call-delta' || chunk.block?.type === 'tool-call')) throw new LlmError('This connection does not permit function calls', 'TOOLS_NOT_DECLARED');
+        yield chunk;
+      }
     } catch (error) { throw compatibleFailure(error, options.signal); } finally { await response?.close?.(); }
   }
 }
 export async function discoverCompatibleModels({ endpoint, key, transport, signal }) {
   let response;
   try {
-    response = await transport.request(compatibleEndpoint(endpoint) + '/models', { method: 'GET', headers: { authorization: `Bearer ${assertUsableApiKey(key, 'dsh-router-compatible', 'owned-credential')}`, accept: 'application/json', ...attributionHeaders({ product: 'irishwei-dsh-router', version, url: 'https://github.com/IRishWei/Router' }) }, signal, deadline: Date.now() + 10000, maxResponseBytes: 256 * 1024 });
+    response = await transport.request(compatibleEndpoint(endpoint) + '/models', { method: 'GET', headers: { authorization: `Bearer ${assertUsableApiKey(key, 'dsh-router-compatible', 'owned-credential')}`, accept: 'application/json', ...attributionHeaders({ product: 'irishwei-dsh-router', version, url: 'https://github.com/IRishWei/Router' }) }, signal, deadline: Date.now() + 10000, maxUploadBytes: 0, maxResponseBytes: 256 * 1024 });
     checkStatus(response); const chunks = []; let size = 0;
     for await (const chunk of response.body) { size += Buffer.byteLength(chunk); if (size > 256 * 1024) throw new LlmError('Catalog is too large', 'INVALID_RESPONSE'); chunks.push(Buffer.from(chunk)); }
     const data = JSON.parse(Buffer.concat(chunks)); if (!Array.isArray(data.data) || data.data.length > 1000) throw new LlmError('Catalog is incompatible', 'INVALID_RESPONSE');

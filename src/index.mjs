@@ -159,8 +159,8 @@ function freezeCoordinationPolicy(config, connections) {
   }
   return { ...frozen, selectionBasis: 'objective-qualified' };
 }
-function conservativeRequestForecast(messages, tools, outputTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS) {
-  const inputTokens = Math.max(1, new TextEncoder().encode(JSON.stringify({ messages, tools: tools ?? [] })).length);
+function conservativeRequestForecast(messages, tools, outputTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS, system) {
+  const inputTokens = Math.max(1, new TextEncoder().encode(JSON.stringify({ messages, tools: tools ?? [], ...(system === undefined ? {} : { system }) })).length);
   return { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: inputTokens + outputTokens };
 }
 const detectionOf = task => task?.deepSeekDetection ?? task?.chatGptDetection ?? task?.openCodeGoDetection ?? task?.compatibleDetection ?? null;
@@ -453,6 +453,7 @@ export class RouterService extends TypertRemoteService {
         if (candidate) step.selectionSnapshot = this.#connections.capture(candidate.candidateId, config);
         step.enforceCandidate = Boolean(candidate && (step.route || candidate.managed || candidate.ownership === 'router-owned'));
       }
+      if (step.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed' && !step.selectionSnapshot.capability.tools.supported) { assembled = { ...assembled, tools: [] }; step.assembled = assembled; }
       return step.route ? { ...assembled, variables: { ...assembled.variables, provider: step.route.provider, model: step.route.model } } : assembled;
     }, { prepend: true });
     ctx.on('agent/pre-step', async ({ agent, signal, turn, step: index, messages }, next) => {
@@ -722,7 +723,7 @@ export class RouterService extends TypertRemoteService {
           const before = task.calls.length;
           const detection = detectionOf(task);
           const forecast = detection || captured?.identity?.billingPath === 'compatible-unconfirmed'
-            ? conservativeRequestForecast(request.messages, request.tools, detection?.outputForecastTokens ?? detection?.outputTokens ?? 1024)
+            ? conservativeRequestForecast(request.messages, request.tools, detection?.outputForecastTokens ?? detection?.outputTokens ?? 1024, request.system)
             : request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
           const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: captured?.identity ?? selection(request), ...(captured ? { candidateId: captured.candidateId, selectionSnapshot: captured } : {}), configVersion: owner.config.version, routerSnapshot: owner.config, forecast }, originalSignal);
           owner.call = task.calls[before];

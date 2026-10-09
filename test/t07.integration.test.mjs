@@ -8,8 +8,10 @@ import { completed } from './go-harness.mjs';
 import { submit } from './t02-harness.mjs';
 
 test('compatible native detection freezes identity, budgets, unknowns and claim through restart', async () => {
+  const titleSystem = 'Auxiliary title system instruction. '.repeat(100);
   const f = await compatibleHost();
   try {
+    f.ctx.on('internal/get', (_caller, name, _error, next) => { const value = next(); if (name !== 'llm') return value; return new Proxy(value, { get(target, property, receiver) { if (property !== 'stream') return Reflect.get(target, property, receiver); const stream = Reflect.get(target, property, target); return request => Reflect.apply(stream, target, [request.purpose === 'session-title' ? { ...request, system: titleSystem } : request]); } }); }, { prepend: true });
     assert.equal(f.requests.length, 0); assert.equal(f.candidate.enabled, false);
     await f.ctx.plugin(SessionTitle, { fallbackMaxWords: 8, fallbackMaxBytes: 120, maxTitleBytes: 120 });
     await f.ctx.plugin(FirstPromptTitle, { targetWords: 8, targetCjkCharacters: 16, maxInputBytes: 4096, maxOutputTokens: 128, timeoutMs: 2000 });
@@ -21,6 +23,8 @@ test('compatible native detection freezes identity, budgets, unknowns and claim 
     assert(task.calls.every(call => call.selection.billingPath === 'compatible-unconfirmed'));
     assert.equal(task.ledger.tokens.total, 24); assert.equal(task.ledger.actualSpend.amount, null); assert.equal(task.ledger.unknownPriceCalls, 2);
     assert(task.calls[0].reservation.tokens.input >= Buffer.byteLength(JSON.stringify(f.requests[0].body.input)));
+    assert(JSON.stringify(f.requests[1].body.input).includes(titleSystem));
+    assert(task.calls[1].reservation.tokens.input >= Buffer.byteLength(JSON.stringify(f.requests[1].body.input)));
     assert.deepEqual(result.config, before.config); assert(!JSON.stringify(result).includes('controlled-compatible-private-key'));
     await f.restart(); const restored = await f.ctx.router.snapshot(); assert.deepEqual(restored.tasks, JSON.parse(JSON.stringify(result.tasks))); assert(restored.compatible.entries[0].detectionClaimed);
     await assert.rejects(f.ctx.router.compatibleRunDetection({ candidateId: f.candidate.candidateId, budget: { tokens: 32768, durationMs: 5000 } }));
@@ -52,6 +56,8 @@ test('compatible errors, incomplete streams and missing partitions remain unknow
 test('compatible disabled, unlimited and image-incompatible tasks cannot call; credential change revokes prepared calls', async () => {
   const f = await compatibleHost();
   try {
+    await assert.rejects(f.ctx.router.compatibleRunDetection({ candidateId: f.candidate.candidateId, budget: { tokens: 32768, durationMs: 5000 } }));
+    assert.equal(f.requests.length, 0); assert.equal((await f.ctx.router.snapshot()).compatible.entries[0].detectionClaimed, false);
     await f.ctx.router.setModelEnabled(f.candidate.candidateId, true); await f.ctx.router.setFixedModel(f.candidate.candidateId);
     const { sessionId } = await f.ctx.sessionController.create({ cwd: f.home }); const task = await submit(f.ctx, sessionId, 'Finite limits are required'); assert.equal(task.lifecycle, 'paused'); assert.equal(f.requests.length, 0);
     await f.ctx.router.setBudgetDefaults({ tokens: 65536, durationMs: 10000, money: [] });
@@ -59,6 +65,27 @@ test('compatible disabled, unlimited and image-incompatible tasks cannot call; c
     await f.ctx.credentials.modifyRecord(credentialKey('irishwei-dsh-router-compatible', `account-${f.id}`), async () => ({ kind: 'api-key', key: 'changed-controlled-key' }));
     await assert.rejects(async () => { for await (const _part of prepared.stream({ provider: f.candidate.provider, model: f.candidate.model, sessionId, messages: [], maxTokens: 16 })) {} });
     assert.equal((await f.ctx.router.snapshot()).models.find(item => item.source === 'openai-compatible').available, false); assert.equal(f.requests.length, 0);
+  } finally { await f.close(); }
+});
+test('compatible text-only connections omit desktop tools and cannot execute unsolicited function calls', async () => {
+  for (const unsolicited of [false, true]) {
+    let executed = 0;
+    const f = await compatibleHost((_entry, response) => { response.writeHead(200, { 'content-type': 'text/event-stream' }); response.end(unsolicited ? completed('', [{ type: 'function_call', id: 'unsolicited', call_id: 'unsafe', name: 'unsafe_tool', arguments: '{}' }]) : completed('TEXT_ONLY_OK')); }, { tools: false });
+    try {
+      f.ctx.tools.register({ name: 'unsafe_tool', description: 'Should not be advertised', parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: () => [] }, async execute() { executed++; return 'EXECUTED'; } });
+      f.ctx.systemPrompt.tools(() => ({ schemas: f.ctx.tools.schemas() }));
+      await f.ctx.router.setModelEnabled(f.candidate.candidateId, true); await f.ctx.router.setFixedModel(f.candidate.candidateId); await f.ctx.router.setBudgetDefaults({ tokens: 65536, durationMs: 5000, money: [] });
+      const { sessionId } = await f.ctx.sessionController.create({ cwd: f.home }); const task = await submit(f.ctx, sessionId, 'Reply without tools');
+      assert.equal(task.lifecycle, unsolicited ? 'paused' : 'completed'); assert.equal(executed, 0); assert.equal(f.requests.length, 1); assert.equal(f.requests[0].body.tools, undefined);
+    } finally { await f.close(); }
+  }
+});
+test('compatible user reference rates and incomplete cache usage preserve unknown monetary totals', async () => {
+  const f = await compatibleHost((_entry, response) => { response.writeHead(200, { 'content-type': 'text/event-stream' }); response.end(completed('COMPATIBLE_CONNECTION_OK', undefined, { input_tokens: 100, input_tokens_details: { cached_tokens: 40 }, output_tokens: 8, output_tokens_details: { reasoning_tokens: 0 }, total_tokens: 108 })); });
+  try {
+    await f.ctx.router.setModelEnabled(f.candidate.candidateId, true); await f.ctx.router.setPriceQuote(f.candidate.candidateId, { source: 'https://provider.example/pricing', date: '2026-10-09', currency: 'USD', kind: 'api-calculated', confidence: 'declared', perMillion: { input: 0.1, output: 0.5 }, reasoning: 'included-in-output' });
+    const result = await f.ctx.router.compatibleRunDetection({ candidateId: f.candidate.candidateId, budget: { tokens: 32768, durationMs: 5000 } }); const call = result.tasks.at(-1).calls[0];
+    assert.equal(call.usage.inputTokens, undefined); assert.equal(call.usageAccounting.aggregateInputTokens, 100); assert.equal(call.cost.amount, null); assert.equal(result.tasks.at(-1).ledger.actualSpend.amount, null); assert.equal(call.priceQuote.confidence, 'declared');
   } finally { await f.close(); }
 });
 test('compatible waiting detection rejects expansion without resetting claim', async () => {

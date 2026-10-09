@@ -19,7 +19,9 @@ export async function compatibleHost(handler, { tools = true } = {}) {
   const home = await mkdtemp(join(tmpdir(), 'router-compatible-')); let ctx;
   const transport = { async request(url, options) { if (new URL(url).hostname !== '127.0.0.1') throw new Error('Only local fixture requests'); const response = await fetch(url, { method: options.method, headers: options.headers, body: options.body, signal: options.signal, redirect: 'manual' }); return { statusCode: response.status, headers: response.headers, body: response.body, close: () => response.body?.cancel().catch(() => {}) }; } };
   const start = async () => {
-    ctx = await startNative(home, { sessionControllerAsPlugin: true, beforeRouter: async current => { await current.plugin(LocalCredentialProvider, { path: join(home, '.credentials.yaml'), watch: false }); current.provide('routerCompatibleTransport', transport); } });
+    ctx = await startNative(home, { sessionControllerAsPlugin: true, beforeRouter: async current => {
+      await current.plugin(LocalCredentialProvider, { path: join(home, '.credentials.yaml'), watch: false }); current.provide('routerCompatibleTransport', transport);
+    } });
     if (!ctx.get('logger')) ctx.provide('logger', { warn() {}, info() {}, error() {} }); return ctx;
   };
   await start();
