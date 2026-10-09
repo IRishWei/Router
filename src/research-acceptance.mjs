@@ -81,8 +81,8 @@ const parseClauses = inputs => inputs.flatMap(input => {
   const start = input.text.indexOf(marker);
   if (start < 0) return [];
   const body = input.text.slice(start + marker.length);
-  const explicitStart = body.indexOf('仅检查以下明确要求：');
-  return (explicitStart < 0 ? body : body.slice(0, explicitStart)).split(/\r?\n/u).map(value => value.trim().replace(/。$/u, '')).filter(Boolean).map((text, index) => ({ text, input, index }));
+  const domainStarts = ['仅检查以下明确要求：', '仅检查以下图像要求：'].map(marker => body.indexOf(marker)).filter(index => index >= 0);
+  return (domainStarts.length ? body.slice(0, Math.min(...domainStarts)) : body).split(/\r?\n/u).map(value => value.trim().replace(/。$/u, '')).filter(Boolean).map((text, index) => ({ text, input, index }));
 });
 
 const parseResearch = inputs => {

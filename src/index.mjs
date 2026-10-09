@@ -18,6 +18,7 @@ import { CompatibleHost } from './compatible-host.mjs';
 import { mountChatGptRouterConnection } from './chatgpt-router.mjs';
 import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
 import { createHttpSourceEvidenceResolver, createResearchAcceptance } from './research-acceptance.mjs';
+import { createImageAcceptance, validateImageContribution } from './image-acceptance.mjs';
 import { validateResearchContribution } from './research-contribution.mjs';
 import { coordinationSchema, recoverPendingCoordination, TaskCoordinationController } from './coordination.mjs';
 
@@ -1529,6 +1530,7 @@ export async function apply(ctx) {
   await compatible.restore();
   const programChecks = createNodeProgramChecks(ctx);
   const researchAcceptance = createResearchAcceptance({ resolveSourceEvidence: ctx.get('routerResearchSourceEvidence') ?? createHttpSourceEvidenceResolver() });
+  const imageAcceptance = createImageAcceptance();
   const coordination = new TaskCoordinationController({
     router: service,
     policyForTask: task => ({
@@ -1541,8 +1543,13 @@ export async function apply(ctx) {
     captureCandidate: service.captureCandidate,
     checks: programChecks.checks,
     contributors: [{
+      domain: 'research',
       contribute: request => researchAcceptance.contribute(request),
       validate: (value, context) => validateResearchContribution(value, context),
+    }, {
+      domain: 'image',
+      contribute: request => imageAcceptance.contribute(request),
+      validate: (value, context) => validateImageContribution(value, context),
     }],
     policyForTask: task => ({
       enabled: task.acceptancePolicy?.enabled === true,

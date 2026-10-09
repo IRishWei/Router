@@ -198,6 +198,16 @@ window.__ModuleLoader__.load({
       const evidenceLabel = item => item.verdict === 'passed' ? '通过' : item.verdict === 'failed' ? '失败' : '未确认';
       const research = acceptance.research;
       const researchRows = [];
+      const imageRows = [];
+      const operations = { recognition: '识别', localization: '定位', explanation: '解释' };
+      for (const requirement of acceptance.image?.requirements ?? []) {
+        const image = (acceptance.image.images ?? []).find(item => item.id === requirement.imageId);
+        const answer = (acceptance.evidence ?? []).find(item => item.requirementId === requirement.id && item.aspect === 'answer-match');
+        imageRows.push(h('p', { key: `${requirement.id}:image` }, `图像${requirement.imageIndex ?? '?'} · ${operations[requirement.operation] ?? '要求'}：${requirement.question ?? requirement.description} · 答案核对：${answer ? evidenceLabel(answer) : '未确认'}${answer?.reason ? ` · ${answer.reason}` : ''}`));
+        if (image) imageRows.push(h('p', { key: `${requirement.id}:input` }, `图像输入：${image.attachment.mediaType} · ${image.attachment.width}×${image.attachment.height} · ${image.hash?.slice(0, 12) ?? '未知'}`));
+        if (requirement.referenceAnswer) imageRows.push(h('p', { key: `${requirement.id}:reference` }, `参考答案：${requirement.referenceAnswer} · 参考来源：用户声明`));
+        if (requirement.rubric) imageRows.push(h('p', { key: `${requirement.id}:rubric` }, `图像评审标准：${requirement.rubric}`));
+      }
       for (const requirement of research?.requirements ?? []) {
         if (!requirement.kind.startsWith('research-') || requirement.kind === 'research-unresolved') continue;
         const support = (acceptance.evidence ?? []).find(item => item.requirementId === requirement.id && item.aspect === 'claim-support');
@@ -213,6 +223,8 @@ window.__ModuleLoader__.load({
         h('p', null, `验收：${label}${acceptance.coverage ? ` · 覆盖 ${acceptance.coverage.covered}/${acceptance.coverage.required}` : ''}`),
         ...(acceptance.evidence ?? []).map(item => h('p', { key: item.id ?? item.requirementId }, `${evidenceLabel(item)} · ${item.aspect ?? item.source?.kind ?? '未知来源'}${item.reason ? ` · ${item.reason}` : ''}`)),
         ...researchRows,
+        ...imageRows,
+        ...(acceptance.reviews ?? []).filter(review => review.imageForecast).map(review => h('p', { key: `${review.id}:image-forecast` }, `图像评审估算：提供商声明 · ${review.imageForecast.visualTokens} 图像 token；实际用量见任务账本。`)),
         acceptance.history?.length ? h('p', null, `保留 ${acceptance.history.length} 个已被新产物或要求取代的验收版本。`) : null,
         acceptance.limitations?.includes('no-overall-quality-guarantee') ? h('p', null, '覆盖仅限明确要求，不代表整体质量保证。') : null);
     }
