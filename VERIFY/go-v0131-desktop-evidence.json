@@ -1,0 +1,6127 @@
+{
+  "passed": true,
+  "version": "0.13.1",
+  "realModelRequests": 0,
+  "initial": {
+    "schemaVersion": 1,
+    "config": {
+      "automatic": true,
+      "version": 1,
+      "pool": [
+        {
+          "candidateId": "controlled",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled",
+          "enabled": true
+        },
+        {
+          "candidateId": "controlled-tools",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools",
+          "enabled": true
+        }
+      ],
+      "fixedModel": null,
+      "fixedCandidateId": null,
+      "prices": [],
+      "budget": {
+        "tokens": null,
+        "durationMs": null,
+        "money": []
+      },
+      "routingObjective": "balanced",
+      "semanticAssessment": false,
+      "acceptance": {
+        "enabled": false,
+        "review": {
+          "enabled": false,
+          "candidateId": null,
+          "allowCrossModel": false,
+          "maxTokens": 256,
+          "forecastTokens": 4096
+        }
+      },
+      "coordination": {
+        "enabled": false,
+        "candidateId": null,
+        "allowCrossModel": false,
+        "allowFixedModel": false,
+        "maxTokens": 256,
+        "maxAdviceChars": 4096,
+        "forecastTokens": 4096
+      }
+    },
+    "tasks": [],
+    "semanticAssessmentRequest": null,
+    "connections": {
+      "revision": 6,
+      "capturedAt": "2026-10-09T13:01:06.749Z",
+      "candidates": [
+        {
+          "candidateId": "controlled",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled",
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "known"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "observedSettingsRevision": null
+        },
+        {
+          "candidateId": "controlled-tools",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools",
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled tools fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "observedSettingsRevision": null
+        },
+        {
+          "candidateId": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+          "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-flash",
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V41-Flash",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "observedSettingsRevision": 0
+        },
+        {
+          "candidateId": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+          "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-pro",
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V4-Pro",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "observedSettingsRevision": 0
+        }
+      ],
+      "unsupported": [
+        {
+          "provider": "amazon-bedrock",
+          "displayName": "amazon-bedrock",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "amazon-bedrock"
+          ]
+        },
+        {
+          "provider": "ant-ling",
+          "displayName": "ant-ling",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "ant-ling"
+          ]
+        },
+        {
+          "provider": "anthropic",
+          "displayName": "anthropic",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "anthropic"
+          ]
+        },
+        {
+          "provider": "azure-openai-responses",
+          "displayName": "azure-openai-responses",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "azure-openai-responses"
+          ]
+        },
+        {
+          "provider": "baseten",
+          "displayName": "baseten",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "baseten"
+          ]
+        },
+        {
+          "provider": "cerebras",
+          "displayName": "cerebras",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cerebras"
+          ]
+        },
+        {
+          "provider": "cloudflare-ai-gateway",
+          "displayName": "cloudflare-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-ai-gateway"
+          ]
+        },
+        {
+          "provider": "cloudflare-workers-ai",
+          "displayName": "cloudflare-workers-ai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-workers-ai"
+          ]
+        },
+        {
+          "provider": "deepseek",
+          "displayName": "deepseek",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "deepseek"
+          ]
+        },
+        {
+          "provider": "fireworks",
+          "displayName": "fireworks",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "fireworks"
+          ]
+        },
+        {
+          "provider": "github-copilot",
+          "displayName": "github-copilot",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "github-copilot"
+          ]
+        },
+        {
+          "provider": "google",
+          "displayName": "google",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google"
+          ]
+        },
+        {
+          "provider": "google-vertex",
+          "displayName": "google-vertex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google-vertex"
+          ]
+        },
+        {
+          "provider": "groq",
+          "displayName": "groq",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "groq"
+          ]
+        },
+        {
+          "provider": "huggingface",
+          "displayName": "huggingface",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "huggingface"
+          ]
+        },
+        {
+          "provider": "kimi-coding",
+          "displayName": "kimi-coding",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "kimi-coding"
+          ]
+        },
+        {
+          "provider": "meta",
+          "displayName": "meta",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "meta"
+          ]
+        },
+        {
+          "provider": "minimax",
+          "displayName": "minimax",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax"
+          ]
+        },
+        {
+          "provider": "minimax-cn",
+          "displayName": "minimax-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax-cn"
+          ]
+        },
+        {
+          "provider": "mistral",
+          "displayName": "mistral",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "mistral"
+          ]
+        },
+        {
+          "provider": "moonshotai",
+          "displayName": "moonshotai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai"
+          ]
+        },
+        {
+          "provider": "moonshotai-cn",
+          "displayName": "moonshotai-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai-cn"
+          ]
+        },
+        {
+          "provider": "nvidia",
+          "displayName": "nvidia",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "nvidia"
+          ]
+        },
+        {
+          "provider": "openai",
+          "displayName": "openai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai"
+          ]
+        },
+        {
+          "provider": "openai-codex",
+          "displayName": "openai-codex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai-codex"
+          ]
+        },
+        {
+          "provider": "opencode",
+          "displayName": "opencode",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode"
+          ]
+        },
+        {
+          "provider": "opencode-go",
+          "displayName": "opencode-go",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode-go"
+          ]
+        },
+        {
+          "provider": "openrouter",
+          "displayName": "openrouter",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openrouter"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan",
+          "displayName": "qwen-token-plan",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-cn",
+          "displayName": "qwen-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-individual",
+          "displayName": "qwen-token-plan-individual",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-individual"
+          ]
+        },
+        {
+          "provider": "radius",
+          "displayName": "radius",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "radius"
+          ]
+        },
+        {
+          "provider": "together",
+          "displayName": "together",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "together"
+          ]
+        },
+        {
+          "provider": "vercel-ai-gateway",
+          "displayName": "vercel-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "vercel-ai-gateway"
+          ]
+        },
+        {
+          "provider": "xai",
+          "displayName": "xai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xai"
+          ]
+        },
+        {
+          "provider": "xiaomi",
+          "displayName": "xiaomi",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-ams",
+          "displayName": "xiaomi-token-plan-ams",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-ams"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-cn",
+          "displayName": "xiaomi-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-sgp",
+          "displayName": "xiaomi-token-plan-sgp",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-sgp"
+          ]
+        },
+        {
+          "provider": "zai",
+          "displayName": "zai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai"
+          ]
+        },
+        {
+          "provider": "zai-coding-cn",
+          "displayName": "zai-coding-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai-coding-cn"
+          ]
+        }
+      ]
+    },
+    "deepSeek": {
+      "bindings": [],
+      "connections": [],
+      "catalog": {
+        "status": "not-requested",
+        "models": [],
+        "unrecognizedModelIds": []
+      },
+      "lastDetectionTaskId": null
+    },
+    "chatGpt": {
+      "hostId": "urn:uuid:63eb21e2-db1f-4cdb-af56-7c76095a9d5f",
+      "servicesAvailable": true,
+      "account": null,
+      "registrations": [],
+      "lifecycle": {
+        "status": "not-configured",
+        "failureCode": null,
+        "revocation": null
+      },
+      "connection": null,
+      "catalog": {
+        "status": "not-requested",
+        "models": []
+      },
+      "authorization": {
+        "status": "idle"
+      },
+      "inference": {},
+      "lastDetectionTaskId": null
+    },
+    "openCodeGo": {
+      "configured": false,
+      "connected": false,
+      "accountId": null,
+      "model": "gpt-6-luna",
+      "billingPath": "opencode-go-subscription",
+      "catalogStatus": "declared",
+      "quota": {
+        "status": "unknown",
+        "remainingRatio": null
+      },
+      "lastDetectionTaskId": null,
+      "detectionClaimed": false
+    },
+    "application": {
+      "status": "applied",
+      "desiredVersion": 1,
+      "active": []
+    },
+    "candidateSnapshot": {
+      "epoch": 6,
+      "snapshotEpoch": 6,
+      "capturedAt": "2026-10-09T13:01:06.749Z",
+      "candidates": [
+        {
+          "candidateId": "controlled",
+          "identity": {
+            "connectionId": "controlled-local",
+            "accountId": "local",
+            "billingPath": "controlled",
+            "provider": "router-controlled",
+            "model": "controlled"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "observedSettingsRevision": null,
+          "routerAuthorization": {
+            "status": "enabled"
+          },
+          "providerAuthorization": {
+            "status": "controlled-fixture"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "known"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "known"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "contextWindow": {
+              "value": 32768,
+              "confidence": "known",
+              "source": "controlled-protocol-fixture"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled",
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "known"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "id": "controlled",
+          "enabled": true,
+          "inPool": true,
+          "authorization": {
+            "status": "enabled",
+            "providerStatus": "controlled-fixture"
+          },
+          "compatibility": {
+            "confidence": "known",
+            "scope": "controlled-protocol-fixture"
+          }
+        },
+        {
+          "candidateId": "controlled-tools",
+          "identity": {
+            "connectionId": "controlled-local",
+            "accountId": "local",
+            "billingPath": "controlled",
+            "provider": "router-controlled",
+            "model": "controlled-tools"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "observedSettingsRevision": null,
+          "routerAuthorization": {
+            "status": "enabled"
+          },
+          "providerAuthorization": {
+            "status": "controlled-fixture"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "known"
+              },
+              "image": {
+                "supported": null,
+                "confidence": "unknown"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared"
+            },
+            "contextWindow": {
+              "value": 32768,
+              "confidence": "known",
+              "source": "controlled-protocol-fixture"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools",
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled tools fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "id": "controlled-tools",
+          "enabled": true,
+          "inPool": true,
+          "authorization": {
+            "status": "enabled",
+            "providerStatus": "controlled-fixture"
+          },
+          "compatibility": {
+            "confidence": "known",
+            "scope": "controlled-protocol-fixture"
+          }
+        },
+        {
+          "candidateId": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+          "identity": {
+            "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "deepseek-official",
+            "model": "deepseek-flash"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "observedSettingsRevision": 0,
+          "routerAuthorization": {
+            "status": "disabled"
+          },
+          "providerAuthorization": {
+            "status": "unknown"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              },
+              "image": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "contextWindow": {
+              "value": 1000000,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-flash",
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V41-Flash",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "id": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+          "enabled": false,
+          "inPool": false,
+          "authorization": {
+            "status": "disabled",
+            "providerStatus": "unknown"
+          },
+          "compatibility": {
+            "confidence": "declared",
+            "scope": "host-public-metadata"
+          }
+        },
+        {
+          "candidateId": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+          "identity": {
+            "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "deepseek-official",
+            "model": "deepseek-v4-pro"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "observedSettingsRevision": 0,
+          "routerAuthorization": {
+            "status": "disabled"
+          },
+          "providerAuthorization": {
+            "status": "unknown"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "contextWindow": {
+              "value": 1000000,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-pro",
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V4-Pro",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "id": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+          "enabled": false,
+          "inPool": false,
+          "authorization": {
+            "status": "disabled",
+            "providerStatus": "unknown"
+          },
+          "compatibility": {
+            "confidence": "declared",
+            "scope": "host-public-metadata"
+          }
+        }
+      ],
+      "unsupported": [
+        {
+          "provider": "amazon-bedrock",
+          "displayName": "amazon-bedrock",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "amazon-bedrock"
+          ]
+        },
+        {
+          "provider": "ant-ling",
+          "displayName": "ant-ling",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "ant-ling"
+          ]
+        },
+        {
+          "provider": "anthropic",
+          "displayName": "anthropic",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "anthropic"
+          ]
+        },
+        {
+          "provider": "azure-openai-responses",
+          "displayName": "azure-openai-responses",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "azure-openai-responses"
+          ]
+        },
+        {
+          "provider": "baseten",
+          "displayName": "baseten",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "baseten"
+          ]
+        },
+        {
+          "provider": "cerebras",
+          "displayName": "cerebras",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cerebras"
+          ]
+        },
+        {
+          "provider": "cloudflare-ai-gateway",
+          "displayName": "cloudflare-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-ai-gateway"
+          ]
+        },
+        {
+          "provider": "cloudflare-workers-ai",
+          "displayName": "cloudflare-workers-ai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-workers-ai"
+          ]
+        },
+        {
+          "provider": "deepseek",
+          "displayName": "deepseek",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "deepseek"
+          ]
+        },
+        {
+          "provider": "fireworks",
+          "displayName": "fireworks",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "fireworks"
+          ]
+        },
+        {
+          "provider": "github-copilot",
+          "displayName": "github-copilot",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "github-copilot"
+          ]
+        },
+        {
+          "provider": "google",
+          "displayName": "google",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google"
+          ]
+        },
+        {
+          "provider": "google-vertex",
+          "displayName": "google-vertex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google-vertex"
+          ]
+        },
+        {
+          "provider": "groq",
+          "displayName": "groq",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "groq"
+          ]
+        },
+        {
+          "provider": "huggingface",
+          "displayName": "huggingface",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "huggingface"
+          ]
+        },
+        {
+          "provider": "kimi-coding",
+          "displayName": "kimi-coding",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "kimi-coding"
+          ]
+        },
+        {
+          "provider": "meta",
+          "displayName": "meta",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "meta"
+          ]
+        },
+        {
+          "provider": "minimax",
+          "displayName": "minimax",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax"
+          ]
+        },
+        {
+          "provider": "minimax-cn",
+          "displayName": "minimax-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax-cn"
+          ]
+        },
+        {
+          "provider": "mistral",
+          "displayName": "mistral",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "mistral"
+          ]
+        },
+        {
+          "provider": "moonshotai",
+          "displayName": "moonshotai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai"
+          ]
+        },
+        {
+          "provider": "moonshotai-cn",
+          "displayName": "moonshotai-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai-cn"
+          ]
+        },
+        {
+          "provider": "nvidia",
+          "displayName": "nvidia",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "nvidia"
+          ]
+        },
+        {
+          "provider": "openai",
+          "displayName": "openai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai"
+          ]
+        },
+        {
+          "provider": "openai-codex",
+          "displayName": "openai-codex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai-codex"
+          ]
+        },
+        {
+          "provider": "opencode",
+          "displayName": "opencode",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode"
+          ]
+        },
+        {
+          "provider": "opencode-go",
+          "displayName": "opencode-go",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode-go"
+          ]
+        },
+        {
+          "provider": "openrouter",
+          "displayName": "openrouter",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openrouter"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan",
+          "displayName": "qwen-token-plan",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-cn",
+          "displayName": "qwen-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-individual",
+          "displayName": "qwen-token-plan-individual",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-individual"
+          ]
+        },
+        {
+          "provider": "radius",
+          "displayName": "radius",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "radius"
+          ]
+        },
+        {
+          "provider": "together",
+          "displayName": "together",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "together"
+          ]
+        },
+        {
+          "provider": "vercel-ai-gateway",
+          "displayName": "vercel-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "vercel-ai-gateway"
+          ]
+        },
+        {
+          "provider": "xai",
+          "displayName": "xai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xai"
+          ]
+        },
+        {
+          "provider": "xiaomi",
+          "displayName": "xiaomi",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-ams",
+          "displayName": "xiaomi-token-plan-ams",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-ams"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-cn",
+          "displayName": "xiaomi-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-sgp",
+          "displayName": "xiaomi-token-plan-sgp",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-sgp"
+          ]
+        },
+        {
+          "provider": "zai",
+          "displayName": "zai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai"
+          ]
+        },
+        {
+          "provider": "zai-coding-cn",
+          "displayName": "zai-coding-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai-coding-cn"
+          ]
+        }
+      ]
+    },
+    "unsupportedProviders": [
+      {
+        "provider": "amazon-bedrock",
+        "displayName": "amazon-bedrock",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "amazon-bedrock"
+        ]
+      },
+      {
+        "provider": "ant-ling",
+        "displayName": "ant-ling",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "ant-ling"
+        ]
+      },
+      {
+        "provider": "anthropic",
+        "displayName": "anthropic",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "anthropic"
+        ]
+      },
+      {
+        "provider": "azure-openai-responses",
+        "displayName": "azure-openai-responses",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "azure-openai-responses"
+        ]
+      },
+      {
+        "provider": "baseten",
+        "displayName": "baseten",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "baseten"
+        ]
+      },
+      {
+        "provider": "cerebras",
+        "displayName": "cerebras",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "cerebras"
+        ]
+      },
+      {
+        "provider": "cloudflare-ai-gateway",
+        "displayName": "cloudflare-ai-gateway",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "cloudflare-ai-gateway"
+        ]
+      },
+      {
+        "provider": "cloudflare-workers-ai",
+        "displayName": "cloudflare-workers-ai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "cloudflare-workers-ai"
+        ]
+      },
+      {
+        "provider": "deepseek",
+        "displayName": "deepseek",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "deepseek"
+        ]
+      },
+      {
+        "provider": "fireworks",
+        "displayName": "fireworks",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "fireworks"
+        ]
+      },
+      {
+        "provider": "github-copilot",
+        "displayName": "github-copilot",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "github-copilot"
+        ]
+      },
+      {
+        "provider": "google",
+        "displayName": "google",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "google"
+        ]
+      },
+      {
+        "provider": "google-vertex",
+        "displayName": "google-vertex",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "google-vertex"
+        ]
+      },
+      {
+        "provider": "groq",
+        "displayName": "groq",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "groq"
+        ]
+      },
+      {
+        "provider": "huggingface",
+        "displayName": "huggingface",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "huggingface"
+        ]
+      },
+      {
+        "provider": "kimi-coding",
+        "displayName": "kimi-coding",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "kimi-coding"
+        ]
+      },
+      {
+        "provider": "meta",
+        "displayName": "meta",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "meta"
+        ]
+      },
+      {
+        "provider": "minimax",
+        "displayName": "minimax",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "minimax"
+        ]
+      },
+      {
+        "provider": "minimax-cn",
+        "displayName": "minimax-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "minimax-cn"
+        ]
+      },
+      {
+        "provider": "mistral",
+        "displayName": "mistral",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "mistral"
+        ]
+      },
+      {
+        "provider": "moonshotai",
+        "displayName": "moonshotai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "moonshotai"
+        ]
+      },
+      {
+        "provider": "moonshotai-cn",
+        "displayName": "moonshotai-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "moonshotai-cn"
+        ]
+      },
+      {
+        "provider": "nvidia",
+        "displayName": "nvidia",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "nvidia"
+        ]
+      },
+      {
+        "provider": "openai",
+        "displayName": "openai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "openai"
+        ]
+      },
+      {
+        "provider": "openai-codex",
+        "displayName": "openai-codex",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "openai-codex"
+        ]
+      },
+      {
+        "provider": "opencode",
+        "displayName": "opencode",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "opencode"
+        ]
+      },
+      {
+        "provider": "opencode-go",
+        "displayName": "opencode-go",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "opencode-go"
+        ]
+      },
+      {
+        "provider": "openrouter",
+        "displayName": "openrouter",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "openrouter"
+        ]
+      },
+      {
+        "provider": "qwen-token-plan",
+        "displayName": "qwen-token-plan",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "qwen-token-plan"
+        ]
+      },
+      {
+        "provider": "qwen-token-plan-cn",
+        "displayName": "qwen-token-plan-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "qwen-token-plan-cn"
+        ]
+      },
+      {
+        "provider": "qwen-token-plan-individual",
+        "displayName": "qwen-token-plan-individual",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "qwen-token-plan-individual"
+        ]
+      },
+      {
+        "provider": "radius",
+        "displayName": "radius",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "radius"
+        ]
+      },
+      {
+        "provider": "together",
+        "displayName": "together",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "together"
+        ]
+      },
+      {
+        "provider": "vercel-ai-gateway",
+        "displayName": "vercel-ai-gateway",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "vercel-ai-gateway"
+        ]
+      },
+      {
+        "provider": "xai",
+        "displayName": "xai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xai"
+        ]
+      },
+      {
+        "provider": "xiaomi",
+        "displayName": "xiaomi",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi"
+        ]
+      },
+      {
+        "provider": "xiaomi-token-plan-ams",
+        "displayName": "xiaomi-token-plan-ams",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi-token-plan-ams"
+        ]
+      },
+      {
+        "provider": "xiaomi-token-plan-cn",
+        "displayName": "xiaomi-token-plan-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi-token-plan-cn"
+        ]
+      },
+      {
+        "provider": "xiaomi-token-plan-sgp",
+        "displayName": "xiaomi-token-plan-sgp",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi-token-plan-sgp"
+        ]
+      },
+      {
+        "provider": "zai",
+        "displayName": "zai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "zai"
+        ]
+      },
+      {
+        "provider": "zai-coding-cn",
+        "displayName": "zai-coding-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "zai-coding-cn"
+        ]
+      }
+    ],
+    "storageError": null,
+    "models": [
+      {
+        "candidateId": "controlled",
+        "identity": {
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "observedSettingsRevision": null,
+        "routerAuthorization": {
+          "status": "enabled"
+        },
+        "providerAuthorization": {
+          "status": "controlled-fixture"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "known"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "contextWindow": {
+            "value": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 32768,
+          "confidence": "known",
+          "source": "controlled-protocol-fixture"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled",
+        "ownership": "router-owned",
+        "source": "controlled-protocol-fixture",
+        "sourceKey": "router-controlled:v1",
+        "name": "Controlled fixture",
+        "available": true,
+        "configured": true,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "known"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "known"
+          }
+        },
+        "maxContextTokens": 32768,
+        "supportScope": "controlled-protocol-fixture",
+        "settingsNs": null,
+        "settingsPath": null,
+        "id": "controlled",
+        "enabled": true,
+        "inPool": true,
+        "authorization": {
+          "status": "enabled",
+          "providerStatus": "controlled-fixture"
+        },
+        "compatibility": {
+          "confidence": "known",
+          "scope": "controlled-protocol-fixture"
+        }
+      },
+      {
+        "candidateId": "controlled-tools",
+        "identity": {
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "observedSettingsRevision": null,
+        "routerAuthorization": {
+          "status": "enabled"
+        },
+        "providerAuthorization": {
+          "status": "controlled-fixture"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": null,
+            "confidence": "unknown"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared"
+          },
+          "contextWindow": {
+            "value": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 32768,
+          "confidence": "known",
+          "source": "controlled-protocol-fixture"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled-tools",
+        "ownership": "router-owned",
+        "source": "controlled-protocol-fixture",
+        "sourceKey": "router-controlled:v1",
+        "name": "Controlled tools fixture",
+        "available": true,
+        "configured": true,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": null,
+            "confidence": "unknown"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared"
+          }
+        },
+        "maxContextTokens": 32768,
+        "supportScope": "controlled-protocol-fixture",
+        "settingsNs": null,
+        "settingsPath": null,
+        "id": "controlled-tools",
+        "enabled": true,
+        "inPool": true,
+        "authorization": {
+          "status": "enabled",
+          "providerStatus": "controlled-fixture"
+        },
+        "compatibility": {
+          "confidence": "known",
+          "scope": "controlled-protocol-fixture"
+        }
+      },
+      {
+        "candidateId": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+        "identity": {
+          "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-flash"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "observedSettingsRevision": 0,
+        "routerAuthorization": {
+          "status": "disabled"
+        },
+        "providerAuthorization": {
+          "status": "unknown"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "contextWindow": {
+            "value": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 1000000,
+          "confidence": "declared",
+          "source": "provider-model-metadata"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "deepseek-official",
+        "model": "deepseek-flash",
+        "ownership": "native-reference",
+        "source": "native-configurable-provider",
+        "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+        "name": "DeepSeek-V41-Flash",
+        "available": true,
+        "configured": null,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          }
+        },
+        "maxContextTokens": 1000000,
+        "supportScope": "host-public-metadata",
+        "settingsNs": "llm-deepseek",
+        "settingsPath": [],
+        "id": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+        "enabled": false,
+        "inPool": false,
+        "authorization": {
+          "status": "disabled",
+          "providerStatus": "unknown"
+        },
+        "compatibility": {
+          "confidence": "declared",
+          "scope": "host-public-metadata"
+        }
+      },
+      {
+        "candidateId": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+        "identity": {
+          "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-pro"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "observedSettingsRevision": 0,
+        "routerAuthorization": {
+          "status": "disabled"
+        },
+        "providerAuthorization": {
+          "status": "unknown"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "contextWindow": {
+            "value": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 1000000,
+          "confidence": "declared",
+          "source": "provider-model-metadata"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-pro",
+        "ownership": "native-reference",
+        "source": "native-configurable-provider",
+        "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+        "name": "DeepSeek-V4-Pro",
+        "available": true,
+        "configured": null,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          }
+        },
+        "maxContextTokens": 1000000,
+        "supportScope": "host-public-metadata",
+        "settingsNs": "llm-deepseek",
+        "settingsPath": [],
+        "id": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+        "enabled": false,
+        "inPool": false,
+        "authorization": {
+          "status": "disabled",
+          "providerStatus": "unknown"
+        },
+        "compatibility": {
+          "confidence": "declared",
+          "scope": "host-public-metadata"
+        }
+      }
+    ]
+  },
+  "nativeDefault": {
+    "provider": "router-controlled",
+    "model": "controlled"
+  },
+  "final": {
+    "schemaVersion": 1,
+    "config": {
+      "automatic": true,
+      "version": 3,
+      "pool": [
+        {
+          "candidateId": "controlled",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled",
+          "enabled": true
+        },
+        {
+          "candidateId": "controlled-tools",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools",
+          "enabled": true
+        }
+      ],
+      "fixedModel": null,
+      "fixedCandidateId": null,
+      "prices": [],
+      "budget": {
+        "tokens": null,
+        "durationMs": null,
+        "money": []
+      },
+      "routingObjective": "balanced",
+      "semanticAssessment": false,
+      "acceptance": {
+        "enabled": false,
+        "review": {
+          "enabled": false,
+          "candidateId": null,
+          "allowCrossModel": false,
+          "maxTokens": 256,
+          "forecastTokens": 4096
+        }
+      },
+      "coordination": {
+        "enabled": false,
+        "candidateId": null,
+        "allowCrossModel": false,
+        "allowFixedModel": false,
+        "maxTokens": 256,
+        "maxAdviceChars": 4096,
+        "forecastTokens": 4096
+      }
+    },
+    "tasks": [
+      {
+        "id": "3f3e5e88-4739-46f4-b479-b8e43feb4877",
+        "sessionId": "session-69dcce9d-8750-4567-b0d0-dac01b4d2913",
+        "turn": 1,
+        "lifecycle": "completed",
+        "acceptance": {
+          "verdict": "unconfirmed",
+          "evidence": []
+        },
+        "acceptancePolicy": {
+          "enabled": false,
+          "review": {
+            "enabled": false,
+            "candidateId": null,
+            "allowCrossModel": false,
+            "maxTokens": 256,
+            "forecastTokens": 4096
+          }
+        },
+        "coordinationPolicy": {
+          "enabled": false,
+          "candidateId": null,
+          "allowCrossModel": false,
+          "allowFixedModel": false,
+          "maxTokens": 256,
+          "maxAdviceChars": 4096,
+          "forecastTokens": 4096,
+          "objective": "balanced",
+          "selectionBasis": null
+        },
+        "coordination": null,
+        "activeSelection": {
+          "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+          "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "billingPath": "opencode-go-subscription",
+          "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "model": "gpt-6-luna"
+        },
+        "configVersion": 2,
+        "assessmentRequested": false,
+        "requirements": {
+          "modalities": [
+            "text"
+          ],
+          "contextBytes": 60
+        },
+        "result": "OPENCODE_GO_CONNECTION_OK",
+        "calls": [
+          {
+            "id": "99e5b8a3-ce8b-4257-8d51-7fff9733a4ca",
+            "taskId": "3f3e5e88-4739-46f4-b479-b8e43feb4877",
+            "purpose": "detection",
+            "accountingEntry": "task-call-v1",
+            "dispatchProtocol": "durable-intent-v2",
+            "attempt": 1,
+            "step": 1,
+            "selection": {
+              "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+              "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "billingPath": "opencode-go-subscription",
+              "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "model": "gpt-6-luna"
+            },
+            "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+            "selectionSnapshot": {
+              "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+              "identity": {
+                "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+                "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                "billingPath": "opencode-go-subscription",
+                "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                "model": "gpt-6-luna"
+              },
+              "registryEpoch": 9,
+              "connectionConfigRevision": 1,
+              "authEpoch": 1,
+              "capability": {
+                "text": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                },
+                "image": {
+                  "supported": false,
+                  "confidence": "declared",
+                  "source": "router-text-only-adapter"
+                },
+                "tools": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                }
+              },
+              "capabilities": {
+                "text": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                },
+                "image": {
+                  "supported": false,
+                  "confidence": "declared",
+                  "source": "router-text-only-adapter"
+                },
+                "tools": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                },
+                "contextWindow": {
+                  "value": null,
+                  "confidence": "unknown",
+                  "source": "host-public-contract"
+                },
+                "inputLimit": {
+                  "value": null,
+                  "confidence": "unknown",
+                  "source": "host-public-contract"
+                },
+                "maxOutput": {
+                  "value": null,
+                  "confidence": "unknown",
+                  "source": "host-public-contract"
+                }
+              },
+              "maxContextTokens": null,
+              "quote": null,
+              "quoteVersion": null,
+              "enabled": true
+            },
+            "quoteVersion": null,
+            "configVersion": 2,
+            "routerSnapshot": {
+              "automatic": true,
+              "version": 2,
+              "pool": [
+                {
+                  "candidateId": "controlled",
+                  "connectionId": "controlled-local",
+                  "accountId": "local",
+                  "billingPath": "controlled",
+                  "provider": "router-controlled",
+                  "model": "controlled",
+                  "enabled": true
+                },
+                {
+                  "candidateId": "controlled-tools",
+                  "connectionId": "controlled-local",
+                  "accountId": "local",
+                  "billingPath": "controlled",
+                  "provider": "router-controlled",
+                  "model": "controlled-tools",
+                  "enabled": true
+                },
+                {
+                  "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+                  "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+                  "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                  "billingPath": "opencode-go-subscription",
+                  "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                  "model": "gpt-6-luna",
+                  "enabled": true
+                }
+              ],
+              "fixedModel": null,
+              "fixedCandidateId": null,
+              "prices": [],
+              "budget": {
+                "tokens": null,
+                "durationMs": null,
+                "money": []
+              },
+              "routingObjective": "balanced",
+              "semanticAssessment": false,
+              "acceptance": {
+                "enabled": false,
+                "review": {
+                  "enabled": false,
+                  "candidateId": null,
+                  "allowCrossModel": false,
+                  "maxTokens": 256,
+                  "forecastTokens": 4096
+                }
+              },
+              "coordination": {
+                "enabled": false,
+                "candidateId": null,
+                "allowCrossModel": false,
+                "allowFixedModel": false,
+                "maxTokens": 256,
+                "maxAdviceChars": 4096,
+                "forecastTokens": 4096
+              }
+            },
+            "status": "completed",
+            "dispatchState": "header-confirmed",
+            "dispatchStarted": true,
+            "usage": {
+              "inputTokens": 10,
+              "outputTokens": 4,
+              "cacheReadTokens": 0,
+              "cacheWriteTokens": 0,
+              "reasoningTokens": 0,
+              "totalTokens": 14
+            },
+            "priceQuote": null,
+            "reservation": {
+              "state": "settled",
+              "tokens": {
+                "input": 13113,
+                "output": 1024,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "reasoning": 0,
+                "total": 14137
+              },
+              "money": {
+                "amount": null,
+                "knownSubtotal": null,
+                "reason": "PRICE_UNKNOWN",
+                "billingConfirmation": "unconfirmed"
+              },
+              "durationMs": null,
+              "source": "declared-call-forecast",
+              "confidence": "declared"
+            },
+            "preparedAt": "2026-10-09T13:01:07.292Z",
+            "hostConfig": {
+              "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "model": "gpt-6-luna",
+              "maxTokens": 1024
+            },
+            "hostAttemptId": "session-69dcce9d-8750-4567-b0d0-dac01b4d2913:1",
+            "dispatchIntent": "possible",
+            "dispatchIntentAt": "2026-10-09T13:01:07.353Z",
+            "dispatchedAt": "2026-10-09T13:01:07.369Z",
+            "usageAccounting": {
+              "aggregateInputTokens": 10,
+              "source": "openai-responses-usage",
+              "inputPartitions": "complete"
+            },
+            "settlementSeq": 15,
+            "finishReason": "stop",
+            "settledAt": "2026-10-09T13:01:07.390Z",
+            "elapsedMs": 21,
+            "cost": {
+              "amount": null,
+              "knownSubtotal": null,
+              "reason": "PRICE_UNKNOWN",
+              "billingConfirmation": "unconfirmed"
+            },
+            "overEstimate": []
+          },
+          {
+            "id": "d0a9bc0e-ed26-4180-acf9-fe6c8639865c",
+            "taskId": "3f3e5e88-4739-46f4-b479-b8e43feb4877",
+            "purpose": "auxiliary",
+            "accountingEntry": "task-call-v1",
+            "dispatchProtocol": "durable-intent-v2",
+            "attempt": 2,
+            "selection": {
+              "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+              "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "billingPath": "opencode-go-subscription",
+              "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "model": "gpt-6-luna"
+            },
+            "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+            "selectionSnapshot": {
+              "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+              "identity": {
+                "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+                "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                "billingPath": "opencode-go-subscription",
+                "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                "model": "gpt-6-luna"
+              },
+              "registryEpoch": 9,
+              "connectionConfigRevision": 1,
+              "authEpoch": 1,
+              "capability": {
+                "text": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                },
+                "image": {
+                  "supported": false,
+                  "confidence": "declared",
+                  "source": "router-text-only-adapter"
+                },
+                "tools": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                }
+              },
+              "capabilities": {
+                "text": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                },
+                "image": {
+                  "supported": false,
+                  "confidence": "declared",
+                  "source": "router-text-only-adapter"
+                },
+                "tools": {
+                  "supported": true,
+                  "confidence": "declared",
+                  "source": "https://opencode.ai/docs/go/"
+                },
+                "contextWindow": {
+                  "value": null,
+                  "confidence": "unknown",
+                  "source": "host-public-contract"
+                },
+                "inputLimit": {
+                  "value": null,
+                  "confidence": "unknown",
+                  "source": "host-public-contract"
+                },
+                "maxOutput": {
+                  "value": null,
+                  "confidence": "unknown",
+                  "source": "host-public-contract"
+                }
+              },
+              "maxContextTokens": null,
+              "quote": null,
+              "quoteVersion": null,
+              "enabled": true
+            },
+            "quoteVersion": null,
+            "configVersion": 2,
+            "routerSnapshot": {
+              "automatic": true,
+              "version": 2,
+              "pool": [
+                {
+                  "candidateId": "controlled",
+                  "connectionId": "controlled-local",
+                  "accountId": "local",
+                  "billingPath": "controlled",
+                  "provider": "router-controlled",
+                  "model": "controlled",
+                  "enabled": true
+                },
+                {
+                  "candidateId": "controlled-tools",
+                  "connectionId": "controlled-local",
+                  "accountId": "local",
+                  "billingPath": "controlled",
+                  "provider": "router-controlled",
+                  "model": "controlled-tools",
+                  "enabled": true
+                },
+                {
+                  "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+                  "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+                  "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                  "billingPath": "opencode-go-subscription",
+                  "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+                  "model": "gpt-6-luna",
+                  "enabled": true
+                }
+              ],
+              "fixedModel": null,
+              "fixedCandidateId": null,
+              "prices": [],
+              "budget": {
+                "tokens": null,
+                "durationMs": null,
+                "money": []
+              },
+              "routingObjective": "balanced",
+              "semanticAssessment": false,
+              "acceptance": {
+                "enabled": false,
+                "review": {
+                  "enabled": false,
+                  "candidateId": null,
+                  "allowCrossModel": false,
+                  "maxTokens": 256,
+                  "forecastTokens": 4096
+                }
+              },
+              "coordination": {
+                "enabled": false,
+                "candidateId": null,
+                "allowCrossModel": false,
+                "allowFixedModel": false,
+                "maxTokens": 256,
+                "maxAdviceChars": 4096,
+                "forecastTokens": 4096
+              }
+            },
+            "status": "completed",
+            "dispatchState": "request-confirmed",
+            "dispatchStarted": true,
+            "usage": {
+              "inputTokens": 10,
+              "outputTokens": 4,
+              "cacheReadTokens": 0,
+              "cacheWriteTokens": 0,
+              "reasoningTokens": 0,
+              "totalTokens": 14
+            },
+            "priceQuote": null,
+            "reservation": {
+              "state": "settled",
+              "tokens": {
+                "input": 320,
+                "output": 1024,
+                "cacheRead": 0,
+                "cacheWrite": 0,
+                "reasoning": 0,
+                "total": 1344
+              },
+              "money": {
+                "amount": null,
+                "knownSubtotal": null,
+                "reason": "PRICE_UNKNOWN",
+                "billingConfirmation": "unconfirmed"
+              },
+              "durationMs": null,
+              "source": "declared-call-forecast",
+              "confidence": "declared"
+            },
+            "preparedAt": "2026-10-09T13:01:07.354Z",
+            "nativePurpose": "session-title",
+            "sourceEventSeq": 14,
+            "sourceMessageSeqs": [
+              8
+            ],
+            "snapshot": {
+              "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "model": "gpt-6-luna",
+              "maxTokens": 1024
+            },
+            "dispatchIntent": "possible",
+            "dispatchIntentAt": "2026-10-09T13:01:07.432Z",
+            "dispatchedAt": "2026-10-09T13:01:07.435Z",
+            "usageAccounting": {
+              "aggregateInputTokens": 10,
+              "source": "openai-responses-usage",
+              "inputPartitions": "complete"
+            },
+            "finishReason": "stop",
+            "settledAt": "2026-10-09T13:01:07.439Z",
+            "elapsedMs": 4,
+            "cost": {
+              "amount": null,
+              "knownSubtotal": null,
+              "reason": "PRICE_UNKNOWN",
+              "billingConfirmation": "unconfirmed"
+            },
+            "overEstimate": []
+          }
+        ],
+        "inputs": [
+          {
+            "messageId": "f6164470-0545-401b-9882-814f09e2e3c0",
+            "requestId": "6780f5c7-30ae-4afe-a68c-b986e5106f8e",
+            "turn": 1,
+            "contentHash": "03db0003fc74ade9a42b6e403a4dcb4c654a9f78b8efe39bbf682dca0e2acc34",
+            "claimedAt": "2026-10-09T13:01:07.116Z"
+          }
+        ],
+        "timeline": [
+          {
+            "kind": "input-claimed",
+            "messageId": "f6164470-0545-401b-9882-814f09e2e3c0",
+            "requestId": "6780f5c7-30ae-4afe-a68c-b986e5106f8e",
+            "turn": 1
+          },
+          {
+            "kind": "routing-decision",
+            "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+            "reasons": [
+              "EXPLICIT_OPENCODE_GO_DETECTION"
+            ],
+            "excluded": [],
+            "snapshotEpoch": 9
+          },
+          {
+            "kind": "selection",
+            "reason": "explicit-detection",
+            "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+            "model": "gpt-6-luna",
+            "configVersion": 2
+          },
+          {
+            "kind": "call-settlement",
+            "callId": "99e5b8a3-ce8b-4257-8d51-7fff9733a4ca",
+            "hostAttemptId": "session-69dcce9d-8750-4567-b0d0-dac01b4d2913:1",
+            "status": "completed",
+            "reason": "stop"
+          },
+          {
+            "kind": "native-terminal",
+            "lifecycle": "completed",
+            "reason": "response-completed"
+          },
+          {
+            "kind": "call-settlement",
+            "callId": "d0a9bc0e-ed26-4180-acf9-fe6c8639865c",
+            "status": "completed",
+            "reason": "stop"
+          },
+          {
+            "kind": "terminal",
+            "lifecycle": "completed",
+            "reason": "response-completed",
+            "acceptance": "unconfirmed"
+          }
+        ],
+        "startedAt": "2026-10-09T13:01:07.109Z",
+        "budget": {
+          "limits": {
+            "tokens": 32768,
+            "durationMs": 60000,
+            "money": []
+          },
+          "extensions": [],
+          "unenforceableLimits": []
+        },
+        "openCodeGoDetection": {
+          "capture": {
+            "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+            "identity": {
+              "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+              "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "billingPath": "opencode-go-subscription",
+              "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "model": "gpt-6-luna"
+            },
+            "registryEpoch": 9,
+            "connectionConfigRevision": 1,
+            "authEpoch": 1,
+            "capability": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "declared",
+                "source": "router-text-only-adapter"
+              },
+              "tools": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              }
+            },
+            "capabilities": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "declared",
+                "source": "router-text-only-adapter"
+              },
+              "tools": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              },
+              "contextWindow": {
+                "value": null,
+                "confidence": "unknown",
+                "source": "host-public-contract"
+              },
+              "inputLimit": {
+                "value": null,
+                "confidence": "unknown",
+                "source": "host-public-contract"
+              },
+              "maxOutput": {
+                "value": null,
+                "confidence": "unknown",
+                "source": "host-public-contract"
+              }
+            },
+            "maxContextTokens": null,
+            "quote": null,
+            "quoteVersion": null,
+            "enabled": true
+          },
+          "outputTokens": 1024,
+          "outputForecastTokens": 1024,
+          "maxCalls": 2
+        },
+        "assessmentHint": null,
+        "routing": {
+          "status": "selected",
+          "objective": "explicit-detection",
+          "snapshotEpoch": 9,
+          "selected": {
+            "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+            "identity": {
+              "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+              "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "billingPath": "opencode-go-subscription",
+              "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+              "model": "gpt-6-luna"
+            },
+            "registryEpoch": 9,
+            "connectionConfigRevision": 1,
+            "authEpoch": 1,
+            "capability": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "declared",
+                "source": "router-text-only-adapter"
+              },
+              "tools": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              }
+            },
+            "capabilities": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "declared",
+                "source": "router-text-only-adapter"
+              },
+              "tools": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              },
+              "contextWindow": {
+                "value": null,
+                "confidence": "unknown",
+                "source": "host-public-contract"
+              },
+              "inputLimit": {
+                "value": null,
+                "confidence": "unknown",
+                "source": "host-public-contract"
+              },
+              "maxOutput": {
+                "value": null,
+                "confidence": "unknown",
+                "source": "host-public-contract"
+              }
+            },
+            "maxContextTokens": null,
+            "quote": null,
+            "quoteVersion": null,
+            "enabled": true
+          },
+          "reasonCodes": [
+            "EXPLICIT_OPENCODE_GO_DETECTION"
+          ],
+          "excluded": [],
+          "requirements": {
+            "modalities": [
+              "text"
+            ]
+          }
+        },
+        "nativeLifecycle": "completed",
+        "nativeEndedAt": "2026-10-09T13:01:07.407Z",
+        "endedAt": "2026-10-09T13:01:07.440Z",
+        "ledger": {
+          "tokens": {
+            "input": 20,
+            "output": 8,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "total": 28
+          },
+          "knownTokens": {
+            "input": 20,
+            "output": 8,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "total": 28
+          },
+          "unknownTokenCalls": {
+            "input": 0,
+            "output": 0,
+            "cacheRead": 0,
+            "cacheWrite": 0,
+            "reasoning": 0,
+            "total": 0
+          },
+          "money": [],
+          "unknownPriceCalls": 2,
+          "actualSpend": {
+            "status": "unknown",
+            "amount": null,
+            "currency": null,
+            "reason": "NO_CONFIRMED_PROVIDER_BILL"
+          },
+          "subscriptionQuota": [],
+          "elapsedMs": 331,
+          "callCount": 2,
+          "uncertainDispatchCalls": 0
+        }
+      }
+    ],
+    "semanticAssessmentRequest": null,
+    "connections": {
+      "revision": 9,
+      "capturedAt": "2026-10-09T13:01:07.431Z",
+      "candidates": [
+        {
+          "candidateId": "controlled",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled",
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "known"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "observedSettingsRevision": null
+        },
+        {
+          "candidateId": "controlled-tools",
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools",
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled tools fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "observedSettingsRevision": null
+        },
+        {
+          "candidateId": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+          "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-flash",
+          "connectionConfigRevision": 1,
+          "authEpoch": 2,
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V41-Flash",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "observedSettingsRevision": 0
+        },
+        {
+          "candidateId": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+          "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-pro",
+          "connectionConfigRevision": 1,
+          "authEpoch": 2,
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V4-Pro",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "observedSettingsRevision": 0
+        },
+        {
+          "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+          "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+          "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "billingPath": "opencode-go-subscription",
+          "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "model": "gpt-6-luna",
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "ownership": "router-owned",
+          "source": "opencode-go",
+          "sourceKey": "opencode-go:account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "name": "GPT 6 Luna (OpenCode Go)",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "configured",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "https://opencode.ai/docs/go/"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "router-text-only-adapter"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "https://opencode.ai/docs/go/"
+            }
+          },
+          "maxContextTokens": null,
+          "supportScope": "opencode-go-responses-text-tools",
+          "settingsNs": null,
+          "settingsPath": null,
+          "observedSettingsRevision": null,
+          "managed": true,
+          "inferenceVerification": {
+            "status": "verified",
+            "at": "2026-10-09T13:01:07.439Z"
+          }
+        }
+      ],
+      "unsupported": [
+        {
+          "provider": "amazon-bedrock",
+          "displayName": "amazon-bedrock",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "amazon-bedrock"
+          ]
+        },
+        {
+          "provider": "ant-ling",
+          "displayName": "ant-ling",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "ant-ling"
+          ]
+        },
+        {
+          "provider": "anthropic",
+          "displayName": "anthropic",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "anthropic"
+          ]
+        },
+        {
+          "provider": "azure-openai-responses",
+          "displayName": "azure-openai-responses",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "azure-openai-responses"
+          ]
+        },
+        {
+          "provider": "baseten",
+          "displayName": "baseten",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "baseten"
+          ]
+        },
+        {
+          "provider": "cerebras",
+          "displayName": "cerebras",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cerebras"
+          ]
+        },
+        {
+          "provider": "cloudflare-ai-gateway",
+          "displayName": "cloudflare-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-ai-gateway"
+          ]
+        },
+        {
+          "provider": "cloudflare-workers-ai",
+          "displayName": "cloudflare-workers-ai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-workers-ai"
+          ]
+        },
+        {
+          "provider": "deepseek",
+          "displayName": "deepseek",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "deepseek"
+          ]
+        },
+        {
+          "provider": "fireworks",
+          "displayName": "fireworks",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "fireworks"
+          ]
+        },
+        {
+          "provider": "github-copilot",
+          "displayName": "github-copilot",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "github-copilot"
+          ]
+        },
+        {
+          "provider": "google",
+          "displayName": "google",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google"
+          ]
+        },
+        {
+          "provider": "google-vertex",
+          "displayName": "google-vertex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google-vertex"
+          ]
+        },
+        {
+          "provider": "groq",
+          "displayName": "groq",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "groq"
+          ]
+        },
+        {
+          "provider": "huggingface",
+          "displayName": "huggingface",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "huggingface"
+          ]
+        },
+        {
+          "provider": "kimi-coding",
+          "displayName": "kimi-coding",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "kimi-coding"
+          ]
+        },
+        {
+          "provider": "meta",
+          "displayName": "meta",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "meta"
+          ]
+        },
+        {
+          "provider": "minimax",
+          "displayName": "minimax",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax"
+          ]
+        },
+        {
+          "provider": "minimax-cn",
+          "displayName": "minimax-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax-cn"
+          ]
+        },
+        {
+          "provider": "mistral",
+          "displayName": "mistral",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "mistral"
+          ]
+        },
+        {
+          "provider": "moonshotai",
+          "displayName": "moonshotai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai"
+          ]
+        },
+        {
+          "provider": "moonshotai-cn",
+          "displayName": "moonshotai-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai-cn"
+          ]
+        },
+        {
+          "provider": "nvidia",
+          "displayName": "nvidia",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "nvidia"
+          ]
+        },
+        {
+          "provider": "openai",
+          "displayName": "openai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai"
+          ]
+        },
+        {
+          "provider": "openai-codex",
+          "displayName": "openai-codex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai-codex"
+          ]
+        },
+        {
+          "provider": "opencode",
+          "displayName": "opencode",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode"
+          ]
+        },
+        {
+          "provider": "opencode-go",
+          "displayName": "opencode-go",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode-go"
+          ]
+        },
+        {
+          "provider": "openrouter",
+          "displayName": "openrouter",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openrouter"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan",
+          "displayName": "qwen-token-plan",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-cn",
+          "displayName": "qwen-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-individual",
+          "displayName": "qwen-token-plan-individual",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-individual"
+          ]
+        },
+        {
+          "provider": "radius",
+          "displayName": "radius",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "radius"
+          ]
+        },
+        {
+          "provider": "together",
+          "displayName": "together",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "together"
+          ]
+        },
+        {
+          "provider": "vercel-ai-gateway",
+          "displayName": "vercel-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "vercel-ai-gateway"
+          ]
+        },
+        {
+          "provider": "xai",
+          "displayName": "xai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xai"
+          ]
+        },
+        {
+          "provider": "xiaomi",
+          "displayName": "xiaomi",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-ams",
+          "displayName": "xiaomi-token-plan-ams",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-ams"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-cn",
+          "displayName": "xiaomi-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-sgp",
+          "displayName": "xiaomi-token-plan-sgp",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-sgp"
+          ]
+        },
+        {
+          "provider": "zai",
+          "displayName": "zai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai"
+          ]
+        },
+        {
+          "provider": "zai-coding-cn",
+          "displayName": "zai-coding-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai-coding-cn"
+          ]
+        }
+      ]
+    },
+    "deepSeek": {
+      "bindings": [],
+      "connections": [],
+      "catalog": {
+        "status": "not-requested",
+        "models": [],
+        "unrecognizedModelIds": []
+      },
+      "lastDetectionTaskId": null
+    },
+    "chatGpt": {
+      "hostId": "urn:uuid:63eb21e2-db1f-4cdb-af56-7c76095a9d5f",
+      "servicesAvailable": true,
+      "account": null,
+      "registrations": [],
+      "lifecycle": {
+        "status": "not-configured",
+        "failureCode": null,
+        "revocation": null
+      },
+      "connection": null,
+      "catalog": {
+        "status": "not-requested",
+        "models": []
+      },
+      "authorization": {
+        "status": "idle"
+      },
+      "inference": {},
+      "lastDetectionTaskId": null
+    },
+    "openCodeGo": {
+      "configured": true,
+      "connected": true,
+      "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+      "model": "gpt-6-luna",
+      "billingPath": "opencode-go-subscription",
+      "catalogStatus": "declared",
+      "quota": {
+        "status": "unknown",
+        "remainingRatio": null
+      },
+      "lastDetectionTaskId": "3f3e5e88-4739-46f4-b479-b8e43feb4877",
+      "detectionClaimed": true
+    },
+    "application": {
+      "status": "applied",
+      "desiredVersion": 3,
+      "active": []
+    },
+    "candidateSnapshot": {
+      "epoch": 9,
+      "snapshotEpoch": 9,
+      "capturedAt": "2026-10-09T13:01:07.431Z",
+      "candidates": [
+        {
+          "candidateId": "controlled",
+          "identity": {
+            "connectionId": "controlled-local",
+            "accountId": "local",
+            "billingPath": "controlled",
+            "provider": "router-controlled",
+            "model": "controlled"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "observedSettingsRevision": null,
+          "routerAuthorization": {
+            "status": "enabled"
+          },
+          "providerAuthorization": {
+            "status": "controlled-fixture"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "known"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "known"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "contextWindow": {
+              "value": 32768,
+              "confidence": "known",
+              "source": "controlled-protocol-fixture"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled",
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "known"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "id": "controlled",
+          "enabled": true,
+          "inPool": true,
+          "authorization": {
+            "status": "enabled",
+            "providerStatus": "controlled-fixture"
+          },
+          "compatibility": {
+            "confidence": "known",
+            "scope": "controlled-protocol-fixture"
+          }
+        },
+        {
+          "candidateId": "controlled-tools",
+          "identity": {
+            "connectionId": "controlled-local",
+            "accountId": "local",
+            "billingPath": "controlled",
+            "provider": "router-controlled",
+            "model": "controlled-tools"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "observedSettingsRevision": null,
+          "routerAuthorization": {
+            "status": "enabled"
+          },
+          "providerAuthorization": {
+            "status": "controlled-fixture"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "known"
+              },
+              "image": {
+                "supported": null,
+                "confidence": "unknown"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared"
+            },
+            "contextWindow": {
+              "value": 32768,
+              "confidence": "known",
+              "source": "controlled-protocol-fixture"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools",
+          "ownership": "router-owned",
+          "source": "controlled-protocol-fixture",
+          "sourceKey": "router-controlled:v1",
+          "name": "Controlled tools fixture",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared"
+            }
+          },
+          "maxContextTokens": 32768,
+          "supportScope": "controlled-protocol-fixture",
+          "settingsNs": null,
+          "settingsPath": null,
+          "id": "controlled-tools",
+          "enabled": true,
+          "inPool": true,
+          "authorization": {
+            "status": "enabled",
+            "providerStatus": "controlled-fixture"
+          },
+          "compatibility": {
+            "confidence": "known",
+            "scope": "controlled-protocol-fixture"
+          }
+        },
+        {
+          "candidateId": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+          "identity": {
+            "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "deepseek-official",
+            "model": "deepseek-flash"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 2,
+          "observedSettingsRevision": 0,
+          "routerAuthorization": {
+            "status": "disabled"
+          },
+          "providerAuthorization": {
+            "status": "unknown"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              },
+              "image": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "contextWindow": {
+              "value": 1000000,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-flash",
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V41-Flash",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "id": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+          "enabled": false,
+          "inPool": false,
+          "authorization": {
+            "status": "disabled",
+            "providerStatus": "unknown"
+          },
+          "compatibility": {
+            "confidence": "declared",
+            "scope": "host-public-metadata"
+          }
+        },
+        {
+          "candidateId": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+          "identity": {
+            "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "deepseek-official",
+            "model": "deepseek-v4-pro"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 2,
+          "observedSettingsRevision": 0,
+          "routerAuthorization": {
+            "status": "disabled"
+          },
+          "providerAuthorization": {
+            "status": "unknown"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "unknown"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "declared",
+                "source": "provider-model-metadata"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "contextWindow": {
+              "value": 1000000,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-pro",
+          "ownership": "native-reference",
+          "source": "native-configurable-provider",
+          "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+          "name": "DeepSeek-V4-Pro",
+          "available": true,
+          "configured": null,
+          "authorizationStatus": "unknown",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "tools": {
+              "supported": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 1000000,
+          "supportScope": "host-public-metadata",
+          "settingsNs": "llm-deepseek",
+          "settingsPath": [],
+          "id": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+          "enabled": false,
+          "inPool": false,
+          "authorization": {
+            "status": "disabled",
+            "providerStatus": "unknown"
+          },
+          "compatibility": {
+            "confidence": "declared",
+            "scope": "host-public-metadata"
+          }
+        },
+        {
+          "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+          "identity": {
+            "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+            "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+            "billingPath": "opencode-go-subscription",
+            "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+            "model": "gpt-6-luna"
+          },
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "observedSettingsRevision": null,
+          "routerAuthorization": {
+            "status": "disabled"
+          },
+          "providerAuthorization": {
+            "status": "configured"
+          },
+          "availability": {
+            "status": "available"
+          },
+          "inferenceVerification": {
+            "status": "verified",
+            "at": "2026-10-09T13:01:07.439Z"
+          },
+          "capabilities": {
+            "modalities": {
+              "text": {
+                "supported": true,
+                "confidence": "declared",
+                "source": "https://opencode.ai/docs/go/"
+              },
+              "image": {
+                "supported": false,
+                "confidence": "declared",
+                "source": "router-text-only-adapter"
+              }
+            },
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "https://opencode.ai/docs/go/"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "router-text-only-adapter"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "https://opencode.ai/docs/go/"
+            },
+            "contextWindow": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxContextTokens": null,
+            "confidence": "declared",
+            "source": "https://opencode.ai/docs/go/"
+          },
+          "quote": null,
+          "observations": [],
+          "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+          "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "billingPath": "opencode-go-subscription",
+          "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "model": "gpt-6-luna",
+          "ownership": "router-owned",
+          "source": "opencode-go",
+          "sourceKey": "opencode-go:account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "name": "GPT 6 Luna (OpenCode Go)",
+          "available": true,
+          "configured": true,
+          "authorizationStatus": "configured",
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "https://opencode.ai/docs/go/"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "router-text-only-adapter"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "https://opencode.ai/docs/go/"
+            }
+          },
+          "maxContextTokens": null,
+          "supportScope": "opencode-go-responses-text-tools",
+          "settingsNs": null,
+          "settingsPath": null,
+          "managed": true,
+          "id": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+          "enabled": false,
+          "inPool": false,
+          "authorization": {
+            "status": "disabled",
+            "providerStatus": "configured"
+          },
+          "compatibility": {
+            "confidence": "declared",
+            "scope": "opencode-go-responses-text-tools"
+          }
+        }
+      ],
+      "unsupported": [
+        {
+          "provider": "amazon-bedrock",
+          "displayName": "amazon-bedrock",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "amazon-bedrock"
+          ]
+        },
+        {
+          "provider": "ant-ling",
+          "displayName": "ant-ling",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "ant-ling"
+          ]
+        },
+        {
+          "provider": "anthropic",
+          "displayName": "anthropic",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "anthropic"
+          ]
+        },
+        {
+          "provider": "azure-openai-responses",
+          "displayName": "azure-openai-responses",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "azure-openai-responses"
+          ]
+        },
+        {
+          "provider": "baseten",
+          "displayName": "baseten",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "baseten"
+          ]
+        },
+        {
+          "provider": "cerebras",
+          "displayName": "cerebras",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cerebras"
+          ]
+        },
+        {
+          "provider": "cloudflare-ai-gateway",
+          "displayName": "cloudflare-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-ai-gateway"
+          ]
+        },
+        {
+          "provider": "cloudflare-workers-ai",
+          "displayName": "cloudflare-workers-ai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "cloudflare-workers-ai"
+          ]
+        },
+        {
+          "provider": "deepseek",
+          "displayName": "deepseek",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "deepseek"
+          ]
+        },
+        {
+          "provider": "fireworks",
+          "displayName": "fireworks",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "fireworks"
+          ]
+        },
+        {
+          "provider": "github-copilot",
+          "displayName": "github-copilot",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "github-copilot"
+          ]
+        },
+        {
+          "provider": "google",
+          "displayName": "google",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google"
+          ]
+        },
+        {
+          "provider": "google-vertex",
+          "displayName": "google-vertex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "google-vertex"
+          ]
+        },
+        {
+          "provider": "groq",
+          "displayName": "groq",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "groq"
+          ]
+        },
+        {
+          "provider": "huggingface",
+          "displayName": "huggingface",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "huggingface"
+          ]
+        },
+        {
+          "provider": "kimi-coding",
+          "displayName": "kimi-coding",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "kimi-coding"
+          ]
+        },
+        {
+          "provider": "meta",
+          "displayName": "meta",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "meta"
+          ]
+        },
+        {
+          "provider": "minimax",
+          "displayName": "minimax",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax"
+          ]
+        },
+        {
+          "provider": "minimax-cn",
+          "displayName": "minimax-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "minimax-cn"
+          ]
+        },
+        {
+          "provider": "mistral",
+          "displayName": "mistral",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "mistral"
+          ]
+        },
+        {
+          "provider": "moonshotai",
+          "displayName": "moonshotai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai"
+          ]
+        },
+        {
+          "provider": "moonshotai-cn",
+          "displayName": "moonshotai-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "moonshotai-cn"
+          ]
+        },
+        {
+          "provider": "nvidia",
+          "displayName": "nvidia",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "nvidia"
+          ]
+        },
+        {
+          "provider": "openai",
+          "displayName": "openai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai"
+          ]
+        },
+        {
+          "provider": "openai-codex",
+          "displayName": "openai-codex",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openai-codex"
+          ]
+        },
+        {
+          "provider": "opencode",
+          "displayName": "opencode",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode"
+          ]
+        },
+        {
+          "provider": "opencode-go",
+          "displayName": "opencode-go",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "opencode-go"
+          ]
+        },
+        {
+          "provider": "openrouter",
+          "displayName": "openrouter",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "openrouter"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan",
+          "displayName": "qwen-token-plan",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-cn",
+          "displayName": "qwen-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "qwen-token-plan-individual",
+          "displayName": "qwen-token-plan-individual",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "qwen-token-plan-individual"
+          ]
+        },
+        {
+          "provider": "radius",
+          "displayName": "radius",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "radius"
+          ]
+        },
+        {
+          "provider": "together",
+          "displayName": "together",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "together"
+          ]
+        },
+        {
+          "provider": "vercel-ai-gateway",
+          "displayName": "vercel-ai-gateway",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "vercel-ai-gateway"
+          ]
+        },
+        {
+          "provider": "xai",
+          "displayName": "xai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xai"
+          ]
+        },
+        {
+          "provider": "xiaomi",
+          "displayName": "xiaomi",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-ams",
+          "displayName": "xiaomi-token-plan-ams",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-ams"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-cn",
+          "displayName": "xiaomi-token-plan-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-cn"
+          ]
+        },
+        {
+          "provider": "xiaomi-token-plan-sgp",
+          "displayName": "xiaomi-token-plan-sgp",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "xiaomi-token-plan-sgp"
+          ]
+        },
+        {
+          "provider": "zai",
+          "displayName": "zai",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai"
+          ]
+        },
+        {
+          "provider": "zai-coding-cn",
+          "displayName": "zai-coding-cn",
+          "source": "native-configurable-directory",
+          "reason": "PROVIDER_NOT_REGISTERED",
+          "settingsNs": "llm-pi-ai",
+          "settingsPath": [
+            "providers",
+            "zai-coding-cn"
+          ]
+        }
+      ]
+    },
+    "unsupportedProviders": [
+      {
+        "provider": "amazon-bedrock",
+        "displayName": "amazon-bedrock",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "amazon-bedrock"
+        ]
+      },
+      {
+        "provider": "ant-ling",
+        "displayName": "ant-ling",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "ant-ling"
+        ]
+      },
+      {
+        "provider": "anthropic",
+        "displayName": "anthropic",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "anthropic"
+        ]
+      },
+      {
+        "provider": "azure-openai-responses",
+        "displayName": "azure-openai-responses",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "azure-openai-responses"
+        ]
+      },
+      {
+        "provider": "baseten",
+        "displayName": "baseten",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "baseten"
+        ]
+      },
+      {
+        "provider": "cerebras",
+        "displayName": "cerebras",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "cerebras"
+        ]
+      },
+      {
+        "provider": "cloudflare-ai-gateway",
+        "displayName": "cloudflare-ai-gateway",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "cloudflare-ai-gateway"
+        ]
+      },
+      {
+        "provider": "cloudflare-workers-ai",
+        "displayName": "cloudflare-workers-ai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "cloudflare-workers-ai"
+        ]
+      },
+      {
+        "provider": "deepseek",
+        "displayName": "deepseek",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "deepseek"
+        ]
+      },
+      {
+        "provider": "fireworks",
+        "displayName": "fireworks",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "fireworks"
+        ]
+      },
+      {
+        "provider": "github-copilot",
+        "displayName": "github-copilot",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "github-copilot"
+        ]
+      },
+      {
+        "provider": "google",
+        "displayName": "google",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "google"
+        ]
+      },
+      {
+        "provider": "google-vertex",
+        "displayName": "google-vertex",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "google-vertex"
+        ]
+      },
+      {
+        "provider": "groq",
+        "displayName": "groq",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "groq"
+        ]
+      },
+      {
+        "provider": "huggingface",
+        "displayName": "huggingface",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "huggingface"
+        ]
+      },
+      {
+        "provider": "kimi-coding",
+        "displayName": "kimi-coding",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "kimi-coding"
+        ]
+      },
+      {
+        "provider": "meta",
+        "displayName": "meta",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "meta"
+        ]
+      },
+      {
+        "provider": "minimax",
+        "displayName": "minimax",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "minimax"
+        ]
+      },
+      {
+        "provider": "minimax-cn",
+        "displayName": "minimax-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "minimax-cn"
+        ]
+      },
+      {
+        "provider": "mistral",
+        "displayName": "mistral",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "mistral"
+        ]
+      },
+      {
+        "provider": "moonshotai",
+        "displayName": "moonshotai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "moonshotai"
+        ]
+      },
+      {
+        "provider": "moonshotai-cn",
+        "displayName": "moonshotai-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "moonshotai-cn"
+        ]
+      },
+      {
+        "provider": "nvidia",
+        "displayName": "nvidia",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "nvidia"
+        ]
+      },
+      {
+        "provider": "openai",
+        "displayName": "openai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "openai"
+        ]
+      },
+      {
+        "provider": "openai-codex",
+        "displayName": "openai-codex",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "openai-codex"
+        ]
+      },
+      {
+        "provider": "opencode",
+        "displayName": "opencode",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "opencode"
+        ]
+      },
+      {
+        "provider": "opencode-go",
+        "displayName": "opencode-go",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "opencode-go"
+        ]
+      },
+      {
+        "provider": "openrouter",
+        "displayName": "openrouter",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "openrouter"
+        ]
+      },
+      {
+        "provider": "qwen-token-plan",
+        "displayName": "qwen-token-plan",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "qwen-token-plan"
+        ]
+      },
+      {
+        "provider": "qwen-token-plan-cn",
+        "displayName": "qwen-token-plan-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "qwen-token-plan-cn"
+        ]
+      },
+      {
+        "provider": "qwen-token-plan-individual",
+        "displayName": "qwen-token-plan-individual",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "qwen-token-plan-individual"
+        ]
+      },
+      {
+        "provider": "radius",
+        "displayName": "radius",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "radius"
+        ]
+      },
+      {
+        "provider": "together",
+        "displayName": "together",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "together"
+        ]
+      },
+      {
+        "provider": "vercel-ai-gateway",
+        "displayName": "vercel-ai-gateway",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "vercel-ai-gateway"
+        ]
+      },
+      {
+        "provider": "xai",
+        "displayName": "xai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xai"
+        ]
+      },
+      {
+        "provider": "xiaomi",
+        "displayName": "xiaomi",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi"
+        ]
+      },
+      {
+        "provider": "xiaomi-token-plan-ams",
+        "displayName": "xiaomi-token-plan-ams",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi-token-plan-ams"
+        ]
+      },
+      {
+        "provider": "xiaomi-token-plan-cn",
+        "displayName": "xiaomi-token-plan-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi-token-plan-cn"
+        ]
+      },
+      {
+        "provider": "xiaomi-token-plan-sgp",
+        "displayName": "xiaomi-token-plan-sgp",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "xiaomi-token-plan-sgp"
+        ]
+      },
+      {
+        "provider": "zai",
+        "displayName": "zai",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "zai"
+        ]
+      },
+      {
+        "provider": "zai-coding-cn",
+        "displayName": "zai-coding-cn",
+        "source": "native-configurable-directory",
+        "reason": "PROVIDER_NOT_REGISTERED",
+        "settingsNs": "llm-pi-ai",
+        "settingsPath": [
+          "providers",
+          "zai-coding-cn"
+        ]
+      }
+    ],
+    "storageError": null,
+    "models": [
+      {
+        "candidateId": "controlled",
+        "identity": {
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "observedSettingsRevision": null,
+        "routerAuthorization": {
+          "status": "enabled"
+        },
+        "providerAuthorization": {
+          "status": "controlled-fixture"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "known"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "known"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "contextWindow": {
+            "value": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 32768,
+          "confidence": "known",
+          "source": "controlled-protocol-fixture"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled",
+        "ownership": "router-owned",
+        "source": "controlled-protocol-fixture",
+        "sourceKey": "router-controlled:v1",
+        "name": "Controlled fixture",
+        "available": true,
+        "configured": true,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "known"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "known"
+          }
+        },
+        "maxContextTokens": 32768,
+        "supportScope": "controlled-protocol-fixture",
+        "settingsNs": null,
+        "settingsPath": null,
+        "id": "controlled",
+        "enabled": true,
+        "inPool": true,
+        "authorization": {
+          "status": "enabled",
+          "providerStatus": "controlled-fixture"
+        },
+        "compatibility": {
+          "confidence": "known",
+          "scope": "controlled-protocol-fixture"
+        }
+      },
+      {
+        "candidateId": "controlled-tools",
+        "identity": {
+          "connectionId": "controlled-local",
+          "accountId": "local",
+          "billingPath": "controlled",
+          "provider": "router-controlled",
+          "model": "controlled-tools"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "observedSettingsRevision": null,
+        "routerAuthorization": {
+          "status": "enabled"
+        },
+        "providerAuthorization": {
+          "status": "controlled-fixture"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "known"
+            },
+            "image": {
+              "supported": null,
+              "confidence": "unknown"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": null,
+            "confidence": "unknown"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared"
+          },
+          "contextWindow": {
+            "value": 32768,
+            "confidence": "known",
+            "source": "controlled-protocol-fixture"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 32768,
+          "confidence": "known",
+          "source": "controlled-protocol-fixture"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "controlled-local",
+        "accountId": "local",
+        "billingPath": "controlled",
+        "provider": "router-controlled",
+        "model": "controlled-tools",
+        "ownership": "router-owned",
+        "source": "controlled-protocol-fixture",
+        "sourceKey": "router-controlled:v1",
+        "name": "Controlled tools fixture",
+        "available": true,
+        "configured": true,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "known"
+          },
+          "image": {
+            "supported": null,
+            "confidence": "unknown"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared"
+          }
+        },
+        "maxContextTokens": 32768,
+        "supportScope": "controlled-protocol-fixture",
+        "settingsNs": null,
+        "settingsPath": null,
+        "id": "controlled-tools",
+        "enabled": true,
+        "inPool": true,
+        "authorization": {
+          "status": "enabled",
+          "providerStatus": "controlled-fixture"
+        },
+        "compatibility": {
+          "confidence": "known",
+          "scope": "controlled-protocol-fixture"
+        }
+      },
+      {
+        "candidateId": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+        "identity": {
+          "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-flash"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 2,
+        "observedSettingsRevision": 0,
+        "routerAuthorization": {
+          "status": "disabled"
+        },
+        "providerAuthorization": {
+          "status": "unknown"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "contextWindow": {
+            "value": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 1000000,
+          "confidence": "declared",
+          "source": "provider-model-metadata"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "dsh-native:03d34da0-f697-4b4d-b5d0-75fb2cecd6fd",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "deepseek-official",
+        "model": "deepseek-flash",
+        "ownership": "native-reference",
+        "source": "native-configurable-provider",
+        "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+        "name": "DeepSeek-V41-Flash",
+        "available": true,
+        "configured": null,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          }
+        },
+        "maxContextTokens": 1000000,
+        "supportScope": "host-public-metadata",
+        "settingsNs": "llm-deepseek",
+        "settingsPath": [],
+        "id": "c83168b3-f591-4778-9c8d-b07ecd80f13e",
+        "enabled": false,
+        "inPool": false,
+        "authorization": {
+          "status": "disabled",
+          "providerStatus": "unknown"
+        },
+        "compatibility": {
+          "confidence": "declared",
+          "scope": "host-public-metadata"
+        }
+      },
+      {
+        "candidateId": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+        "identity": {
+          "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+          "accountId": "unknown",
+          "billingPath": "unknown",
+          "provider": "deepseek-official",
+          "model": "deepseek-v4-pro"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 2,
+        "observedSettingsRevision": 0,
+        "routerAuthorization": {
+          "status": "disabled"
+        },
+        "providerAuthorization": {
+          "status": "unknown"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "unknown"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "contextWindow": {
+            "value": 1000000,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 1000000,
+          "confidence": "declared",
+          "source": "provider-model-metadata"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "dsh-native:28d60e11-1cf8-46fb-b3c0-c03f54f1d7ad",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "deepseek-official",
+        "model": "deepseek-v4-pro",
+        "ownership": "native-reference",
+        "source": "native-configurable-provider",
+        "sourceKey": "[\"deepseek-official\",\"llm-deepseek\",[],0]",
+        "name": "DeepSeek-V4-Pro",
+        "available": true,
+        "configured": null,
+        "authorizationStatus": "unknown",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "tools": {
+            "supported": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          }
+        },
+        "maxContextTokens": 1000000,
+        "supportScope": "host-public-metadata",
+        "settingsNs": "llm-deepseek",
+        "settingsPath": [],
+        "id": "c0f0cc64-0cae-402f-af5e-40e06cca1980",
+        "enabled": false,
+        "inPool": false,
+        "authorization": {
+          "status": "disabled",
+          "providerStatus": "unknown"
+        },
+        "compatibility": {
+          "confidence": "declared",
+          "scope": "host-public-metadata"
+        }
+      },
+      {
+        "candidateId": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+        "identity": {
+          "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+          "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "billingPath": "opencode-go-subscription",
+          "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+          "model": "gpt-6-luna"
+        },
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "observedSettingsRevision": null,
+        "routerAuthorization": {
+          "status": "disabled"
+        },
+        "providerAuthorization": {
+          "status": "configured"
+        },
+        "availability": {
+          "status": "available"
+        },
+        "inferenceVerification": {
+          "status": "verified",
+          "at": "2026-10-09T13:01:07.439Z"
+        },
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "https://opencode.ai/docs/go/"
+            },
+            "image": {
+              "supported": false,
+              "confidence": "declared",
+              "source": "router-text-only-adapter"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "https://opencode.ai/docs/go/"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "declared",
+            "source": "router-text-only-adapter"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "https://opencode.ai/docs/go/"
+          },
+          "contextWindow": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": null,
+          "confidence": "declared",
+          "source": "https://opencode.ai/docs/go/"
+        },
+        "quote": null,
+        "observations": [],
+        "connectionId": "connection-ac3de499-b830-4186-889e-a322db5603ef",
+        "accountId": "account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+        "billingPath": "opencode-go-subscription",
+        "provider": "router-opencode-go-account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+        "model": "gpt-6-luna",
+        "ownership": "router-owned",
+        "source": "opencode-go",
+        "sourceKey": "opencode-go:account-087fa789-0ef1-4776-841c-d8b243ff3b12",
+        "name": "GPT 6 Luna (OpenCode Go)",
+        "available": true,
+        "configured": true,
+        "authorizationStatus": "configured",
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "https://opencode.ai/docs/go/"
+          },
+          "image": {
+            "supported": false,
+            "confidence": "declared",
+            "source": "router-text-only-adapter"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "https://opencode.ai/docs/go/"
+          }
+        },
+        "maxContextTokens": null,
+        "supportScope": "opencode-go-responses-text-tools",
+        "settingsNs": null,
+        "settingsPath": null,
+        "managed": true,
+        "id": "c9840a3a-1fa9-4880-ae86-b7337d5493bd",
+        "enabled": false,
+        "inPool": false,
+        "authorization": {
+          "status": "disabled",
+          "providerStatus": "configured"
+        },
+        "compatibility": {
+          "confidence": "declared",
+          "scope": "opencode-go-responses-text-tools"
+        }
+      }
+    ]
+  },
+  "counts": {
+    "requests": 2,
+    "sessionIds": [
+      "session-69dcce9d-8750-4567-b0d0-dac01b4d2913",
+      "session-69dcce9d-8750-4567-b0d0-dac01b4d2913"
+    ],
+    "userAgents": [
+      "irishwei-dsh-router/0.13.1 (+https://github.com/IRishWei/Router)",
+      "irishwei-dsh-router/0.13.1 (+https://github.com/IRishWei/Router)"
+    ],
+    "caps": [
+      1024,
+      1024
+    ],
+    "realModelRequests": 0
+  },
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a"
+  }
+}
