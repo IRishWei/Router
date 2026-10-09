@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
+import { renderPrompt } from '@deepseek-ai/dsh-system-prompt';
 import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema, coordinationPolicySchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
@@ -13,6 +14,7 @@ import { createNodeProgramChecks } from './program-checks.mjs';
 import { DeepSeekHost } from './deepseek-host.mjs';
 import { ChatGptHost } from './chatgpt-host.mjs';
 import { OpenCodeGoHost } from './opencode-go-host.mjs';
+import { CompatibleHost } from './compatible-host.mjs';
 import { mountChatGptRouterConnection } from './chatgpt-router.mjs';
 import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
 import { createHttpSourceEvidenceResolver, createResearchAcceptance } from './research-acceptance.mjs';
@@ -161,7 +163,7 @@ function conservativeRequestForecast(messages, tools, outputTokens = DEEPSEEK_DE
   const inputTokens = Math.max(1, new TextEncoder().encode(JSON.stringify({ messages, tools: tools ?? [] })).length);
   return { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: inputTokens + outputTokens };
 }
-const detectionOf = task => task?.deepSeekDetection ?? task?.chatGptDetection ?? task?.openCodeGoDetection ?? null;
+const detectionOf = task => task?.deepSeekDetection ?? task?.chatGptDetection ?? task?.openCodeGoDetection ?? task?.compatibleDetection ?? null;
 function withOutputLimit(request, maxTokens) {
   const descriptors = Object.getOwnPropertyDescriptors(request);
   descriptors.maxTokens = { value: maxTokens, enumerable: true, configurable: true, writable: false };
@@ -261,6 +263,8 @@ export class RouterService extends TypertRemoteService {
   #chatGptDetections = new Map();
   #goDetections = new Map();
   #go;
+  #compatible;
+  #compatibleDetections = new Map();
   #deepSeekDeadlineTimers = new Map();
   constructor(ctx, state, path, connections, files = { writeFile, rename }) {
     super(ctx, 'router');
@@ -328,7 +332,7 @@ export class RouterService extends TypertRemoteService {
       let assembled = await next();
       // A connection probe has no coding work: avoid sending the desktop tool
       // catalog and its instructions while keeping the native runtime context.
-      if (task?.openCodeGoDetection) assembled = { ...assembled, tools: [], sections: [{ name: 'router:go-connection-probe', text: GO_PROBE_SYSTEM_PROMPT, interpolate: false }] };
+      if (task?.openCodeGoDetection || task?.compatibleDetection) assembled = { ...assembled, tools: [], sections: [{ name: 'router:connection-probe', text: GO_PROBE_SYSTEM_PROMPT, interpolate: false }] };
       step.assembled = assembled;
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
       const detection = detectionOf(task);
@@ -345,7 +349,7 @@ export class RouterService extends TypertRemoteService {
           step.enforceCandidate = true;
           task.activeSelection = captured.identity;
           task.configVersion = config.version;
-          const reason = task.openCodeGoDetection ? 'EXPLICIT_OPENCODE_GO_DETECTION' : task.chatGptDetection ? 'EXPLICIT_CHATGPT_DETECTION' : 'EXPLICIT_DEEPSEEK_DETECTION';
+          const reason = task.compatibleDetection ? 'EXPLICIT_COMPATIBLE_DETECTION' : task.openCodeGoDetection ? 'EXPLICIT_OPENCODE_GO_DETECTION' : task.chatGptDetection ? 'EXPLICIT_CHATGPT_DETECTION' : 'EXPLICIT_DEEPSEEK_DETECTION';
           task.routing = { status: 'selected', objective: 'explicit-detection', snapshotEpoch: captured.registryEpoch, selected: structuredClone(captured), reasonCodes: [reason], excluded: [], requirements: { modalities: ['text'] } };
           task.timeline.push({ kind: 'routing-decision', candidateId: captured.candidateId, reasons: [reason], excluded: [], snapshotEpoch: captured.registryEpoch });
           this.#persist();
@@ -461,12 +465,13 @@ export class RouterService extends TypertRemoteService {
         return { kind: 'reject' };
       }
       const detection = detectionOf(detectionTask);
-      if (detection) {
+      if (detection || step.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed') {
         // Native system/message projection happens after prepareRequest reserves
         // the call. Include the probe section before that projection; duplicate
         // historical system text only makes this estimate more conservative.
-        const currentSystem = detectionTask.openCodeGoDetection ? [{ role: 'system', content: [{ type: 'text', text: GO_PROBE_SYSTEM_PROMPT }] }] : [];
-        step.detectionForecast = conservativeRequestForecast([...agent.session.deriveMessages(), ...currentSystem, ...decision.messages], step.assembled?.tools, detection.outputForecastTokens ?? detection.outputTokens);
+        const system = detectionTask?.openCodeGoDetection ? GO_PROBE_SYSTEM_PROMPT : step.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed' ? renderPrompt(step.assembled) : '';
+        const currentSystem = system ? [{ role: 'system', content: [{ type: 'text', text: system }] }] : [];
+        step.detectionForecast = conservativeRequestForecast([...agent.session.deriveMessages(), ...currentSystem, ...decision.messages], step.assembled?.tools, detection?.outputForecastTokens ?? detection?.outputTokens ?? 1024);
       }
       const hasImage = [...agent.session.deriveMessages(), ...messages].some(message => message.content.some(part => part.type === 'image'));
       const capability = step.selectionSnapshot?.capability;
@@ -507,6 +512,7 @@ export class RouterService extends TypertRemoteService {
       const task = this.#active.get(`${agent.session.id}:${turn}`);
       if (task?.deepSeekDetection) config.maxTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS;
       if (task?.openCodeGoDetection) config.maxTokens = task.openCodeGoDetection.outputTokens;
+      if (stepSnapshot?.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed') config.maxTokens = 1024;
       const blocked = stepSnapshot && manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : this.#restriction(config);
       if (blocked) {
         if (task) task.routingPauseReason = blocked;
@@ -516,7 +522,8 @@ export class RouterService extends TypertRemoteService {
         const candidate = stepSnapshot?.selectionSnapshot ?? (() => { const found = this.#connections.candidateForRoute(config); return found ? this.#connections.capture(found.candidateId, stepSnapshot?.config ?? this.#state.config) : null; })();
         task.activeSelection = candidate?.identity ?? selection(config);
         task.configVersion = stepSnapshot?.config.version ?? this.#state.config.version;
-        const forecast = detectionOf(task) ? stepSnapshot?.detectionForecast : config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
+        if (candidate?.identity?.billingPath === 'compatible-unconfirmed' && (!Number.isSafeInteger(task.budget.limits.tokens) || task.budget.limits.tokens < 1 || !Number.isSafeInteger(task.budget.limits.durationMs) || task.budget.limits.durationMs < 1)) throw new LlmError('Set finite token and duration limits before using compatible connections', 'COMPATIBLE_BUDGET_REQUIRED');
+        const forecast = detectionOf(task) || candidate?.identity?.billingPath === 'compatible-unconfirmed' ? stepSnapshot?.detectionForecast : config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
         const reason = detectionOf(task) ? 'explicit-detection' : stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? (stepSnapshot.config.fixedCandidateId ?? stepSnapshot.config.fixedModel) ? 'fixed-model' : 'enabled-pool' : 'native-routing';
         task.timeline.push({ kind: 'selection', reason, provider: config.provider, model: config.model, configVersion: task.configVersion });
         const previous = this.#nativeReservations.get(agent);
@@ -577,6 +584,7 @@ export class RouterService extends TypertRemoteService {
       this.#deepSeekDetections.clear();
       this.#chatGptDetections.clear();
       this.#goDetections.clear();
+      this.#compatibleDetections.clear();
       for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router disabled during budget wait', 'MODEL_NOT_FOUND'));
       for (const task of this.#active.values()) for (const call of task.calls) this.#releaseUnboundCall(task, call, 'ROUTER_DISABLED', true);
       return this.flush();
@@ -657,6 +665,7 @@ export class RouterService extends TypertRemoteService {
   #ownedCallStream(task, request, existingCall = null, source = null) {
     if (task.deepSeekDetection) request = withOutputLimit(request, DEEPSEEK_DETECTION_OUTPUT_TOKENS);
     if (task.openCodeGoDetection) request = withOutputLimit(request, task.openCodeGoDetection.outputTokens);
+    if (request.provider?.startsWith('router-compatible-')) request = withOutputLimit(request, 1024);
     const service = this, controller = new AbortController();
     const originalSignal = existingCall ? this.#callSignals.get(existingCall.id) : request.signal ?? new AbortController().signal;
     const owner = { task, call: existingCall, controller, started: false, iterators: new Set(), usage: null, finish: null, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
@@ -709,10 +718,11 @@ export class RouterService extends TypertRemoteService {
           await service.#refreshEligibility(originalSignal);
           const candidate = service.#connections.candidateForRoute(request);
           const captured = candidate ? service.#connections.capture(candidate.candidateId, owner.config) : null;
+          if (captured?.identity?.billingPath === 'compatible-unconfirmed' && (!Number.isSafeInteger(task.budget.limits.tokens) || task.budget.limits.tokens < 1 || !Number.isSafeInteger(task.budget.limits.durationMs) || task.budget.limits.durationMs < 1)) throw new LlmError('Compatible tasks require finite token and duration budgets', 'COMPATIBLE_BUDGET_REQUIRED');
           const before = task.calls.length;
           const detection = detectionOf(task);
-          const forecast = detection
-            ? conservativeRequestForecast(request.messages, request.tools, detection.outputForecastTokens ?? detection.outputTokens)
+          const forecast = detection || captured?.identity?.billingPath === 'compatible-unconfirmed'
+            ? conservativeRequestForecast(request.messages, request.tools, detection?.outputForecastTokens ?? detection?.outputTokens ?? 1024)
             : request.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
           const reservation = service.reserveCall(task.id, { purpose: 'auxiliary', nativePurpose: typeof request.purpose === 'string' ? request.purpose.slice(0, 100) : 'unknown', selection: captured?.identity ?? selection(request), ...(captured ? { candidateId: captured.candidateId, selectionSnapshot: captured } : {}), configVersion: owner.config.version, routerSnapshot: owner.config, forecast }, originalSignal);
           owner.call = task.calls[before];
@@ -836,11 +846,23 @@ export class RouterService extends TypertRemoteService {
     const deepSeek = this.#deepSeek ? await this.#deepSeek.snapshot() : undefined;
     const chatGpt = this.#chatGpt ? await this.#chatGpt.snapshot() : undefined;
     const openCodeGo = this.#go ? await this.#go.snapshot() : undefined;
-    return structuredClone({ ...this.#state, ...(deepSeek ? { deepSeek } : {}), ...(chatGpt ? { chatGpt } : {}), ...(openCodeGo ? { openCodeGo } : {}), tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, candidateSnapshot, unsupportedProviders: candidateSnapshot.unsupported, storageError: this.#storageError ?? null, models: candidateSnapshot.candidates });
+    const compatible = this.#compatible ? await this.#compatible.snapshot() : undefined;
+    return structuredClone({ ...this.#state, ...(deepSeek ? { deepSeek } : {}), ...(chatGpt ? { chatGpt } : {}), ...(openCodeGo ? { openCodeGo } : {}), ...(compatible ? { compatible } : {}), tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, candidateSnapshot, unsupportedProviders: candidateSnapshot.unsupported, storageError: this.#storageError ?? null, models: candidateSnapshot.candidates });
   }
   attachDeepSeek(host) { this.#deepSeek = host; }
   attachChatGpt(host) { this.#chatGpt = host; }
   attachOpenCodeGo(host) { this.#go = host; }
+  attachCompatible(host) { this.#compatible = host; }
+  async compatibleAdd(request) { await this.#compatible.add(request); return this.snapshot(); }
+  async compatibleConnect(request) { await this.#compatible.connect(request); await this.refreshConnections(); return this.snapshot(); }
+  async compatibleDisconnect(request) { await this.#compatible.disconnect(request); await this.refreshConnections(); return this.snapshot(); }
+  async compatibleDiscover(request) { await this.#compatible.discover(request); return this.snapshot(); }
+  async compatibleRunDetection(request) {
+    if (!Number.isSafeInteger(request.budget?.tokens) || request.budget.tokens < 1 || request.budget.tokens > 32768 || !Number.isSafeInteger(request.budget?.durationMs) || request.budget.durationMs < 1 || request.budget.durationMs > 60000) throw new TypeError('Compatible detection requires a finite budget');
+    const capture = await this.captureCandidate(request.candidateId);
+    if (this.#compatible.requiresGoBalanceAttestation(capture.identity.connectionId) && request.useBalanceDisabled !== true) throw new TypeError('Confirm Go Use balance is disabled before detection');
+    return this.#runResponsesDetection(request, { source: 'openai-compatible', host: this.#compatible, pending: this.#compatibleDetections, outputTokens: 1024, prompt: 'Reply exactly COMPATIBLE_CONNECTION_OK without using tools.' });
+  }
   async openCodeGoSaveCredential(request) { await this.#go.saveCredential(request); return this.snapshot(); }
   async openCodeGoConnect() { await this.#go.connect(); await this.refreshConnections(); return this.snapshot(); }
   async openCodeGoDisconnect(request) { await this.#go.disconnect(request); await this.refreshConnections(); return this.snapshot(); }
@@ -931,7 +953,7 @@ export class RouterService extends TypertRemoteService {
     if (!capture.enabled || capture.identity.provider === CONTROLLED_PROVIDER) throw new TypeError('Responses validation requires an enabled owned candidate');
     const candidate = this.#connections.resolve(capture.candidateId, { allowLegacyControlled: false });
     if (candidate.ownership !== 'router-owned' || candidate.source !== target.source) throw new TypeError('Responses validation requires the selected connection');
-    const claimId = await target.host.claimDetectionTask();
+    const claimId = await target.host.claimDetectionTask(capture.identity.connectionId);
     const { sessionId } = await this.ctx.sessionController.create({ cwd: this.ctx.profileContext.home });
     const pending = { capture, budget: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] }, taskId: null, startedAt: Date.now(), maxCalls: RESPONSES_DETECTION_MAX_CALLS, outputForecastTokens: target.outputTokens ?? CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS, ...(target.outputTokens ? { outputTokens: target.outputTokens } : {}) };
     target.pending.set(sessionId, pending);
@@ -1108,7 +1130,7 @@ export class RouterService extends TypertRemoteService {
     this.#callSignals.delete(call.id);
     this.#unboundAbortDisposers.get(call.id)?.(); this.#unboundAbortDisposers.delete(call.id);
     call.usage = settlement.usage ? Object.fromEntries(Object.entries(settlement.usage).filter(([key, value]) => ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'totalTokens'].includes(key) && Number.isSafeInteger(value) && value >= 0)) : null;
-    const responsesUsage = call.subscription?.usageFormat === 'openai-responses' || call.selection.billingPath === 'opencode-go-subscription';
+    const responsesUsage = call.subscription?.usageFormat === 'openai-responses' || ['opencode-go-subscription', 'compatible-unconfirmed'].includes(call.selection.billingPath);
     if (call.usage && responsesUsage && call.usage.inputTokens !== undefined) {
       const aggregateInputTokens = call.usage.inputTokens + (call.usage.cacheReadTokens ?? 0) + (call.usage.cacheWriteTokens ?? 0);
       if (Number.isSafeInteger(aggregateInputTokens)) call.usageAccounting = { aggregateInputTokens, source: 'openai-responses-usage', inputPartitions: ['cacheReadTokens', 'cacheWriteTokens'].every(key => call.usage[key] !== undefined) ? 'complete' : 'incomplete' };
@@ -1139,6 +1161,7 @@ export class RouterService extends TypertRemoteService {
     const task = [...this.#active.values()].find(task => task.id === taskId);
     if (!task || task.budget.stopRequested) throw new TypeError('Only an active task can be extended');
     if (task.openCodeGoDetection) throw new TypeError('Go detection budget cannot be extended');
+    if (task.compatibleDetection) throw new TypeError('Compatible detection budget cannot be extended');
     const parsed = extensionSchema().parse(extension);
     if (new Set((parsed.money ?? []).map(item => `${item.currency}:${item.kind}`)).size !== (parsed.money ?? []).length) throw new TypeError('Duplicate money extensions');
     const limits = structuredClone(task.budget.limits);
@@ -1347,10 +1370,12 @@ export class RouterService extends TypertRemoteService {
       const deepSeekDetection = this.#deepSeekDetections.get(session.id);
       const chatGptDetection = this.#chatGptDetections.get(session.id);
       const goDetection = this.#goDetections.get(session.id);
-      const detection = deepSeekDetection ?? chatGptDetection ?? goDetection;
+      const compatibleDetection = this.#compatibleDetections.get(session.id);
+      const detection = deepSeekDetection ?? chatGptDetection ?? goDetection ?? compatibleDetection;
       const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), coordinationPolicy: freezeCoordinationPolicy(this.#state.config, this.#connections), coordination: null, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(deepSeekDetection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}), ...(chatGptDetection ? { chatGptDetection: { capture: structuredClone(detection.capture), outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls } } : {}) };
       if (detection) {
         if (goDetection) task.openCodeGoDetection = { capture: structuredClone(detection.capture), outputTokens: detection.outputTokens, outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls };
+        if (compatibleDetection) task.compatibleDetection = { capture: structuredClone(detection.capture), outputTokens: detection.outputTokens, outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls };
         detection.taskId = task.id;
       }
       this.#active.set(`${session.id}:${event.data.turn}`, task);
@@ -1498,6 +1523,9 @@ export async function apply(ctx) {
   const openCodeGo = new OpenCodeGoHost(ctx, state, service.commitState);
   service.attachOpenCodeGo(openCodeGo);
   await openCodeGo.restore();
+  const compatible = new CompatibleHost(ctx, state, service.commitState);
+  service.attachCompatible(compatible);
+  await compatible.restore();
   const programChecks = createNodeProgramChecks(ctx);
   const researchAcceptance = createResearchAcceptance({ resolveSourceEvidence: ctx.get('routerResearchSourceEvidence') ?? createHttpSourceEvidenceResolver() });
   const coordination = new TaskCoordinationController({
@@ -1535,6 +1563,7 @@ export async function apply(ctx) {
   ctx.effect(() => () => deepSeek.dispose(), 'router: DeepSeek connection lifecycle');
   ctx.effect(() => () => chatGpt.dispose(), 'router: ChatGPT connection lifecycle');
   ctx.effect(() => () => openCodeGo.dispose(), 'router: OpenCode Go connection lifecycle');
+  ctx.effect(() => () => compatible.dispose(), 'router: compatible connection lifecycle');
   ctx.effect(() => () => programChecks.dispose(), 'router: acceptance program checks');
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.
 }
