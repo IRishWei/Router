@@ -16,7 +16,7 @@ test('Go sends its exact endpoint, stable session and output cap without OAuth o
   assert.equal(f.requests.length, 1); const request = f.requests[0];
   assert.equal(request.url, GO_RESPONSES_URL);
   assert.equal(request.request.headers['x-opencode-session'], 'session-one');
-  assert.match(request.request.headers['user-agent'], /^irishwei-dsh-router\/0\.13\.0 /);
+  assert.match(request.request.headers['user-agent'], /^irishwei-dsh-router\/0\.13\.1 /);
   assert.equal(request.request.headers.authorization, 'Bearer controlled-go-key');
   assert.equal(request.json.max_output_tokens, 32); assert.equal(request.json.model, GO_MODEL);
   assert.equal(request.json.store, false); assert.equal(request.json.stream, true);

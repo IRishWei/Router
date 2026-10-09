@@ -10,6 +10,8 @@ test('Go full native detection accounts execution/title, stable sessions, unknow
   const f = await goHost();
   try {
     const ctx = f.ctx;
+    ctx.systemPrompt.section({ name: 'controlled-large-desktop-instructions', text: 'LONG_DESKTOP_INSTRUCTIONS '.repeat(3000), order: 1000 });
+    ctx.tools.register({ name: 'controlled_large_tool', description: 'LONG_TOOL_DESCRIPTION '.repeat(3000), parameters: { type: 'object', properties: {} }, output: { schema: { type: 'string' }, render: () => [] }, async execute() { throw new Error('Probe must not invoke desktop tools'); } });
     await ctx.plugin(SessionTitle, { fallbackMaxWords: 8, fallbackMaxBytes: 120, maxTitleBytes: 120 });
     await ctx.plugin(FirstPromptTitle, { targetWords: 8, targetCjkCharacters: 16, maxInputBytes: 4096, maxOutputTokens: 128, timeoutMs: 2000 });
     assert.equal(f.candidate.enabled, false); assert.equal(f.candidate.inferenceVerification.status, 'unknown');
@@ -26,6 +28,8 @@ test('Go full native detection accounts execution/title, stable sessions, unknow
     assert(f.requests.every(item => /^irishwei-dsh-router\//u.test(item.headers['user-agent'])));
     assert(f.requests.every(item => item.headers.authorization === 'Bearer controlled-go-host-key'));
     assert(f.requests.every(item => item.body.max_output_tokens <= 1024));
+    assert.equal(f.requests[0].body.tools?.length ?? 0, 0);
+    assert(!JSON.stringify(f.requests[0].body.input).includes('LONG_DESKTOP_INSTRUCTIONS'));
     assert(task.calls.every(call => call.selection.billingPath === 'opencode-go-subscription' && call.reservation.tokens.total > 0));
     assert.deepEqual(result.config, before.config); assert(!JSON.stringify(result).includes('controlled-go-host-key'));
     await f.restart();

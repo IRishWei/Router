@@ -324,7 +324,10 @@ export class RouterService extends TypertRemoteService {
       const pending = ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection');
       const step = { config, pending: pending?.pending ? { ...pending.pending } : null, route: null };
       this.#steps.set(agent, step);
-      const assembled = await next();
+      let assembled = await next();
+      // A connection probe has no coding work: avoid sending the desktop tool
+      // catalog and its instructions while keeping the native runtime context.
+      if (task?.openCodeGoDetection) assembled = { ...assembled, tools: [], sections: [{ name: 'router:go-connection-probe', text: 'This is a connection probe. Follow the user reply instruction without using tools.', interpolate: false }] };
       step.assembled = assembled;
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
       const detection = detectionOf(task);
