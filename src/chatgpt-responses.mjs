@@ -815,3 +815,6 @@ export class ChatGptResponsesAdapter extends LlmAdapter {
 export function createChatGptResponsesAdapter(spec) {
   return new ChatGptResponsesAdapter(spec);
 }
+
+// Protocol codec only; provider authorization and destination remain separate.
+export { inputItems, responseTools, sseEvents, translateEvents, headerValue };
