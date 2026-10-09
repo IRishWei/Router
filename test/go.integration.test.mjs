@@ -84,6 +84,11 @@ test('Go requires balance attestation and finite budgets and reserves full input
     assert.equal((await f.ctx.router.snapshot()).openCodeGo.detectionClaimed, false);
     const result = await f.ctx.router.openCodeGoRunDetection({ candidateId: f.candidate.candidateId, useBalanceDisabled: true, budget: { tokens: 1, durationMs: 5000 } });
     assert.equal(result.tasks.at(-1).lifecycle, 'waiting-budget'); assert.equal(f.requests.length, 0);
+    const taskId = result.tasks.at(-1).id;
+    await assert.rejects(f.ctx.router.extendTaskBudget(taskId, { tokens: 32768, durationMs: 60001 }), /cannot be extended/u);
+    const unchanged = (await f.ctx.router.snapshot()).tasks.at(-1);
+    assert.deepEqual(unchanged.budget.limits, result.tasks.at(-1).budget.limits);
+    assert.equal(unchanged.budget.extensions.length, 0); assert.equal(f.requests.length, 0);
     await f.ctx.router.stopTask(result.tasks.at(-1).id);
   } finally { await f.close(); }
 });

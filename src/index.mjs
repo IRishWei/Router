@@ -32,7 +32,7 @@ const ROUTING_OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'qual
 const MAX_ASSESSMENT_CONTEXT_BYTES = 16_384;
 const DEEPSEEK_DETECTION_OUTPUT_TOKENS = 32;
 const CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS = 2_048;
-const CHATGPT_DETECTION_MAX_CALLS = 2;
+const RESPONSES_DETECTION_MAX_CALLS = 2;
 const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
 const defaultCoordinationPolicy = () => ({ enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 256, maxAdviceChars: 4096, forecastTokens: 4096 });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
@@ -925,7 +925,7 @@ export class RouterService extends TypertRemoteService {
     if (candidate.ownership !== 'router-owned' || candidate.source !== target.source) throw new TypeError('Responses validation requires the selected connection');
     const claimId = await target.host.claimDetectionTask();
     const { sessionId } = await this.ctx.sessionController.create({ cwd: this.ctx.profileContext.home });
-    const pending = { capture, budget: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] }, taskId: null, startedAt: Date.now(), maxCalls: CHATGPT_DETECTION_MAX_CALLS, outputForecastTokens: target.outputTokens ?? CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS, ...(target.outputTokens ? { outputTokens: target.outputTokens } : {}) };
+    const pending = { capture, budget: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] }, taskId: null, startedAt: Date.now(), maxCalls: RESPONSES_DETECTION_MAX_CALLS, outputForecastTokens: target.outputTokens ?? CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS, ...(target.outputTokens ? { outputTokens: target.outputTokens } : {}) };
     target.pending.set(sessionId, pending);
     try {
       await this.ctx.sessionController.prompt({ sessionId, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: target.prompt }] }, new AbortController().signal);
@@ -1034,7 +1034,7 @@ export class RouterService extends TypertRemoteService {
     if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary', 'detection'].includes(details?.purpose) || !signal) throw new TypeError('Invalid task call reservation');
     if (this.#detectionCallLimitReached(task)) {
       this.#pauseAtDetectionCallLimit(task);
-      throw new LlmError('ChatGPT validation reached its authorized request limit', 'MODEL_NOT_FOUND');
+      throw new LlmError('Responses validation reached its authorized request limit', 'MODEL_NOT_FOUND');
     }
     const identity = identityOf(details.selection);
     if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
@@ -1130,6 +1130,7 @@ export class RouterService extends TypertRemoteService {
     if (this.#storageError) throw new Error('Router storage is unavailable');
     const task = [...this.#active.values()].find(task => task.id === taskId);
     if (!task || task.budget.stopRequested) throw new TypeError('Only an active task can be extended');
+    if (task.openCodeGoDetection) throw new TypeError('Go detection budget cannot be extended');
     const parsed = extensionSchema().parse(extension);
     if (new Set((parsed.money ?? []).map(item => `${item.currency}:${item.kind}`)).size !== (parsed.money ?? []).length) throw new TypeError('Duplicate money extensions');
     const limits = structuredClone(task.budget.limits);

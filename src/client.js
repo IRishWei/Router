@@ -103,6 +103,10 @@ window.__ModuleLoader__.load({
       if (!task.budget) return null;
       const active = ['running', 'waiting-budget'].includes(task.lifecycle);
       const limits = task.budget.limits;
+      if (task.openCodeGoDetection) return h('div', null,
+        h('p', null, `Go 检测预算：${limits.tokens} token · ${limits.durationMs / 1000} 秒；不支持扩额。`),
+        task.lifecycle === 'waiting-budget' ? h('p', null, '检测预算不足，请停止本次检测；未发送的请求不会自动重试。') : null,
+        active ? h('button', { type: 'button', disabled, onClick: () => change(() => api.stopTask(task.id)) }, `停止任务 ${task.id}`) : null);
       return h('div', null,
         h('p', null, `任务预算：token ${limits.tokens === null ? '不限' : limits.tokens} · 耗时 ${limits.durationMs === null ? '不限' : `${limits.durationMs / 1000} 秒`}${task.lifecycle === 'waiting-budget' ? ' · 预算等待：下一次调用尚未发送' : ''}`),
         ...limits.money.map(item => h('p', { key: `${item.currency}:${item.kind}` }, `${amountKind(item.kind)}上限：${item.currency} ${item.amount}`)),

@@ -27,3 +27,14 @@ test('installed Go settings use native RPC codecs, clear key input and show only
     assert.equal(mounted.diagnostics.length, 0);
   } finally { await mounted.dispose(); }
 });
+
+test('Go waiting detection offers stop without a generic budget extension entry', async () => {
+  const task = { id: 'go-waiting', lifecycle: 'waiting-budget', configVersion: 1, result: '', timeline: [], openCodeGoDetection: { maxCalls: 2 }, budget: { limits: { tokens: 1, durationMs: 1000, money: [] }, extensions: [], waiting: { proposedTokens: 2000, blockedBy: [] } } };
+  const mounted = await mountSettings({ ...taskState(), tasks: [task] });
+  try {
+    await act(async () => { await mounted.page.root.findAllByType('button').find(node => node.children.includes('任务记录')).props.onClick(); });
+    const labels = mounted.page.root.findAllByType('button').map(node => node.children.join(''));
+    assert(labels.includes('停止任务 go-waiting')); assert(!labels.includes('扩展任务预算 go-waiting'));
+    assert.equal(mounted.diagnostics.length, 0);
+  } finally { await mounted.dispose(); }
+});
