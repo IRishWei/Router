@@ -1,0 +1,105 @@
+{
+  "passed": true,
+  "version": "0.14.0",
+  "reviewedSourceSha": "9c7269ff63dc48fe56e1c6199df2a7df1af88ad9",
+  "packageSha256": "C126B2B9F03CF0536A971151979FCE4C9BE34F2F6E9061C77B8551EE56A4CB58",
+  "packageBytes": 213623,
+  "installedFilesVerified": 35,
+  "selectedConnectionId": "790915ca-a7fa-4394-adaa-89f99f17f5f8",
+  "savedConnectionCount": 4,
+  "scope": "Go gpt-6-luna text Responses through the new custom compatible path; function protocol separately controlled-tested",
+  "tasks": 1,
+  "possibleModelRequests": 2,
+  "confirmedCompletedRequests": 2,
+  "uncertainDispatchRequests": 0,
+  "realModelRequests": 2,
+  "additionalModelRequests": 0,
+  "tokens": 1662,
+  "elapsedMs": 3557,
+  "retries": 0,
+  "budgetExtensions": 0,
+  "budget": {
+    "tokens": 32768,
+    "durationMs": 60000,
+    "maxOutputTokens": 1024
+  },
+  "actualSpend": "unknown",
+  "quota": "unknown",
+  "useBalanceDisabled": "user-attested",
+  "qualityAcceptance": "unconfirmed; exact connection marker checked independently",
+  "fixtureInstalled": false,
+  "nativeDefaultPreserved": true,
+  "candidateRemovedFromPool": true,
+  "restartPreserved": true,
+  "verifiedInferencePreserved": true,
+  "permanentClaimPreserved": true,
+  "installedRenderer": "native codec and live public RPC; no screenshot visual validation",
+  "ownedProcessesStopped": true,
+  "grantConsumed": true,
+  "remainingAuthorizedTasks": 0,
+  "remainingAuthorizedModelRequests": 0,
+  "credentials": "retained only in isolated DSH Host store; not read or copied by scripts",
+  "officialApiAndSecondAccountFinalGates": "still pending",
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a"
+  },
+  "records": [
+    {
+      "file": "t07-v0140-real-grant.json",
+      "bytes": 736,
+      "sha256": "FA42B1D8AC467A5A72D0F9E8B51619823B79CF5CAE9455D60C3D41C174E70C73"
+    },
+    {
+      "file": "t07-v0140-real-dispatch.json",
+      "bytes": 893,
+      "sha256": "3A9C3B933A7AD57E8A1DCFDDDF2DA257C0492A70D79138A1C81C411D446C95DC"
+    },
+    {
+      "file": "t07-v0140-real-before.json",
+      "bytes": 89915,
+      "sha256": "639B890D05056616F814D81B22931970E5BCF0E53D586DE46950C53054F38765"
+    },
+    {
+      "file": "t07-v0140-real-proof.json",
+      "bytes": 206027,
+      "sha256": "7A4B50899148149617A56EAE6FE98DA8F1A062520E1A008D09CBB710398EADBA"
+    },
+    {
+      "file": "t07-v0140-real-final.json",
+      "bytes": 115245,
+      "sha256": "E99A5843EC8149DBDC1DF884C3ABAA73D6037D45BB38E202BC67FEFE3EA08056"
+    },
+    {
+      "file": "t07-v0140-real-restart-proof.json",
+      "bytes": 115844,
+      "sha256": "83648E9752D0D6230F6576BB2C243C899590A1A6FFE01D6E0B56C8270984757D"
+    },
+    {
+      "file": "t07-v0140-real-renderer-proof.json",
+      "bytes": 527,
+      "sha256": "B45C15BB38551A178E18387B3470A11C38ECF1E7AC70E478C3DED5CC29D16F3F"
+    },
+    {
+      "file": "t07-v0140-real-offline-cli-receipt.json",
+      "bytes": 252,
+      "sha256": "599BC84DCFD296911E8CA76E8CC5116AF1B94B50E6FD25D3DC116E4E599F5443"
+    },
+    {
+      "file": "t07-v0140-real-controlled-stopped.json",
+      "bytes": 405,
+      "sha256": "2E0EF6595415FBD4748DF7E9410F9C8E1D7286AEA35B19FE779E2529052FE22B"
+    },
+    {
+      "file": "t07-v0140-real-restart-stopped.json",
+      "bytes": 402,
+      "sha256": "A1418CEF488D42DBA44926065FA0BA89700DDE87C850C3E9107591E50E821942"
+    },
+    {
+      "file": "t07-v0140-real-preflight-review.md",
+      "bytes": 1487,
+      "sha256": "5C309EAAD7C4F2C8EBFE571E1FB8035778084A42BF152D2671F74AF830E61682"
+    }
+  ]
+}

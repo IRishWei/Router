@@ -1,0 +1,23 @@
+{
+  "authorizedBy": "Human user replied 批准 to the preceding bounded Go validation question",
+  "authorizedAt": "2026-10-09T14:48:50.604Z",
+  "version": "0.14.0",
+  "reviewedSourceSha": "9c7269ff63dc48fe56e1c6199df2a7df1af88ad9",
+  "packageSha256": "C126B2B9F03CF0536A971151979FCE4C9BE34F2F6E9061C77B8551EE56A4CB58",
+  "source": "openai-compatible",
+  "endpoint": "https://opencode.ai/zen/go/v1",
+  "model": "gpt-6-luna",
+  "maxTasks": 1,
+  "maxRequests": 2,
+  "tokens": 32768,
+  "durationMs": 60000,
+  "maxOutputTokens": 1024,
+  "retries": 0,
+  "budgetExtensions": 0,
+  "useBalanceDisabledAttested": true,
+  "credentialInput": "Native DSH compatible password form; do not import existing Go/OAuth credentials",
+  "consumed": true,
+  "startedAt": "2026-10-09T14:57:29.604Z",
+  "connectionId": "790915ca-a7fa-4394-adaa-89f99f17f5f8",
+  "candidateId": "5f0c6d41-c87a-4232-870f-89fd10c739ec"
+}
