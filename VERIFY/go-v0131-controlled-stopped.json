@@ -1,0 +1,11 @@
+{
+  "purpose": "Go controlled Desktop validation",
+  "stage": "controlled",
+  "pid": 51228,
+  "startedAt": "2026-10-09T13:01:04.1534773Z",
+  "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\go-v0131-controlled-home",
+  "executable": "E:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe",
+  "stopped": true,
+  "stoppedAt": "2026-10-09T13:02:00.6062669Z",
+  "ownedChildren": 4
+}

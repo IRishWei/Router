@@ -12,6 +12,7 @@ import { AcceptanceCoordinator } from './acceptance.mjs';
 import { createNodeProgramChecks } from './program-checks.mjs';
 import { DeepSeekHost } from './deepseek-host.mjs';
 import { ChatGptHost } from './chatgpt-host.mjs';
+import { OpenCodeGoHost } from './opencode-go-host.mjs';
 import { mountChatGptRouterConnection } from './chatgpt-router.mjs';
 import { scheduleDeepSeekDeadline } from './deepseek-deadline.mjs';
 import { createHttpSourceEvidenceResolver, createResearchAcceptance } from './research-acceptance.mjs';
@@ -21,6 +22,7 @@ import { coordinationSchema, recoverPendingCoordination, TaskCoordinationControl
 export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
 export const CONTROLLED_MODEL = 'controlled';
+const GO_PROBE_SYSTEM_PROMPT = 'This is a connection probe. Follow the user reply instruction without using tools.';
 export const CONTROLLED_TOOLS_MODEL = 'controlled-tools';
 const catalog = [
   { model: CONTROLLED_MODEL, name: 'Controlled fixture', capability: { text: { supported: true, confidence: 'known' }, image: { supported: false, confidence: 'known' }, tools: { supported: true, confidence: 'known' } } },
@@ -31,7 +33,7 @@ const ROUTING_OBJECTIVES = new Set(['balanced', 'cost', 'tokens', 'speed', 'qual
 const MAX_ASSESSMENT_CONTEXT_BYTES = 16_384;
 const DEEPSEEK_DETECTION_OUTPUT_TOKENS = 32;
 const CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS = 2_048;
-const CHATGPT_DETECTION_MAX_CALLS = 2;
+const RESPONSES_DETECTION_MAX_CALLS = 2;
 const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
 const defaultCoordinationPolicy = () => ({ enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 256, maxAdviceChars: 4096, forecastTokens: 4096 });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
@@ -159,7 +161,7 @@ function conservativeRequestForecast(messages, tools, outputTokens = DEEPSEEK_DE
   const inputTokens = Math.max(1, new TextEncoder().encode(JSON.stringify({ messages, tools: tools ?? [] })).length);
   return { inputTokens, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: inputTokens + outputTokens };
 }
-const detectionOf = task => task?.deepSeekDetection ?? task?.chatGptDetection ?? null;
+const detectionOf = task => task?.deepSeekDetection ?? task?.chatGptDetection ?? task?.openCodeGoDetection ?? null;
 function withOutputLimit(request, maxTokens) {
   const descriptors = Object.getOwnPropertyDescriptors(request);
   descriptors.maxTokens = { value: maxTokens, enumerable: true, configurable: true, writable: false };
@@ -257,6 +259,8 @@ export class RouterService extends TypertRemoteService {
   #chatGpt;
   #deepSeekDetections = new Map();
   #chatGptDetections = new Map();
+  #goDetections = new Map();
+  #go;
   #deepSeekDeadlineTimers = new Map();
   constructor(ctx, state, path, connections, files = { writeFile, rename }) {
     super(ctx, 'router');
@@ -321,7 +325,10 @@ export class RouterService extends TypertRemoteService {
       const pending = ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection');
       const step = { config, pending: pending?.pending ? { ...pending.pending } : null, route: null };
       this.#steps.set(agent, step);
-      const assembled = await next();
+      let assembled = await next();
+      // A connection probe has no coding work: avoid sending the desktop tool
+      // catalog and its instructions while keeping the native runtime context.
+      if (task?.openCodeGoDetection) assembled = { ...assembled, tools: [], sections: [{ name: 'router:go-connection-probe', text: GO_PROBE_SYSTEM_PROMPT, interpolate: false }] };
       step.assembled = assembled;
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
       const detection = detectionOf(task);
@@ -338,7 +345,7 @@ export class RouterService extends TypertRemoteService {
           step.enforceCandidate = true;
           task.activeSelection = captured.identity;
           task.configVersion = config.version;
-          const reason = task.chatGptDetection ? 'EXPLICIT_CHATGPT_DETECTION' : 'EXPLICIT_DEEPSEEK_DETECTION';
+          const reason = task.openCodeGoDetection ? 'EXPLICIT_OPENCODE_GO_DETECTION' : task.chatGptDetection ? 'EXPLICIT_CHATGPT_DETECTION' : 'EXPLICIT_DEEPSEEK_DETECTION';
           task.routing = { status: 'selected', objective: 'explicit-detection', snapshotEpoch: captured.registryEpoch, selected: structuredClone(captured), reasonCodes: [reason], excluded: [], requirements: { modalities: ['text'] } };
           task.timeline.push({ kind: 'routing-decision', candidateId: captured.candidateId, reasons: [reason], excluded: [], snapshotEpoch: captured.registryEpoch });
           this.#persist();
@@ -449,13 +456,17 @@ export class RouterService extends TypertRemoteService {
       const step = this.#steps.get(agent);
       if (!step || decision.kind === 'reject' || signal.aborted) return decision;
       const detectionTask = this.#active.get(`${agent.session.id}:${turn}`);
-      if (detectionTask?.chatGptDetection && this.#chatGptCallLimitReached(detectionTask)) {
-        this.#pauseAtChatGptCallLimit(detectionTask);
+      if (detectionTask && this.#detectionCallLimitReached(detectionTask)) {
+        this.#pauseAtDetectionCallLimit(detectionTask);
         return { kind: 'reject' };
       }
       const detection = detectionOf(detectionTask);
       if (detection) {
-        step.detectionForecast = conservativeRequestForecast([...agent.session.deriveMessages(), ...decision.messages], step.assembled?.tools, detection.outputForecastTokens ?? detection.outputTokens);
+        // Native system/message projection happens after prepareRequest reserves
+        // the call. Include the probe section before that projection; duplicate
+        // historical system text only makes this estimate more conservative.
+        const currentSystem = detectionTask.openCodeGoDetection ? [{ role: 'system', content: [{ type: 'text', text: GO_PROBE_SYSTEM_PROMPT }] }] : [];
+        step.detectionForecast = conservativeRequestForecast([...agent.session.deriveMessages(), ...currentSystem, ...decision.messages], step.assembled?.tools, detection.outputForecastTokens ?? detection.outputTokens);
       }
       const hasImage = [...agent.session.deriveMessages(), ...messages].some(message => message.content.some(part => part.type === 'image'));
       const capability = step.selectionSnapshot?.capability;
@@ -495,6 +506,7 @@ export class RouterService extends TypertRemoteService {
       if (stepSnapshot?.route && !sameRoute(resolved, stepSnapshot.route)) delete config.reasoningEffort;
       const task = this.#active.get(`${agent.session.id}:${turn}`);
       if (task?.deepSeekDetection) config.maxTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS;
+      if (task?.openCodeGoDetection) config.maxTokens = task.openCodeGoDetection.outputTokens;
       const blocked = stepSnapshot && manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : this.#restriction(config);
       if (blocked) {
         if (task) task.routingPauseReason = blocked;
@@ -564,6 +576,7 @@ export class RouterService extends TypertRemoteService {
       this.#deepSeekDeadlineTimers.clear();
       this.#deepSeekDetections.clear();
       this.#chatGptDetections.clear();
+      this.#goDetections.clear();
       for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router disabled during budget wait', 'MODEL_NOT_FOUND'));
       for (const task of this.#active.values()) for (const call of task.calls) this.#releaseUnboundCall(task, call, 'ROUTER_DISABLED', true);
       return this.flush();
@@ -643,6 +656,7 @@ export class RouterService extends TypertRemoteService {
   }
   #ownedCallStream(task, request, existingCall = null, source = null) {
     if (task.deepSeekDetection) request = withOutputLimit(request, DEEPSEEK_DETECTION_OUTPUT_TOKENS);
+    if (task.openCodeGoDetection) request = withOutputLimit(request, task.openCodeGoDetection.outputTokens);
     const service = this, controller = new AbortController();
     const originalSignal = existingCall ? this.#callSignals.get(existingCall.id) : request.signal ?? new AbortController().signal;
     const owner = { task, call: existingCall, controller, started: false, iterators: new Set(), usage: null, finish: null, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
@@ -759,12 +773,12 @@ export class RouterService extends TypertRemoteService {
     for (const call of task.calls) this.#releaseUnboundCall(task, call, 'ABORTED');
     for (const call of task.calls) this.#waiters.get(call.id)?.resolve();
   }
-  #chatGptCallLimitReached(task) {
-    return Boolean(task.chatGptDetection && task.calls.filter(call => possiblyDispatched(call) || !['released', 'settled'].includes(call.reservation?.state)).length >= task.chatGptDetection.maxCalls);
+  #detectionCallLimitReached(task) {
+    return Boolean(detectionOf(task)?.maxCalls && task.calls.filter(call => possiblyDispatched(call) || !['released', 'settled'].includes(call.reservation?.state)).length >= detectionOf(task).maxCalls);
   }
-  #pauseAtChatGptCallLimit(task) {
+  #pauseAtDetectionCallLimit(task) {
     task.routingPauseReason = 'CALL_LIMIT_REACHED';
-    if (!task.timeline.some(item => item.kind === 'call-limit')) task.timeline.push({ kind: 'call-limit', limit: task.chatGptDetection.maxCalls });
+    if (!task.timeline.some(item => item.kind === 'call-limit')) task.timeline.push({ kind: 'call-limit', limit: detectionOf(task).maxCalls });
     this.#persist();
   }
   #clearDetectionDeadline(taskId) {
@@ -821,10 +835,20 @@ export class RouterService extends TypertRemoteService {
     const candidateSnapshot = this.#connections.snapshot(this.#state.config);
     const deepSeek = this.#deepSeek ? await this.#deepSeek.snapshot() : undefined;
     const chatGpt = this.#chatGpt ? await this.#chatGpt.snapshot() : undefined;
-    return structuredClone({ ...this.#state, ...(deepSeek ? { deepSeek } : {}), ...(chatGpt ? { chatGpt } : {}), tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, candidateSnapshot, unsupportedProviders: candidateSnapshot.unsupported, storageError: this.#storageError ?? null, models: candidateSnapshot.candidates });
+    const openCodeGo = this.#go ? await this.#go.snapshot() : undefined;
+    return structuredClone({ ...this.#state, ...(deepSeek ? { deepSeek } : {}), ...(chatGpt ? { chatGpt } : {}), ...(openCodeGo ? { openCodeGo } : {}), tasks: this.#state.tasks.map(task => task.startedAt ? { ...task, ledger: ledgerOf(task) } : task), application, candidateSnapshot, unsupportedProviders: candidateSnapshot.unsupported, storageError: this.#storageError ?? null, models: candidateSnapshot.candidates });
   }
   attachDeepSeek(host) { this.#deepSeek = host; }
   attachChatGpt(host) { this.#chatGpt = host; }
+  attachOpenCodeGo(host) { this.#go = host; }
+  async openCodeGoSaveCredential(request) { await this.#go.saveCredential(request); return this.snapshot(); }
+  async openCodeGoConnect() { await this.#go.connect(); await this.refreshConnections(); return this.snapshot(); }
+  async openCodeGoDisconnect(request) { await this.#go.disconnect(request); await this.refreshConnections(); return this.snapshot(); }
+  async openCodeGoRunDetection(request) {
+    if (request.useBalanceDisabled !== true) throw new TypeError('Confirm Use balance is disabled before Go detection');
+    if (!Number.isSafeInteger(request.budget?.tokens) || request.budget.tokens < 1 || request.budget.tokens > 32768 || !Number.isSafeInteger(request.budget?.durationMs) || request.budget.durationMs < 1 || request.budget.durationMs > 60000) throw new TypeError('Go detection requires a finite token and duration budget');
+    return this.#runResponsesDetection(request, { source: 'opencode-go', host: this.#go, pending: this.#goDetections, outputTokens: 1024, prompt: 'Reply exactly OPENCODE_GO_CONNECTION_OK without using tools.' });
+  }
   async deepSeekSaveCredential(request) {
     await this.#deepSeek.saveCredential(request);
     return this.snapshot();
@@ -900,19 +924,22 @@ export class RouterService extends TypertRemoteService {
     return this.snapshot();
   }
   async chatGptRunDetection(request) {
+    return this.#runResponsesDetection(request, { source: 'openai-chatgpt-oauth', host: this.#chatGpt, pending: this.#chatGptDetections, prompt: 'Reply exactly CHATGPT_CONNECTION_OK without using tools.' });
+  }
+  async #runResponsesDetection(request, target) {
     const capture = await this.captureCandidate(request.candidateId);
-    if (!capture.enabled || capture.identity.provider === CONTROLLED_PROVIDER) throw new TypeError('ChatGPT validation requires an enabled owned candidate');
+    if (!capture.enabled || capture.identity.provider === CONTROLLED_PROVIDER) throw new TypeError('Responses validation requires an enabled owned candidate');
     const candidate = this.#connections.resolve(capture.candidateId, { allowLegacyControlled: false });
-    if (candidate.ownership !== 'router-owned' || candidate.source !== 'openai-chatgpt-oauth') throw new TypeError('ChatGPT validation requires the authorized ChatGPT connection');
-    const claimId = await this.#chatGpt.claimDetectionTask();
+    if (candidate.ownership !== 'router-owned' || candidate.source !== target.source) throw new TypeError('Responses validation requires the selected connection');
+    const claimId = await target.host.claimDetectionTask();
     const { sessionId } = await this.ctx.sessionController.create({ cwd: this.ctx.profileContext.home });
-    const pending = { capture, budget: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] }, taskId: null, startedAt: Date.now(), maxCalls: CHATGPT_DETECTION_MAX_CALLS, outputForecastTokens: CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS };
-    this.#chatGptDetections.set(sessionId, pending);
+    const pending = { capture, budget: { tokens: request.budget.tokens, durationMs: request.budget.durationMs, money: [] }, taskId: null, startedAt: Date.now(), maxCalls: RESPONSES_DETECTION_MAX_CALLS, outputForecastTokens: target.outputTokens ?? CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS, ...(target.outputTokens ? { outputTokens: target.outputTokens } : {}) };
+    target.pending.set(sessionId, pending);
     try {
-      await this.ctx.sessionController.prompt({ sessionId, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: 'Reply exactly CHATGPT_CONNECTION_OK without using tools.' }] }, new AbortController().signal);
+      await this.ctx.sessionController.prompt({ sessionId, requestId: randomUUID(), mode: 'queue', content: [{ type: 'text', text: target.prompt }] }, new AbortController().signal);
     } catch (error) {
       if (!pending.taskId) {
-        this.#chatGptDetections.delete(sessionId);
+        target.pending.delete(sessionId);
         throw error;
       }
     }
@@ -920,12 +947,12 @@ export class RouterService extends TypertRemoteService {
     while (true) {
       const task = pending.taskId && this.#state.tasks.find(item => item.id === pending.taskId);
       if (task && (task.lifecycle === 'waiting-budget' || ['completed', 'paused'].includes(task.lifecycle))) break;
-      if (task?.chatGptDetection?.deadlineExpired && agent?.status !== 'running' && !this.#ownedCalls.get(task.id)?.size) break;
+      if (detectionOf(task)?.deadlineExpired && agent?.status !== 'running' && !this.#ownedCalls.get(task.id)?.size) break;
       await new Promise(resolve => setTimeout(resolve, 5));
     }
-    this.#chatGptDetections.delete(sessionId);
-    if (!pending.taskId) throw new Error('ChatGPT validation Task was not created');
-    await this.#chatGpt.finalizeDetectionTask(claimId, pending.taskId);
+    target.pending.delete(sessionId);
+    if (!pending.taskId) throw new Error('Responses validation Task was not created');
+    await target.host.finalizeDetectionTask(claimId, pending.taskId);
     return this.snapshot();
   }
   async refreshConnections() {
@@ -1013,9 +1040,9 @@ export class RouterService extends TypertRemoteService {
   async reserveCall(taskId, details, signal) {
     const task = [...this.#active.values()].find(task => task.id === taskId);
     if (!task || !['assessment', 'execution', 'review', 'consultation', 'retry', 'redo', 'auxiliary', 'detection'].includes(details?.purpose) || !signal) throw new TypeError('Invalid task call reservation');
-    if (this.#chatGptCallLimitReached(task)) {
-      this.#pauseAtChatGptCallLimit(task);
-      throw new LlmError('ChatGPT validation reached its authorized request limit', 'MODEL_NOT_FOUND');
+    if (this.#detectionCallLimitReached(task)) {
+      this.#pauseAtDetectionCallLimit(task);
+      throw new LlmError('Responses validation reached its authorized request limit', 'MODEL_NOT_FOUND');
     }
     const identity = identityOf(details.selection);
     if (!Object.values(identity).every(value => typeof value === 'string' && value)) throw new TypeError('A complete call identity is required');
@@ -1081,13 +1108,14 @@ export class RouterService extends TypertRemoteService {
     this.#callSignals.delete(call.id);
     this.#unboundAbortDisposers.get(call.id)?.(); this.#unboundAbortDisposers.delete(call.id);
     call.usage = settlement.usage ? Object.fromEntries(Object.entries(settlement.usage).filter(([key, value]) => ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheWriteTokens', 'reasoningTokens', 'totalTokens'].includes(key) && Number.isSafeInteger(value) && value >= 0)) : null;
-    if (call.usage && call.subscription?.usageFormat === 'openai-responses' && call.usage.inputTokens !== undefined) {
+    const responsesUsage = call.subscription?.usageFormat === 'openai-responses' || call.selection.billingPath === 'opencode-go-subscription';
+    if (call.usage && responsesUsage && call.usage.inputTokens !== undefined) {
       const aggregateInputTokens = call.usage.inputTokens + (call.usage.cacheReadTokens ?? 0) + (call.usage.cacheWriteTokens ?? 0);
       if (Number.isSafeInteger(aggregateInputTokens)) call.usageAccounting = { aggregateInputTokens, source: 'openai-responses-usage', inputPartitions: ['cacheReadTokens', 'cacheWriteTokens'].every(key => call.usage[key] !== undefined) ? 'complete' : 'incomplete' };
     }
     // Responses folds cache reads/writes into its prompt. If either detail was
     // omitted, the adapter's residual input cannot prove ordinary input usage.
-    if (call.usage && call.subscription?.usageFormat === 'openai-responses' && ['cacheReadTokens', 'cacheWriteTokens'].some(key => call.usage[key] === undefined)) delete call.usage.inputTokens;
+    if (call.usage && responsesUsage && ['cacheReadTokens', 'cacheWriteTokens'].some(key => call.usage[key] === undefined)) delete call.usage.inputTokens;
     if (settlement.seq !== undefined) call.settlementSeq = settlement.seq;
     call.finishReason = settlement.finishReason;
     if (settlement.failureCode) call.failureCode = settlement.failureCode;
@@ -1110,6 +1138,7 @@ export class RouterService extends TypertRemoteService {
     if (this.#storageError) throw new Error('Router storage is unavailable');
     const task = [...this.#active.values()].find(task => task.id === taskId);
     if (!task || task.budget.stopRequested) throw new TypeError('Only an active task can be extended');
+    if (task.openCodeGoDetection) throw new TypeError('Go detection budget cannot be extended');
     const parsed = extensionSchema().parse(extension);
     if (new Set((parsed.money ?? []).map(item => `${item.currency}:${item.kind}`)).size !== (parsed.money ?? []).length) throw new TypeError('Duplicate money extensions');
     const limits = structuredClone(task.budget.limits);
@@ -1317,9 +1346,11 @@ export class RouterService extends TypertRemoteService {
       if (assessmentRequested) this.#state.semanticAssessmentRequest = null;
       const deepSeekDetection = this.#deepSeekDetections.get(session.id);
       const chatGptDetection = this.#chatGptDetections.get(session.id);
-      const detection = deepSeekDetection ?? chatGptDetection;
+      const goDetection = this.#goDetections.get(session.id);
+      const detection = deepSeekDetection ?? chatGptDetection ?? goDetection;
       const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), coordinationPolicy: freezeCoordinationPolicy(this.#state.config, this.#connections), coordination: null, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(deepSeekDetection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}), ...(chatGptDetection ? { chatGptDetection: { capture: structuredClone(detection.capture), outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls } } : {}) };
       if (detection) {
+        if (goDetection) task.openCodeGoDetection = { capture: structuredClone(detection.capture), outputTokens: detection.outputTokens, outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls };
         detection.taskId = task.id;
       }
       this.#active.set(`${session.id}:${event.data.turn}`, task);
@@ -1464,6 +1495,9 @@ export async function apply(ctx) {
   });
   service.attachChatGpt(chatGpt);
   await chatGpt.initialize();
+  const openCodeGo = new OpenCodeGoHost(ctx, state, service.commitState);
+  service.attachOpenCodeGo(openCodeGo);
+  await openCodeGo.restore();
   const programChecks = createNodeProgramChecks(ctx);
   const researchAcceptance = createResearchAcceptance({ resolveSourceEvidence: ctx.get('routerResearchSourceEvidence') ?? createHttpSourceEvidenceResolver() });
   const coordination = new TaskCoordinationController({
@@ -1500,6 +1534,7 @@ export async function apply(ctx) {
   ctx.effect(() => disposeControlled, 'router: owned connection registration');
   ctx.effect(() => () => deepSeek.dispose(), 'router: DeepSeek connection lifecycle');
   ctx.effect(() => () => chatGpt.dispose(), 'router: ChatGPT connection lifecycle');
+  ctx.effect(() => () => openCodeGo.dispose(), 'router: OpenCode Go connection lifecycle');
   ctx.effect(() => () => programChecks.dispose(), 'router: acceptance program checks');
   // Registration is owned by this plugin fiber; disabling releases the provider without touching native defaults.
 }
