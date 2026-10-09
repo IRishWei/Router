@@ -1,0 +1,233 @@
+{
+  "schemaVersion": 1,
+  "sourceSha": "5b4048dd96237a95ad29d5973c837d60324597f3",
+  "packageSha256": "47AE4C313FFF8C030465008C9DEC554BD161622497B9925AF1FC51F2D3AAF7E8",
+  "passed": true,
+  "taskId": "214cc492-97a0-4305-87a3-e986dccb2668",
+  "lifecycle": "completed",
+  "result": "CHATGPT_CONNECTION_OK",
+  "limits": {
+    "maxTasks": 1,
+    "maxModelRequests": 2,
+    "tokenBudget": 65536,
+    "absoluteDurationMs": 120000,
+    "outputTokenHardLimit": false,
+    "automaticRetry": false,
+    "budgetExtension": false,
+    "apiBillingFallback": false
+  },
+  "calls": [
+    {
+      "id": "26ea5976-a374-406a-bf72-b1f7fa83b998",
+      "purpose": "detection",
+      "model": "gpt-6.1-sol",
+      "billingPath": "chatgpt-subscription",
+      "status": "completed",
+      "usage": {
+        "inputTokens": 6547,
+        "outputTokens": 8,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 0,
+        "totalTokens": 6555
+      },
+      "usageAccounting": {
+        "aggregateInputTokens": 6547,
+        "source": "openai-responses-usage",
+        "inputPartitions": "complete"
+      },
+      "priceQuote": {
+        "source": "https://developers.openai.com/api/docs/pricing",
+        "date": "2026-10-09",
+        "currency": "USD",
+        "kind": "subscription-reference",
+        "confidence": "known",
+        "referenceBasis": "openai-standard-text-tokens",
+        "perMillion": {
+          "input": 2,
+          "cacheRead": 0.1,
+          "cacheWrite": 2.5,
+          "output": 10
+        },
+        "reasoning": "included-in-output",
+        "contextPricing": {
+          "shortMaxInputTokens": 272000,
+          "longPerMillion": {
+            "input": 4,
+            "cacheRead": 0.2,
+            "cacheWrite": 5,
+            "output": 15
+          }
+        }
+      },
+      "cost": {
+        "currency": "USD",
+        "kind": "subscription-reference",
+        "amount": 0.013174,
+        "knownSubtotal": 0.013174,
+        "parts": {
+          "input": 0.013094,
+          "output": 0.00008,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "missing": [],
+        "reasoning": "included-in-output",
+        "basis": {
+          "profile": "openai-standard-text-tokens",
+          "contextBand": "short",
+          "promptTokens": 6547,
+          "shortMaxInputTokens": 272000
+        },
+        "billingConfirmation": "unconfirmed"
+      },
+      "elapsedMs": 5688
+    },
+    {
+      "id": "9dc58c72-2fef-45dd-87f0-8a7363653069",
+      "purpose": "auxiliary",
+      "nativePurpose": "session-title",
+      "model": "gpt-6.1-sol",
+      "billingPath": "chatgpt-subscription",
+      "status": "completed",
+      "usage": {
+        "inputTokens": 121,
+        "outputTokens": 48,
+        "cacheReadTokens": 0,
+        "cacheWriteTokens": 0,
+        "reasoningTokens": 35,
+        "totalTokens": 169
+      },
+      "usageAccounting": {
+        "aggregateInputTokens": 121,
+        "source": "openai-responses-usage",
+        "inputPartitions": "complete"
+      },
+      "priceQuote": {
+        "source": "https://developers.openai.com/api/docs/pricing",
+        "date": "2026-10-09",
+        "currency": "USD",
+        "kind": "subscription-reference",
+        "confidence": "known",
+        "referenceBasis": "openai-standard-text-tokens",
+        "perMillion": {
+          "input": 2,
+          "cacheRead": 0.1,
+          "cacheWrite": 2.5,
+          "output": 10
+        },
+        "reasoning": "included-in-output",
+        "contextPricing": {
+          "shortMaxInputTokens": 272000,
+          "longPerMillion": {
+            "input": 4,
+            "cacheRead": 0.2,
+            "cacheWrite": 5,
+            "output": 15
+          }
+        }
+      },
+      "cost": {
+        "currency": "USD",
+        "kind": "subscription-reference",
+        "amount": 0.000722,
+        "knownSubtotal": 0.000722,
+        "parts": {
+          "input": 0.000242,
+          "output": 0.00048,
+          "cacheRead": 0,
+          "cacheWrite": 0
+        },
+        "missing": [],
+        "reasoning": "included-in-output",
+        "basis": {
+          "profile": "openai-standard-text-tokens",
+          "contextBand": "short",
+          "promptTokens": 121,
+          "shortMaxInputTokens": 272000
+        },
+        "billingConfirmation": "unconfirmed"
+      },
+      "elapsedMs": 6119
+    }
+  ],
+  "referenceArithmetic": {
+    "independentOracle": true,
+    "source": "official-pricing-2026-10-09",
+    "model": "gpt-6.1-sol",
+    "returnedUsageConfirmed": true,
+    "amount": 0.013896,
+    "knownSubtotal": 0.013896,
+    "calls": [
+      {
+        "callId": "26ea5976-a374-406a-bf72-b1f7fa83b998",
+        "hasReturnedUsage": true,
+        "contextBand": "short",
+        "aggregateInputTokens": 6547,
+        "amount": 0.013174,
+        "knownSubtotal": 0.013174,
+        "parts": {
+          "input": 0.013094,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "output": 0.00008
+        }
+      },
+      {
+        "callId": "9dc58c72-2fef-45dd-87f0-8a7363653069",
+        "hasReturnedUsage": true,
+        "contextBand": "short",
+        "aggregateInputTokens": 121,
+        "amount": 0.000722,
+        "knownSubtotal": 0.000722,
+        "parts": {
+          "input": 0.000242,
+          "cacheRead": 0,
+          "cacheWrite": 0,
+          "output": 0.00048
+        }
+      }
+    ]
+  },
+  "actualSpend": {
+    "amount": null,
+    "status": "unknown"
+  },
+  "quotaRatio": {
+    "remainingRatio": null,
+    "status": "unknown"
+  },
+  "renderer": {
+    "passed": true,
+    "taskId": "214cc492-97a0-4305-87a3-e986dccb2668",
+    "installedClientSha256": "24CA53C15834CAE2590DB81B46F48A8845D2913B55D69EB9F8FC23A3FE6CF177",
+    "harnessSha256": "E66FD5E1BFB04AD23149F176D20A811DCEC80059B49A427AE7970897FDC05387",
+    "entryTextSha256": "66F7F197F417ECDA5B713442A2658370464A73E5AF6950D693C0FACD44BA570A",
+    "realNativeRenderer": true,
+    "realTypertRpcCodec": true,
+    "livePublicRpcCarrier": true,
+    "browserDomMount": "react-test-renderer",
+    "visualScreenshotVerified": false,
+    "additionalModelRequests": 0,
+    "configAndHistoryPreserved": true
+  },
+  "restart": {
+    "passed": true,
+    "configAndHistoryPreserved": true,
+    "claimPreserved": true,
+    "nativeDefaultPreserved": true,
+    "additionalModelRequests": 0
+  },
+  "preservation": {
+    "frozenFiles": 150,
+    "allUnchanged": true
+  },
+  "processCleanup": {
+    "ownedStagesStopped": [
+      "real",
+      "restart"
+    ],
+    "additionalModelRequests": 0
+  },
+  "startupObservation": "First authorize invocation exited before the Desktop entry was ready. No authorization intent or model request had been created; the unchanged authorize helper succeeded after readiness was confirmed."
+}
