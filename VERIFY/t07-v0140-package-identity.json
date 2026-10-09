@@ -1,0 +1,184 @@
+{
+  "version": "0.14.0",
+  "reviewedSourceSha": "9c7269ff63dc48fe56e1c6199df2a7df1af88ad9",
+  "path": "E:\\GPT\\Router项目\\artifacts\\irishwei-dsh-router-0.14.0.tgz",
+  "bytes": 213623,
+  "sha256": "C126B2B9F03CF0536A971151979FCE4C9BE34F2F6E9061C77B8551EE56A4CB58",
+  "files": [
+    {
+      "file": "LICENSE",
+      "bytes": 1086,
+      "sha256": "827FD39732D6951DFAFCB783320ED5CD19D3E9983168C279AF4AFC86EC888C58"
+    },
+    {
+      "file": "README.md",
+      "bytes": 24198,
+      "sha256": "2DA317DFED9F7DC372D18FBA2C5729E56FA81C0A08791D8D822F3ECAB2664D48"
+    },
+    {
+      "file": "cordis.patch.yml",
+      "bytes": 74,
+      "sha256": "F40697CEF62FCC7D3D2F4316725A2ABD7865365D2EA0CD10D5D3EB16A0006E28"
+    },
+    {
+      "file": "lib/acceptance.js",
+      "bytes": 42270,
+      "sha256": "2CB3B4FE25D1B0AEE6F247A967C702453CEE4458FFA793A0F6AC71A3BCEEC805"
+    },
+    {
+      "file": "lib/chatgpt-host.js",
+      "bytes": 32170,
+      "sha256": "32858DFFB7A90D8FAD4F663092EF15B9BCBE73D5B8707D7A3FA300AE13AE1E99"
+    },
+    {
+      "file": "lib/chatgpt-oauth.js",
+      "bytes": 19132,
+      "sha256": "372789AF53F1A6282538B7DC198B4BE6A4FDE26415D74242B21F0FF65B745274"
+    },
+    {
+      "file": "lib/chatgpt-responses.js",
+      "bytes": 41528,
+      "sha256": "6D345C4B005D9A82FCBA11550219298C6EDE6B3F151D1FC939B598957B32B1C3"
+    },
+    {
+      "file": "lib/chatgpt-router.js",
+      "bytes": 3112,
+      "sha256": "6C76F788E27F22B3E4D3F9E8BEFC6C9D40F45A7674F0A0C6D4B541A361B7C0C5"
+    },
+    {
+      "file": "lib/chatgpt-sessions.js",
+      "bytes": 23981,
+      "sha256": "2D8285404887E11ACA5E3FA2A0B062FCD3437353565D6597B7FA22B93092174F"
+    },
+    {
+      "file": "lib/client.js",
+      "bytes": 382420,
+      "sha256": "C3039BD00D24254C8A0EB507890953D35C769DA40D3F6E5942BE8962B96B2309"
+    },
+    {
+      "file": "lib/compatible-host.js",
+      "bytes": 9360,
+      "sha256": "98593AE2ECFF4C28E849D7929E8A2B22AE4E615BEFFD2083E85B72838DFEE59C"
+    },
+    {
+      "file": "lib/compatible-responses.js",
+      "bytes": 8772,
+      "sha256": "68387BA8E348D3FA279527A360BE5743A5121CACC1A4B867FE26F2031FD0CBAC"
+    },
+    {
+      "file": "lib/connections.js",
+      "bytes": 20157,
+      "sha256": "990508CF51627003A64B7FE4252E4B7596562C15C95661A3D6AC1BB5423C3022"
+    },
+    {
+      "file": "lib/coordination.js",
+      "bytes": 31403,
+      "sha256": "31BAF884C869F55A3301AEA2E4F1284A5A5DD293A67159DC9FE12160DF16D381"
+    },
+    {
+      "file": "lib/deepseek-catalog.js",
+      "bytes": 4755,
+      "sha256": "001ACEE0E2F7BF6E8CADD6F3AEFF0FD07A9936D400A4D14C9EA9605A03A2D634"
+    },
+    {
+      "file": "lib/deepseek-connections.js",
+      "bytes": 10517,
+      "sha256": "A177318BBFC926753B6E46C84B13A71F622D2EC767E73E98672B8AADF376DC4D"
+    },
+    {
+      "file": "lib/deepseek-deadline.js",
+      "bytes": 255,
+      "sha256": "622C440A9F7BD28560B7445C1179257D8D68D4EA543FB9D32B56753D5405289F"
+    },
+    {
+      "file": "lib/deepseek-host.js",
+      "bytes": 8653,
+      "sha256": "A1C05CB5E3AEB13F3F6DB6F122A2313C6AF47E3B7918F900EE378929F26C3B36"
+    },
+    {
+      "file": "lib/deepseek-router.js",
+      "bytes": 3968,
+      "sha256": "9AE158757285F03B8469CEFB749DA1D490839E8083BDB541C363C57026CF40F3"
+    },
+    {
+      "file": "lib/index.js",
+      "bytes": 114072,
+      "sha256": "D42E3DD043B841FB2347643738FA04E7C1C7190BB062D0A31D28ACD522DA82E9"
+    },
+    {
+      "file": "lib/ledger.js",
+      "bytes": 10911,
+      "sha256": "A2F58F0F7F3CA926148CE5408BF7240DC57316816C6832254299ED437DA77E3A"
+    },
+    {
+      "file": "lib/native-connections.js",
+      "bytes": 3573,
+      "sha256": "68492A1E5A591AECE533A771D251E51CB80CE4A4015E9E51DF3AAB91365E3E4F"
+    },
+    {
+      "file": "lib/opencode-go-adapter.js",
+      "bytes": 6868,
+      "sha256": "F442B4825A1DC1511E73BFB47D26886752723E190025FE1E6FE1ADA711D122B4"
+    },
+    {
+      "file": "lib/opencode-go-host.js",
+      "bytes": 8277,
+      "sha256": "FF36EE9529292BAF815046942F0B1E0DDF017EDE0ADFCA28B0E08AE857040D81"
+    },
+    {
+      "file": "lib/program-checks.js",
+      "bytes": 11568,
+      "sha256": "1E713A38B13E6F39380723E655FE5DF2704C9B30BFAA1039344EBA0344096FFC"
+    },
+    {
+      "file": "lib/protocol.js",
+      "bytes": 9133,
+      "sha256": "09BAD7B3FE88C8EE74647ADE032F794A710A696F26E4C94150369C431C6D4BED"
+    },
+    {
+      "file": "lib/research-acceptance.js",
+      "bytes": 31026,
+      "sha256": "BA681B31C9865BF8090C81C90CB9D366137A1495EFD15F4F2617BA412D6368B0"
+    },
+    {
+      "file": "lib/research-artifact.js",
+      "bytes": 2478,
+      "sha256": "5C6F00DCA0CFDA1EF71069132F0902317C7BD346B426D07A4A2BBEBBFCE8BB21"
+    },
+    {
+      "file": "lib/research-contribution.js",
+      "bytes": 19909,
+      "sha256": "A6DDEBE858CA7635433E40EB408D833398E6140BB4FDB3B2E4D0ABBC49E76A01"
+    },
+    {
+      "file": "lib/routing.js",
+      "bytes": 17352,
+      "sha256": "4B8E7AD121DDBC6C1583C3C75F65653DC90DE8BEC3B599A3134A76C1A3A18C57"
+    },
+    {
+      "file": "lib/source-network.js",
+      "bytes": 21316,
+      "sha256": "B476E7648A3753649CFF37CF0AE1BD79631727639B3DF30E494438439D0A8B8B"
+    },
+    {
+      "file": "lib/subscription-reference.js",
+      "bytes": 2815,
+      "sha256": "3733A54AE2970FEC5900CAC8AA626E6EF221039B3818D34C93AECCC4FF658277"
+    },
+    {
+      "file": "lib/typert.host.js",
+      "bytes": 59,
+      "sha256": "BC86280BC50E60349EE89D7E23C018E6F2D199674AF7F14AC32482281D49DC06"
+    },
+    {
+      "file": "lib/typert.remote-client.js",
+      "bytes": 73,
+      "sha256": "1A8F43647DBB2341F80CCAE6A94472F8F57A40915440E0CC569EE80C7A7206F1"
+    },
+    {
+      "file": "package.json",
+      "bytes": 3252,
+      "sha256": "E279E64C9AD62644A8E9E598B2D39AB7CFD2916B0E84C114FDC380146E53E694"
+    }
+  ]
+}

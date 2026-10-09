@@ -1,0 +1,11 @@
+{
+  "purpose": "T07 controlled Desktop validation",
+  "stage": "controlled",
+  "pid": 52852,
+  "startedAt": "2026-10-09T13:48:48.4977129Z",
+  "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t07-v0140b-controlled-home",
+  "executable": "E:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe",
+  "stopped": true,
+  "stoppedAt": "2026-10-09T13:51:36.7073972Z",
+  "ownedChildren": 4
+}
