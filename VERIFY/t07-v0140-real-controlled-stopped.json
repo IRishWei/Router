@@ -1,0 +1,11 @@
+{
+  "purpose": "T07 bounded real validation",
+  "stage": "controlled",
+  "pid": 56692,
+  "startedAt": "2026-10-09T14:49:00.6955038Z",
+  "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t07-v0140-real-home",
+  "executable": "E:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe",
+  "stopped": true,
+  "stoppedAt": "2026-10-09T14:58:49.2988497Z",
+  "ownedChildren": 4
+}
