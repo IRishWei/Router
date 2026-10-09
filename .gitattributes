@@ -1,0 +1,3 @@
+# Preserve the frozen T15 evidence bytes across Windows checkouts.
+/VERIFY/t15-v0150*.json -text
+/VERIFY/t15-v0150*.md -text

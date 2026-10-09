@@ -1,0 +1,78 @@
+{
+  "status": "failed",
+  "reason": "SESSION_CREATE_ARGUMENTS_REQUIRE_REQUEST_WRAPPER",
+  "tasksBefore": 0,
+  "controlledStreams": 0,
+  "realModelRequests": 0,
+  "stopped": true,
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+    "t07FrozenFilesVerified": 39,
+    "goAndCompatibleFrozenPackagesVerified": true,
+    "realModelRequests": 0
+  },
+  "files": [
+    {
+      "file": "t15-v0150a-executed-rpc.mjs",
+      "bytes": 13594,
+      "sha256": "bbcb38ca147703380d899baeb347b50cdfca77e7d6f356c2bb9d7dd55e5e7a51"
+    },
+    {
+      "file": "t15-v0150a-executed-fixture.mjs",
+      "bytes": 7719,
+      "sha256": "66a0e4571dbd81446c61dc2be8734c010e38e4d3071f8b894681ddd62f62a24e"
+    },
+    {
+      "file": "t15-v0150a-executed-wrapper.ps1",
+      "bytes": 1732,
+      "sha256": "18ab0a0ba16d861b122c3ff523d93a985561091e5cee1d0607123968eacad0d5"
+    },
+    {
+      "file": "t15-v0150a-preparation.json",
+      "bytes": 329,
+      "sha256": "c3ae520616d3f1c1a35084670bb1406ce16e898aa4ad9646ced0724b3f945a99"
+    },
+    {
+      "file": "t15-v0150a-package-identity.json",
+      "bytes": 6323,
+      "sha256": "fba02c441690be4166daecbb121037525b78b94ab3e39cc6fb6a0d9809646693"
+    },
+    {
+      "file": "t15-v0150a-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "abeae25764b75398cf130506f7ffb2530ec598f7b1ed734d889fca5e83f1cd05"
+    },
+    {
+      "file": "t15-v0150a-controlled-owner.json",
+      "bytes": 619,
+      "sha256": "661d3cd6a09e59ee0bfee6b02dd576b1cc6ddcabd132f82878eac4c2a1041a4b"
+    },
+    {
+      "file": "t15-v0150a-controlled-stopped.json",
+      "bytes": 418,
+      "sha256": "92847b4890494874582f5e389ddecaf8ce7e245a22137e78d23005b27d843c82"
+    },
+    {
+      "file": "t15-v0150a-desktop-initial.json",
+      "bytes": 158450,
+      "sha256": "134ea99bc9c4ff8596fc2f80ae1c1a1889484980efe89526555e73781e0b0cc1"
+    },
+    {
+      "file": "t15-v0150a-controlled-rpc-run.log",
+      "bytes": 772,
+      "sha256": "497e45e1a762ba723a3aaf82bad38e0d8ec0a4106efda4a33a54fb72dbaaab01"
+    },
+    {
+      "file": "t15-v0150a-controlled-home/t15-controlled-counts.json",
+      "bytes": 46,
+      "sha256": "fd915a3335e3387fc628722234c529fbe21511109257204ae0033cf039c409a9"
+    },
+    {
+      "file": "t15-v0150a-controlled-home/router/desktop/state.json",
+      "bytes": 35073,
+      "sha256": "46dace25a80bef0d207761d2776c08a510bdc76992eb6c6013697de6599c5c5d"
+    }
+  ]
+}

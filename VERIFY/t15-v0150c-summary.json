@@ -1,0 +1,233 @@
+{
+  "passed": true,
+  "version": "0.15.0",
+  "reviewedSourceSha": "2219efb7211bd4965777d919374bac10767bcee0",
+  "package": {
+    "bytes": 219760,
+    "sha256": "1DFA02BBA32F7C937139A00ABA3400CC88D3B94292B76D83AEF4206270F4FD24",
+    "files": 36
+  },
+  "tasks": 26,
+  "imageTasks": 13,
+  "explicitSetupTasks": 13,
+  "controlledStreams": 44,
+  "tokens": 352,
+  "scenarios": [
+    {
+      "name": "known",
+      "setupTaskId": "07be73d6-4b92-4add-af92-359fccae2ebf",
+      "taskId": "70a67589-7d55-4f37-81b9-a56f83b4b66e",
+      "lifecycle": "completed",
+      "verdict": "passed",
+      "calls": 1,
+      "reviewCalls": 0,
+      "controlledStreams": 1,
+      "tokens": 8,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "wrong-answer",
+      "setupTaskId": "7c2619cc-fecd-4e18-8c3d-9b179d9e7343",
+      "taskId": "754d2154-5897-45fa-9908-c4e5a188b1c1",
+      "lifecycle": "completed",
+      "verdict": "failed",
+      "calls": 1,
+      "reviewCalls": 0,
+      "controlledStreams": 1,
+      "tokens": 8,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "ambiguity",
+      "setupTaskId": "197234ae-caa2-4bd1-ae2f-f65941f629c6",
+      "taskId": "e8a5268e-cad3-4a78-b884-4ea11e863471",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 1,
+      "reviewCalls": 0,
+      "controlledStreams": 1,
+      "tokens": 8,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "review-pass",
+      "setupTaskId": "d0ee89e3-ad50-4e5d-b9ac-f2b17315df25",
+      "taskId": "2fa5a5d3-97b5-419a-b7bd-57971dac0103",
+      "lifecycle": "completed",
+      "verdict": "passed",
+      "calls": 2,
+      "reviewCalls": 1,
+      "controlledStreams": 2,
+      "tokens": 16,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "review-conflict",
+      "setupTaskId": "d56a3380-dded-4c60-ac37-cfc744a89300",
+      "taskId": "a6247133-12fb-4c3c-93fa-44e4f1e58fc5",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 3,
+      "reviewCalls": 2,
+      "controlledStreams": 3,
+      "tokens": 24,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "review-invalid",
+      "setupTaskId": "643de546-3d05-41d8-80ad-bbaa5f77f056",
+      "taskId": "b18f3277-a196-49f0-b65a-fca687cf4cf8",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 3,
+      "reviewCalls": 2,
+      "controlledStreams": 3,
+      "tokens": 24,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "shared-review-limit",
+      "setupTaskId": "14462fd5-daf4-4ce9-863a-c26b085d0dae",
+      "taskId": "2d50621f-b1c5-401f-bb2b-9b326eb1aaf0",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 3,
+      "reviewCalls": 2,
+      "controlledStreams": 3,
+      "tokens": 24,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "text-review",
+      "setupTaskId": "0a33fa76-d299-4414-bac4-799538c6c7b0",
+      "taskId": "acc38c07-d95f-4031-a8c5-f29dbf5224b6",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 1,
+      "reviewCalls": 0,
+      "controlledStreams": 1,
+      "tokens": 8,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "no-image-pricing",
+      "setupTaskId": "1c978a7b-da56-4fb2-9461-f0929c96f341",
+      "taskId": "400ee4d4-19bd-44eb-a7c5-f425011c46fa",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 1,
+      "reviewCalls": 0,
+      "controlledStreams": 1,
+      "tokens": 8,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "format-unsupported",
+      "setupTaskId": "aeb01c89-b7a0-4047-8570-a388a383040a",
+      "taskId": "9038347f-0d55-4be7-bdcb-8cfc83f34cdb",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 1,
+      "reviewCalls": 0,
+      "controlledStreams": 1,
+      "tokens": 8,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "capacity-small",
+      "setupTaskId": "12d7f5f9-e4a0-4c03-9c1d-f46668bd6187",
+      "taskId": "e49560dd-8479-4db9-8e7c-eca8a22c999b",
+      "lifecycle": "completed",
+      "verdict": "unconfirmed",
+      "calls": 1,
+      "reviewCalls": 0,
+      "controlledStreams": 1,
+      "tokens": 8,
+      "imageHash": "a5258c1d2fc60c919c9f1f539034ba6086a5dcee0d5f79c9ce7c20dd0bed038b"
+    },
+    {
+      "name": "unknown-image-candidate",
+      "setupTaskId": "ba958d82-86d7-4720-861f-299c127e0354",
+      "taskId": "7aa6b0e6-19f0-48f4-a6b1-b23a7efd3c70",
+      "lifecycle": "paused",
+      "verdict": "unconfirmed",
+      "calls": 0,
+      "reviewCalls": 0,
+      "controlledStreams": 0,
+      "tokens": 0,
+      "imageHash": null
+    },
+    {
+      "name": "text-only-pool",
+      "setupTaskId": "d69b6089-04f5-4c17-bc62-bc1acf320f67",
+      "taskId": "ddbe4a11-26af-4e1a-ad92-a651965bff5a",
+      "lifecycle": "paused",
+      "verdict": "unconfirmed",
+      "calls": 0,
+      "reviewCalls": 0,
+      "controlledStreams": 0,
+      "tokens": 0,
+      "imageHash": null
+    }
+  ],
+  "checks": {
+    "boundedKnownAnswers": true,
+    "deterministicFailureNotOverridden": true,
+    "ambiguityUnconfirmed": true,
+    "sameTaskMultimodalReview": true,
+    "invalidImageBindingsRejected": true,
+    "exactAdmittedImageBindings": true,
+    "completeTaskUsageAccounted": true,
+    "sharedTaskReviewLimit": true,
+    "unsupportedReviewRejectedBeforeDispatch": true,
+    "configRestored": true,
+    "globalDefaultUnchanged": true
+  },
+  "installedRenderer": {
+    "passed": true,
+    "nativeRenderer": true,
+    "livePublicRpc": true,
+    "visualScreenshotVerified": false,
+    "clientSha256": "ABF0FC289876DBFE1D248779F912F28542EEF148B71DC932221BFA969A1D2086"
+  },
+  "restart": {
+    "passed": true,
+    "version": "0.15.0",
+    "restartPreserved": true,
+    "tasks": 26,
+    "callsUnchanged": true,
+    "configUnchanged": true,
+    "globalDefaultUnchanged": true,
+    "preservation": {
+      "priorFrozenFilesVerified": 166,
+      "legacyStateBytes": 9114595,
+      "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+      "t07FrozenFilesVerified": 39,
+      "goAndCompatibleFrozenPackagesVerified": true,
+      "realModelRequests": 0
+    },
+    "realModelRequests": 0
+  },
+  "stops": [
+    {
+      "stage": "controlled",
+      "stopped": true,
+      "ownedChildren": 4
+    },
+    {
+      "stage": "restart",
+      "stopped": true,
+      "ownedChildren": 6
+    }
+  ],
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+    "t07FrozenFilesVerified": 39,
+    "goAndCompatibleFrozenPackagesVerified": true,
+    "realModelRequests": 0
+  },
+  "source": "local predetermined fixture; not production vision, billing, quota, or model-quality certification",
+  "realModelRequests": 0
+}

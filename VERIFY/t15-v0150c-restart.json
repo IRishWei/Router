@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "version": "0.15.0",
+  "restartPreserved": true,
+  "tasks": 26,
+  "callsUnchanged": true,
+  "configUnchanged": true,
+  "globalDefaultUnchanged": true,
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+    "t07FrozenFilesVerified": 39,
+    "goAndCompatibleFrozenPackagesVerified": true,
+    "realModelRequests": 0
+  },
+  "realModelRequests": 0
+}

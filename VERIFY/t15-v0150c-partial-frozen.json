@@ -1,0 +1,158 @@
+{
+  "status": "RPC_PASS_RENDERER_HARNESS_FAILED",
+  "reason": "HARNESS_ASSUMED_EARLY_ARTIFACTS_VISIBLE_BEYOND_EXISTING_RECENT_20_WINDOW",
+  "tasks": 26,
+  "controlledStreams": 44,
+  "realModelRequests": 0,
+  "stopped": true,
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+    "t07FrozenFilesVerified": 39,
+    "goAndCompatibleFrozenPackagesVerified": true,
+    "realModelRequests": 0
+  },
+  "files": [
+    {
+      "file": "t15-v0150c-executed-rpc.mjs",
+      "bytes": 14131,
+      "sha256": "f098163939ae6f1081f8fde4afafba618010f7d3d49c2f8e41c25fff84cda113"
+    },
+    {
+      "file": "t15-v0150c-executed-fixture.mjs",
+      "bytes": 7719,
+      "sha256": "66a0e4571dbd81446c61dc2be8734c010e38e4d3071f8b894681ddd62f62a24e"
+    },
+    {
+      "file": "t15-v0150c-executed-wrapper.ps1",
+      "bytes": 1732,
+      "sha256": "18ab0a0ba16d861b122c3ff523d93a985561091e5cee1d0607123968eacad0d5"
+    },
+    {
+      "file": "t15-v0150c-executed-renderer.mjs",
+      "bytes": 3146,
+      "sha256": "79c43446689ab83fb7afefd598627d25cec01ffeb92a5bd5bb75933767115aa3"
+    },
+    {
+      "file": "t15-v0150c-preparation.json",
+      "bytes": 329,
+      "sha256": "043242270255f0b5ee85ec43eace9583500f96ece9abc0351306c5951c8efc3c"
+    },
+    {
+      "file": "t15-v0150c-package-identity.json",
+      "bytes": 6323,
+      "sha256": "8c8695a5d2a1d3a6954f9153485f53929c86f692d7a2e6a4e2529f04a3dabf8e"
+    },
+    {
+      "file": "t15-v0150c-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "29a04bfd1378cce835ce10bc24d9df70e319fac889ba276bcea42de4ea70b94f"
+    },
+    {
+      "file": "t15-v0150c-controlled-owner.json",
+      "bytes": 619,
+      "sha256": "5b193319e58fc0141797babdebfbd10c708032694a3c2ca6c97b615c570822da"
+    },
+    {
+      "file": "t15-v0150c-controlled-stopped.json",
+      "bytes": 418,
+      "sha256": "990033cef7a2efb9399010eef8e514da19de507155411f01152ab77557b121c5"
+    },
+    {
+      "file": "t15-v0150c-desktop-initial.json",
+      "bytes": 158450,
+      "sha256": "bd237f94c8b4f0508edfb06dfb4a51920da6bf55c5ed2261764926897199be5c"
+    },
+    {
+      "file": "t15-v0150c-controlled-rpc-run.log",
+      "bytes": 94,
+      "sha256": "bd0915790ac03a746bf92b5ce27402029ed4eb02f2fe696e843202b120decc0d"
+    },
+    {
+      "file": "t15-v0150c-renderer-run.log",
+      "bytes": 486,
+      "sha256": "ab63525363f77ca0a498c4d91a254a816a224f609448f0478565fd07ffb679fe"
+    },
+    {
+      "file": "t15-v0150c-desktop-evidence.json",
+      "bytes": 1249169,
+      "sha256": "7a8fd389582e16a9bfdfde4eb71d1ffa7b1de8ab6595712aae59ec246abcdb22"
+    },
+    {
+      "file": "t15-v0150c-controlled-home/t15-controlled-counts.json",
+      "bytes": 19519,
+      "sha256": "681ca62a36a6f9559a2b9233eaa3423fb559131047c2eafd0aa599edfa736086"
+    },
+    {
+      "file": "t15-v0150c-controlled-home/router/desktop/state.json",
+      "bytes": 868670,
+      "sha256": "d07c5dca4be760a615f90f80c8b368b7f2b2f74a7870d29a9fc60879175de679"
+    },
+    {
+      "file": "t15-v0150c-scenario-known.json",
+      "bytes": 40675,
+      "sha256": "691fb7af44fd3e1951210e8760dda4e0ef855fe382383b02290f4a160aa8a2ac"
+    },
+    {
+      "file": "t15-v0150c-scenario-wrong-answer.json",
+      "bytes": 29860,
+      "sha256": "6fd3f003aafbb5b58629da58853afb6a2a3bf793cfe7b8ab578db80035ebea5c"
+    },
+    {
+      "file": "t15-v0150c-scenario-ambiguity.json",
+      "bytes": 28163,
+      "sha256": "7124278a01ec7f0c8ef5d65ec96b3bc039604215d67cf05035364ee2010c4c0b"
+    },
+    {
+      "file": "t15-v0150c-scenario-review-pass.json",
+      "bytes": 43269,
+      "sha256": "2875befe0b40dba5b4d1b0484b65aa468c34e76bc93b80b2431d7adb478a5aa8"
+    },
+    {
+      "file": "t15-v0150c-scenario-review-conflict.json",
+      "bytes": 55732,
+      "sha256": "cccc7b380f37f01a52766ca834bd628978e5ded08505c0a2bc1eb05f8234fef4"
+    },
+    {
+      "file": "t15-v0150c-scenario-review-invalid.json",
+      "bytes": 54647,
+      "sha256": "3b7053d5441c2a3a4f28507999acecf9938223c860d1f3287003dfb4df4cc13a"
+    },
+    {
+      "file": "t15-v0150c-scenario-shared-review-limit.json",
+      "bytes": 55248,
+      "sha256": "c3ce483aa827c9d20fa060cac3de2eafb6b2ee046c364816026eb9c841341740"
+    },
+    {
+      "file": "t15-v0150c-scenario-text-review.json",
+      "bytes": 31666,
+      "sha256": "37c1d5ebdef908230c859bad6678bcefe80c00925f1a696ec881bea21974205f"
+    },
+    {
+      "file": "t15-v0150c-scenario-no-image-pricing.json",
+      "bytes": 31653,
+      "sha256": "f4d38a5bac651c36bce9ebc728f75d11f39974f75cee32f07a47421fd921078a"
+    },
+    {
+      "file": "t15-v0150c-scenario-format-unsupported.json",
+      "bytes": 31641,
+      "sha256": "430d2ac0c96dca0e9e13eeabd15d84261bf2eefb47dbb5844ef7a5f1a691ac3b"
+    },
+    {
+      "file": "t15-v0150c-scenario-capacity-small.json",
+      "bytes": 31889,
+      "sha256": "f26e7f1bdcb50ed4447016f33565be820ec06c5cbab7e9b346139a0e5f4c6b17"
+    },
+    {
+      "file": "t15-v0150c-scenario-unknown-image-candidate.json",
+      "bytes": 6529,
+      "sha256": "7a0a2744bec403af3180bc7390075b9fa1395ce2df44e27cd15870273c0bc2c0"
+    },
+    {
+      "file": "t15-v0150c-scenario-text-only-pool.json",
+      "bytes": 6485,
+      "sha256": "462ffbab5827fe578abb47eef645db8b90e0fbcb97e43de5cefcaf1b1733445a"
+    }
+  ]
+}

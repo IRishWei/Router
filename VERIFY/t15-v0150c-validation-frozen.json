@@ -1,0 +1,305 @@
+{
+  "phase": "validation-complete-pending-independent-final-review",
+  "version": "0.15.0",
+  "reviewedSourceSha": "2219efb7211bd4965777d919374bac10767bcee0",
+  "packageSha256": "1DFA02BBA32F7C937139A00ABA3400CC88D3B94292B76D83AEF4206270F4FD24",
+  "installedFilesVerified": 36,
+  "files": [
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-package-identity.json",
+      "bytes": 6323,
+      "sha256": "8C8695A5D2A1D3A6954F9153485F53929C86F692D7A2E6A4E2529F04A3DABF8E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "29A04BFD1378CCE835CE10BC24D9DF70E319FAC889BA276BCEA42DE4EA70B94F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-desktop-summary.json",
+      "bytes": 7331,
+      "sha256": "C066770D0F105FB9B2B5ACEAF7C6C7381B74A915F6222B44AE868AD5B9E1887A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-public-proof.json",
+      "bytes": 366968,
+      "sha256": "68CEAC8E25A4C33271AE12E4176CA58EB61579C521DDDF71B5191648AE982D07"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-desktop-evidence.json",
+      "bytes": 1249169,
+      "sha256": "7A8FD389582E16A9BFDFDE4EB71D1FFA7B1DE8AB6595712AAE59EC246ABCDB22"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-renderer-evidence.json",
+      "bytes": 1356,
+      "sha256": "6382A5AA6398C48AC1648C72F746213598166514AD53482644C829EB25106372"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-restart-evidence.json",
+      "bytes": 499,
+      "sha256": "A7F8E144ECF4D0C9475E89A0F57B6F6EE6603B8AE046F753C448F85CE587B551"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-complete-preservation.json",
+      "bytes": 1263,
+      "sha256": "DF7D4602288EC484AAAD99539882642A35406728DCCC716286877248DD77A735"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-controlled-owner.json",
+      "bytes": 619,
+      "sha256": "5B193319E58FC0141797BABDEBFBD10C708032694A3C2CA6C97B615C570822DA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-controlled-stopped.json",
+      "bytes": 418,
+      "sha256": "990033CEF7A2EFB9399010EEF8E514DA19DE507155411F01152AB77557B121C5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-restart-owner.json",
+      "bytes": 610,
+      "sha256": "E484AB1D8A976C99F0AA5664529D4DC3BABA673870CD93D4045D46E2887ED894"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-restart-stopped.json",
+      "bytes": 415,
+      "sha256": "924A3CAD488B58B2307E531B206355D3ABC1CE7807E26AEFBF8F6F792A7B5B38"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-controlled-rpc-run.log",
+      "bytes": 94,
+      "sha256": "BD0915790AC03A746BF92B5CE27402029ED4EB02F2FE696E843202B120DECC0D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-restart-rpc-run.log",
+      "bytes": 68,
+      "sha256": "4F24485499C56CE45F865349370BACEC69AA469EE53081F55943F6CB8748B1A5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-restart-renderer-run.log",
+      "bytes": 64,
+      "sha256": "D958C3ED2ECE4493E5E5D177FECA4B7F9F806AD7A444BDB8C7A3E4D1105168EF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-controlled-state-sealed.json",
+      "bytes": 868670,
+      "sha256": "D07C5DCA4BE760A615F90F80C8B368B7F2B2F74A7870D29A9FC60879175DE679"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-restart-preservation-plan.json",
+      "bytes": 564,
+      "sha256": "8650EAEA08E6A5A0ED6347CF0C62A8D05DF3451EF6730B847FC72830321DE452"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-host-rpc.mjs",
+      "bytes": 2598,
+      "sha256": "C43A72AB25319DE4C4FA401383567699D6CAD97BBC87459A4035E1A85322F6AC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-desktop-owned.ps1",
+      "bytes": 6401,
+      "sha256": "C63E085B46D057F824AB122DB657D4FA6537ADA885038A33657222D9F8A69B6B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-install.ps1",
+      "bytes": 2254,
+      "sha256": "EB31641FF46117480DC23C41416994FC8E226128606EEFF557BB83C5732D9C05"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-executed-restart-rpc.mjs",
+      "bytes": 14131,
+      "sha256": "F098163939AE6F1081F8FDE4AFAFBA618010F7D3D49C2F8E41C25FFF84CDA113"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-executed-restart-wrapper.ps1",
+      "bytes": 1824,
+      "sha256": "13A49409744D6D6F19B009BD337269CB0C95EE29DE3D98B0809B39B29F334C19"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-executed-restart-renderer.mjs",
+      "bytes": 4607,
+      "sha256": "D669AEA386D41E776D5C198AB37228BEF40664A14DF774354DEE37C119087677"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-known.json",
+      "bytes": 40675,
+      "sha256": "691FB7AF44FD3E1951210E8760DDA4E0EF855FE382383B02290F4A160AA8A2AC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-wrong-answer.json",
+      "bytes": 29860,
+      "sha256": "6FD3F003AAFBB5B58629DA58853AFB6A2A3BF793CFE7B8AB578DB80035EBEA5C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-ambiguity.json",
+      "bytes": 28163,
+      "sha256": "7124278A01EC7F0C8EF5D65EC96B3BC039604215D67CF05035364EE2010C4C0B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-review-pass.json",
+      "bytes": 43269,
+      "sha256": "2875BEFE0B40DBA5B4D1B0484B65AA468C34E76BC93B80B2431D7ADB478A5AA8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-review-conflict.json",
+      "bytes": 55732,
+      "sha256": "CCCC7B380F37F01A52766CA834BD628978E5DED08505C0A2BC1EB05F8234FEF4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-review-invalid.json",
+      "bytes": 54647,
+      "sha256": "3B7053D5441C2A3A4F28507999ACECF9938223C860D1F3287003DFB4DF4CC13A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-shared-review-limit.json",
+      "bytes": 55248,
+      "sha256": "C3CE483AA827C9D20FA060CAC3DE2EAFB6B2EE046C364816026EB9C841341740"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-text-review.json",
+      "bytes": 31666,
+      "sha256": "37C1D5EBDEF908230C859BAD6678BCEFE80C00925F1A696EC881BEA21974205F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-no-image-pricing.json",
+      "bytes": 31653,
+      "sha256": "F4D38A5BAC651C36BCE9EBC728F75D11F39974F75CEE32F07A47421FD921078A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-format-unsupported.json",
+      "bytes": 31641,
+      "sha256": "430D2AC0C96DCA0E9E13EEABD15D84261BF2EEFB47DBB5844EF7A5F1A691AC3B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-capacity-small.json",
+      "bytes": 31889,
+      "sha256": "F26E7F1BDCB50ED4447016F33565BE820EC06C5CBAB7E9B346139A0E5F4C6B17"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-unknown-image-candidate.json",
+      "bytes": 6529,
+      "sha256": "7A0A2744BEC403AF3180BC7390075B9FA1395CE2DF44E27CD15870273C0BC2C0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-scenario-text-only-pool.json",
+      "bytes": 6485,
+      "sha256": "462FFBAB5827FE578ABB47EEF645DB8B90E0FBCB97E43DE5CEFCAF1B1733445A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-controlled-home\\t15-controlled-counts.json",
+      "bytes": 19519,
+      "sha256": "681CA62A36A6F9559A2B9233EAA3423FB559131047C2EAFD0AA599EDFA736086"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-fixture-bundle\\lib\\index.js",
+      "bytes": 7719,
+      "sha256": "66A0E4571DBD81446C61DC2BE8734C010E38E4D3071F8B894681DDD62F62A24E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150a-failed-frozen.json",
+      "bytes": 2531,
+      "sha256": "785D8AE8F3603D0927347E927C0CE4AA1149B476CF066A67BFE0545C6955115E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150b-failed-frozen.json",
+      "bytes": 3763,
+      "sha256": "1B349AF29DF7F4534C86F24948ABF0BA43B21FD5C7F2043344C30E8018FF520E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t15-v0150c-partial-frozen.json",
+      "bytes": 5350,
+      "sha256": "24B5A597F90BEF9EDA740179CFF01A3A20714A08D8C87ECCB94A988AB24F64D3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-complete-preservation.mjs",
+      "bytes": 2385,
+      "sha256": "2F9A66C6114316AB553CC64FB3132E2BCB253FD2E9D9D1C5EB240A3B4288678C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-public-summary.mjs",
+      "bytes": 3816,
+      "sha256": "035A912A4F8351C66174B2D2CE23A4CB464DBC836D6944C8DBCB8250D12BAE67"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-export-proof.mjs",
+      "bytes": 3089,
+      "sha256": "CBAF609D0D69D83510999DB9FEE34112B244AA30111C3DA3368A6E111E3C844A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-freeze-validation.mjs",
+      "bytes": 3848,
+      "sha256": "EC2B5CD2D9A4D2267A913BD56243D3FCB02F0127739D03E00D206369E8B28C55"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-reference.png",
+      "bytes": 158,
+      "sha256": "A5258C1D2FC60C919C9F1F539034BA6086A5DCEE0D5F79C9CE7C20DD0BED038B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-image-reference.json",
+      "bytes": 523,
+      "sha256": "04CFC66772EDB7EA878A184D885A53CAFC67D8FF8E1DD95D322D2C7B8565908E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-source-standards-final.md",
+      "bytes": 1960,
+      "sha256": "A215E7DE0660646E37E18368A8A3EFB1D986FF775A4858CA2A37F069010FA5A2"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-source-spec-final.md",
+      "bytes": 1709,
+      "sha256": "CBF1E91EEA3B9152036D3EE7F9D6734BDF1CEF6C9D1B40B16EE15B3A2EB9AB5C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-merged-build.log",
+      "bytes": 67,
+      "sha256": "CD72EE817473B10929A77E3E68B8385B8CB18DC85774803E54A25CDEEA967DF2"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-merged-suite.log",
+      "bytes": 50129,
+      "sha256": "2A972FC934E4BD4528302F3C76FF37F66D938210B5E784886B241643906D357A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-merged-check.log",
+      "bytes": 67,
+      "sha256": "3B7C2FB18268DD1B56EFC298C8DAC3EAAC67E40102BF13114F7198378C39D6FF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-merged-diffcheck.log",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-controlled-script-preflight.md",
+      "bytes": 10382,
+      "sha256": "CE39B7555B812EAABFFF65D02F96E076D55A24BA54D72443680A92B728853ECC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-controlled-script-preflight-fixed.md",
+      "bytes": 7326,
+      "sha256": "B7D3A8B40341C8DFD6EBCF138791C15A1CA97FF1453A7EF518885D1C7AF84ECC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-controlled-script-preflight-delta.md",
+      "bytes": 3490,
+      "sha256": "0D370D4ABDFF39678C712705C18ED7F5EB4E6CA27850F83C633119529B71ECFC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-rpc-argument-delta-review.md",
+      "bytes": 3032,
+      "sha256": "71D110DF8EB56804C15CD323841560EE207E2206166A6709EA6530A9140B2377"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-canonical-evidence-delta-review.md",
+      "bytes": 2630,
+      "sha256": "E5E9607BDF5E97191BCA6649EE758C61A82C22AED7C5BDE299D10CF02231478D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-renderer-window-delta-review.md",
+      "bytes": 3540,
+      "sha256": "242CE696C3818093E10A418087DCC9D056B886167C22967DA8A749EF63EAC44A"
+    }
+  ],
+  "realModelRequests": 0
+}

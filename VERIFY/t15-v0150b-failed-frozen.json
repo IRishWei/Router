@@ -1,0 +1,113 @@
+{
+  "status": "failed",
+  "reason": "HARNESS_CHECKED_RAW_IMAGE_CONTRIBUTION_INSTEAD_OF_CANONICAL_EVIDENCE",
+  "tasks": 14,
+  "controlledStreams": 28,
+  "realModelRequests": 0,
+  "stopped": true,
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+    "t07FrozenFilesVerified": 39,
+    "goAndCompatibleFrozenPackagesVerified": true,
+    "realModelRequests": 0
+  },
+  "files": [
+    {
+      "file": "t15-v0150b-executed-rpc.mjs",
+      "bytes": 13633,
+      "sha256": "29e5102ecc866b1bf9539dd2ce978cbcfceacc9abb75d37bd8ea506e42b606f6"
+    },
+    {
+      "file": "t15-v0150b-executed-fixture.mjs",
+      "bytes": 7719,
+      "sha256": "66a0e4571dbd81446c61dc2be8734c010e38e4d3071f8b894681ddd62f62a24e"
+    },
+    {
+      "file": "t15-v0150b-executed-wrapper.ps1",
+      "bytes": 1732,
+      "sha256": "18ab0a0ba16d861b122c3ff523d93a985561091e5cee1d0607123968eacad0d5"
+    },
+    {
+      "file": "t15-v0150b-preparation.json",
+      "bytes": 329,
+      "sha256": "5596691adee32d71849811481f37aa359716dbc7812986533420440c4c260848"
+    },
+    {
+      "file": "t15-v0150b-package-identity.json",
+      "bytes": 6323,
+      "sha256": "d987e46a94dd6381b8da79420979a91a05de2bb9d7408cbd3406aaaadda972ba"
+    },
+    {
+      "file": "t15-v0150b-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "ef950b43d543526e92b5ba5356c80c2a772a78b6459c3f1e58fd82d481ac2e70"
+    },
+    {
+      "file": "t15-v0150b-controlled-owner.json",
+      "bytes": 619,
+      "sha256": "7e44d6d0a1965db73142d3013c7f5a71ffc1b3849c84b33c0084257eafca16cf"
+    },
+    {
+      "file": "t15-v0150b-controlled-stopped.json",
+      "bytes": 418,
+      "sha256": "d81d86f95d7865f3ad4a224ba5bc057483a1cb89d9f7d77c49af8c2ab548ae63"
+    },
+    {
+      "file": "t15-v0150b-desktop-initial.json",
+      "bytes": 158450,
+      "sha256": "f3cf8b4c44836ec70816a6a406be5f50e88eba0530ed00b5e9f689403035f193"
+    },
+    {
+      "file": "t15-v0150b-controlled-rpc-run.log",
+      "bytes": 527,
+      "sha256": "e9877cda8568a0a9ef86c2b35aeb8499f7610e70aa1f03b4485d10a7f6f61ce2"
+    },
+    {
+      "file": "t15-v0150b-controlled-home/t15-controlled-counts.json",
+      "bytes": 12923,
+      "sha256": "2955d0b7e3f57b1d3f1f5dff3c4d38f6b43b4f84c4e9bb5875e914c2594af72e"
+    },
+    {
+      "file": "t15-v0150b-controlled-home/router/desktop/state.json",
+      "bytes": 550458,
+      "sha256": "477d92d4635b886f1446b15449185d56cea1c28055743b0fdccf09b46329577c"
+    },
+    {
+      "file": "t15-v0150b-scenario-known.json",
+      "bytes": 40674,
+      "sha256": "8b9dfe9b3789535cf85524545f97cb88d18230092ef70075d8e846996c442271"
+    },
+    {
+      "file": "t15-v0150b-scenario-wrong-answer.json",
+      "bytes": 29860,
+      "sha256": "51d7d9d449412651d70970a5366868ba950baa8fb7a029f81560b6727ad54050"
+    },
+    {
+      "file": "t15-v0150b-scenario-ambiguity.json",
+      "bytes": 28163,
+      "sha256": "555ee2e2161d64d5250c073a973fcc791bbddac44d83d4df5b6cc16423285404"
+    },
+    {
+      "file": "t15-v0150b-scenario-review-pass.json",
+      "bytes": 43269,
+      "sha256": "b3f3a7e11e453de4cf33de09888987d2de7946e9f6beaddbc489abbd329e4cb8"
+    },
+    {
+      "file": "t15-v0150b-scenario-review-conflict.json",
+      "bytes": 55732,
+      "sha256": "066fcf4a7f8ffde2f5d93bb73c70fc3500e16bd29f797d47163316bfb9405a2b"
+    },
+    {
+      "file": "t15-v0150b-scenario-review-invalid.json",
+      "bytes": 54648,
+      "sha256": "e22b3f578b79f3603e942be4911b3b8c4e11ab097d50a826af36fde6e2b72b74"
+    },
+    {
+      "file": "t15-v0150b-scenario-shared-review-limit.json",
+      "bytes": 55248,
+      "sha256": "d0b1b69bc99e0bbe3e4a0afb03c654a683bb31c263c89d0b7273ad5c96c76d56"
+    }
+  ]
+}
