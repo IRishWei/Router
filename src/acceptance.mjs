@@ -243,7 +243,7 @@ export class AcceptanceCoordinator {
     }
     if (research) evidence.push(...structuredClone(research.evidence));
     if (image) evidence.push(...structuredClone(image.evidence));
-    for (const invalid of contributions.filter(item => item?.invalid)) evidence.push({ id: `evidence:v1:${hash(`${invalid.requirementId}:invalid`).slice(0, 24)}`, version: 1, requirementId: invalid.requirementId, aspect: 'requirement-interpretation', verdict: 'unconfirmed', source: { kind: 'deterministic-rule', rule: 'research-contributor-validation', checkerVersion: 1 }, reason: 'CONTRIBUTOR_INVALID' });
+    for (const invalid of contributions.filter(item => item?.invalid)) evidence.push({ id: `evidence:v1:${hash(`${invalid.requirementId}:invalid`).slice(0, 24)}`, version: 1, requirementId: invalid.requirementId, aspect: 'requirement-interpretation', verdict: 'unconfirmed', source: { kind: 'deterministic-rule', rule: 'acceptance-contributor-validation', checkerVersion: 1 }, reason: 'CONTRIBUTOR_INVALID' });
     const coverage = coverageOf(requirements, evidence);
     const verdict = coverage.failedIds.length ? 'failed' : requirements.length && coverage.covered === coverage.required ? 'passed' : 'unconfirmed';
     const transitionReason = previous?.requirementRevision !== state.revision || previous?.requirementHash !== requirementHash ? 'requirements-changed' : !sameArtifact(previous?.artifact, artifact) ? 'artifact-changed' : 'reassessed';
