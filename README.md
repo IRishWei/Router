@@ -2,9 +2,12 @@
 
 免费、开源、本地运行的 DSH 插件。当前提供两个本地可控模型、DeepSeek API 连接和独立 ChatGPT OAuth 连接，并可通过公开宿主契约发现、主动启用和引用已有 DSH 连接；同时提供模型池、固定执行、任务账本和预算等待。目标宿主是 Windows DSH Desktop **0.2.0-rc.2**，Cordis **4.0.4**。0.10.7 已完成独立 ChatGPT 账号的有界真实推理验收；续期/多账号生命周期的真实验收及评分策略效果仍需分别验证。
 
+
+**自定义兼容连接**可保存独立 API 基础地址、Key 和模型 ID，显式发现目录、启用候选、运行有界检测及填写来源/日期参考费率。当前仅支持 Responses SSE 文本和已声明的函数工具，图像、Chat Completions 与采样参数不支持；正常任务须设置有限 token 和耗时预算。保存和连接不会发起推理，目录可见不认证能力或推理权限，未知账单和缓存费率保持未知。Go 地址检测需确认 Use balance 已关闭。0.13.1 固定 Go 接入已有真实连接证据，自定义路径仍待独立真实验收。详见 docs/implementation/t07-compatible-contract.md。
+
 ## 安装与试用
 
-1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.12.0.tgz`，启用插件。
+1. 在原生插件管理中安装构建生成的 `irishwei-dsh-router-0.14.0.tgz`，启用插件。
 2. 打开原生设置中的 **DSH Router → 连接与模型**，检查两个模型的启用状态、能力及兼容性置信度。取消勾选或移除的模型不会收到新的请求。
 3. 在 **路由与预算** 开启自动路由，可固定 `Controlled fixture` 或 `Controlled tools fixture`。发送 `Reply ROUTER_OK`，本地模型返回 `ROUTER_OK`；**任务记录 → 刷新任务记录** 可查看实际 provider/model、结果、配置版本及时间线。
 4. 只启用 `Controlled tools fixture`、解除固定，并使用没有原生待执行选择的会话发送 `Reply POOL_B`，自动请求会选择该模型。模型池为空时暂停并说明原因。

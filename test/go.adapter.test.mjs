@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createRequire } from 'node:module';
 import { OpenCodeGoAdapter, GO_RESPONSES_URL, GO_MODEL, goEndpoint } from '../src/opencode-go-adapter.mjs';
 import { completed } from './go-harness.mjs';
 
@@ -16,7 +17,7 @@ test('Go sends its exact endpoint, stable session and output cap without OAuth o
   assert.equal(f.requests.length, 1); const request = f.requests[0];
   assert.equal(request.url, GO_RESPONSES_URL);
   assert.equal(request.request.headers['x-opencode-session'], 'session-one');
-  assert.match(request.request.headers['user-agent'], /^irishwei-dsh-router\/0\.13\.1 /);
+  assert(request.request.headers['user-agent'].startsWith(`irishwei-dsh-router/${createRequire(import.meta.url)('../package.json').version} `));
   assert.equal(request.request.headers.authorization, 'Bearer controlled-go-key');
   assert.equal(request.json.max_output_tokens, 32); assert.equal(request.json.model, GO_MODEL);
   assert.equal(request.json.store, false); assert.equal(request.json.stream, true);

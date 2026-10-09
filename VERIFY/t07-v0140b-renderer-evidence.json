@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "installedClientSha256": "C3039BD00D24254C8A0EB507890953D35C769DA40D3F6E5942BE8962B96B2309",
+  "nativeRenderer": true,
+  "nativeRpcCodec": true,
+  "livePublicRpc": true,
+  "passwordInput": true,
+  "permanentClaimDisablesDetection": true,
+  "catalogFailureDisplayed": true,
+  "referencePriceControlsDisplayed": true,
+  "tasksDisplayed": true,
+  "snapshotUnchanged": true,
+  "visualScreenshotVerified": false,
+  "realModelRequests": 0
+}

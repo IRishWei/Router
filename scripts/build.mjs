@@ -20,11 +20,11 @@ await writeFile('lib/deepseek-host.js', (await readFile('src/deepseek-host.mjs',
 await writeFile('lib/deepseek-deadline.js', await readFile('src/deepseek-deadline.mjs', 'utf8'));
 await writeFile('lib/chatgpt-oauth.js', (await readFile('src/chatgpt-oauth.mjs', 'utf8')).replace("'./source-network.mjs'", "'./source-network.js'"));
 await writeFile('lib/chatgpt-responses.js', await readFile('src/chatgpt-responses.mjs', 'utf8'));
-for (const module of ['opencode-go-adapter', 'opencode-go-host']) {
-  const source = (await readFile(`src/${module}.mjs`, 'utf8')).replaceAll("'./chatgpt-responses.mjs'", "'./chatgpt-responses.js'").replaceAll("'./opencode-go-adapter.mjs'", "'./opencode-go-adapter.js'").replaceAll("'./source-network.mjs'", "'./source-network.js'");
+for (const module of ['opencode-go-adapter', 'opencode-go-host', 'compatible-responses', 'compatible-host']) {
+  const source = (await readFile(`src/${module}.mjs`, 'utf8')).replaceAll("'./chatgpt-responses.mjs'", "'./chatgpt-responses.js'").replaceAll("'./opencode-go-adapter.mjs'", "'./opencode-go-adapter.js'").replaceAll("'./source-network.mjs'", "'./source-network.js'").replaceAll("'./compatible-responses.mjs'", "'./compatible-responses.js'");
   await writeFile(`lib/${module}.js`, source);
 }
-await writeFile('lib/index.js', (await readFile('lib/index.js', 'utf8')).replace("'./opencode-go-host.mjs'", "'./opencode-go-host.js'"));
+await writeFile('lib/index.js', (await readFile('lib/index.js', 'utf8')).replace("'./opencode-go-host.mjs'", "'./opencode-go-host.js'").replace("'./compatible-host.mjs'", "'./compatible-host.js'"));
 await writeFile('lib/chatgpt-router.js', (await readFile('src/chatgpt-router.mjs', 'utf8')).replace("'./chatgpt-responses.mjs'", "'./chatgpt-responses.js'"));
 await writeFile('lib/chatgpt-sessions.js', (await readFile('src/chatgpt-sessions.mjs', 'utf8')).replace("'./chatgpt-oauth.mjs'", "'./chatgpt-oauth.js'"));
 await writeFile('lib/chatgpt-host.js', (await readFile('src/chatgpt-host.mjs', 'utf8')).replace("'./chatgpt-oauth.mjs'", "'./chatgpt-oauth.js'").replace("'./source-network.mjs'", "'./source-network.js'").replace("'./chatgpt-sessions.mjs'", "'./chatgpt-sessions.js'"));
@@ -42,5 +42,6 @@ const inline = protocol.replace("import { z } from 'zod';", '').replaceAll('expo
 const deepSeekClient = (await readFile('src/deepseek-client.mjs', 'utf8')).replaceAll('export function ', 'function ');
 const chatGptClient = (await readFile('src/chatgpt-client.mjs', 'utf8')).replaceAll('export function ', 'function ');
 const goClient = (await readFile('src/opencode-go-client.mjs', 'utf8')).replaceAll('export function ', 'function ');
-const client = `${deepSeekClient}\n${chatGptClient}\n${goClient}\n${await readFile('src/client.js', 'utf8')}`.replace('const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;', `${inline}\nconst remoteDescriptors = descriptors;`).replace('package: \'@irishwei/dsh-router\', descriptors }),', 'package: \'@irishwei/dsh-router\', descriptors: remoteDescriptors }),');
+const compatibleClient = (await readFile('src/compatible-client.mjs', 'utf8')).replaceAll('export function ', 'function ');
+const client = `${deepSeekClient}\n${chatGptClient}\n${goClient}\n${compatibleClient}\n${await readFile('src/client.js', 'utf8')}`.replace('const descriptors = __ROUTER_REMOTE_DESCRIPTORS__;', `${inline}\nconst remoteDescriptors = descriptors;`).replace('package: \'@irishwei/dsh-router\', descriptors }),', 'package: \'@irishwei/dsh-router\', descriptors: remoteDescriptors }),');
 await build({ stdin: { contents: `import { z } from 'zod';\n${client}`, resolveDir: process.cwd() }, outfile: 'lib/client.js', bundle: true, platform: 'browser', format: 'iife', target: 'es2022', minify: true });

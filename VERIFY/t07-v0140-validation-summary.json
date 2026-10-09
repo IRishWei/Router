@@ -1,0 +1,105 @@
+{
+  "version": "0.14.0",
+  "reviewedSourceSha": "9c7269ff63dc48fe56e1c6199df2a7df1af88ad9",
+  "packageSha256": "C126B2B9F03CF0536A971151979FCE4C9BE34F2F6E9061C77B8551EE56A4CB58",
+  "packageBytes": 213623,
+  "installedFilesVerified": 35,
+  "fullSuite": {
+    "tests": 434,
+    "passed": 434,
+    "failed": 0,
+    "logSha256": "BEE6254DDB26564EEDBE3F0DAB62A1EDFCF658804EEB99595B72BCB44DAFB127"
+  },
+  "build": "PASS",
+  "check": "PASS",
+  "offlineCli": "PASS",
+  "nativeDesktop": {
+    "tasks": 5,
+    "httpRequests": 11,
+    "responses": 9,
+    "catalogRequests": 2,
+    "toolExecutions": 1,
+    "checks": {
+      "boundedDetection": true,
+      "toolRoundtrip": true,
+      "textOnly": true,
+      "partialStreamUnknown": true,
+      "rateLimitNoRetry": true,
+      "explicitCatalog": true,
+      "catalogFailureKeepsManualId": true,
+      "independentSameNameConnections": true,
+      "fullInputReservation": true,
+      "configDefaultsRestored": true
+    }
+  },
+  "renderer": {
+    "nativeRenderer": true,
+    "nativeRpcCodec": true,
+    "livePublicRpc": true,
+    "visualScreenshotVerified": false
+  },
+  "restartPreserved": true,
+  "testCredentialsDeleted": true,
+  "ownedProcessesStopped": true,
+  "realModelRequests": 0,
+  "customRealInference": "pending",
+  "officialApiAndSecondAccountGates": "pending at final delivery",
+  "harnessFailuresPreserved": true,
+  "preservation": {
+    "priorFrozenFilesVerified": 166,
+    "legacyStateBytes": 9114595,
+    "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a"
+  },
+  "records": [
+    {
+      "file": "t07-v0140-package-identity.json",
+      "bytes": 5728,
+      "sha256": "137150A5CD11099E62255FD2773773761D9C42375F77D73FFE8DA3FEC5806029"
+    },
+    {
+      "file": "t07-v0140b-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "82DD4E29DFC140955E73D50F3627DEDE7591AF53A017E3C9BCCD8C096F811B10"
+    },
+    {
+      "file": "t07-v0140b-desktop-evidence.json",
+      "bytes": 315404,
+      "sha256": "1B4A83077B6033E4A21915B116CB2B6E41C1C87F81D0137FB74A0094BC4ED383"
+    },
+    {
+      "file": "t07-v0140b-desktop-restart-evidence.json",
+      "bytes": 239485,
+      "sha256": "AC07F0B88401B542E5EA23B52A747AE7D59C43FE093EA53596C86ADA28DC3D6F"
+    },
+    {
+      "file": "t07-v0140b-renderer-evidence.json",
+      "bytes": 456,
+      "sha256": "1D78F66477DA307ECAB48A4425DFD8C8C47579A664547818A450145E5D8EF620"
+    },
+    {
+      "file": "t07-v0140-controlled-stopped.json",
+      "bytes": 417,
+      "sha256": "B71A68554BAF40D94E382CBAC60AD21AD83E8F189BBFA52ABB5EB06B20612F1D"
+    },
+    {
+      "file": "t07-v0140b-controlled-stopped.json",
+      "bytes": 418,
+      "sha256": "C72EE9CEBDD56AC9451BAB1262B714A433815F91E0B819E9847FCF697E37CD05"
+    },
+    {
+      "file": "t07-v0140b-restart-stopped.json",
+      "bytes": 415,
+      "sha256": "29972B9233486357106A38631840C14BDE334E1BCC52909CA4625DD1D87AE145"
+    },
+    {
+      "file": "t07-v0140-desktop-attempt-a-failure.json",
+      "bytes": 213657,
+      "sha256": "8CADBF0103BE5AFF87B07C3FA67675F5357E3CF579C27C49C78C4CC480AF1AEF"
+    },
+    {
+      "file": "t07-v0140b-desktop-attempt-b-failure.json",
+      "bytes": 213950,
+      "sha256": "38BB2686D42FDE7169B4723AC98D0FD41165EFD1CD4BB57DE563EE208D760155"
+    }
+  ]
+}
