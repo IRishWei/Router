@@ -1,0 +1,11 @@
+{
+  "purpose": "Go bounded real validation",
+  "stage": "controlled",
+  "pid": 50316,
+  "startedAt": "2026-10-09T13:02:50.2406859Z",
+  "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\go-v0131-real-home",
+  "executable": "E:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe",
+  "stopped": true,
+  "stoppedAt": "2026-10-09T13:07:52.9784279Z",
+  "ownedChildren": 4
+}
