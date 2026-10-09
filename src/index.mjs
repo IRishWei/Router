@@ -22,6 +22,7 @@ import { coordinationSchema, recoverPendingCoordination, TaskCoordinationControl
 export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
 export const CONTROLLED_MODEL = 'controlled';
+const GO_PROBE_SYSTEM_PROMPT = 'This is a connection probe. Follow the user reply instruction without using tools.';
 export const CONTROLLED_TOOLS_MODEL = 'controlled-tools';
 const catalog = [
   { model: CONTROLLED_MODEL, name: 'Controlled fixture', capability: { text: { supported: true, confidence: 'known' }, image: { supported: false, confidence: 'known' }, tools: { supported: true, confidence: 'known' } } },
@@ -327,7 +328,7 @@ export class RouterService extends TypertRemoteService {
       let assembled = await next();
       // A connection probe has no coding work: avoid sending the desktop tool
       // catalog and its instructions while keeping the native runtime context.
-      if (task?.openCodeGoDetection) assembled = { ...assembled, tools: [], sections: [{ name: 'router:go-connection-probe', text: 'This is a connection probe. Follow the user reply instruction without using tools.', interpolate: false }] };
+      if (task?.openCodeGoDetection) assembled = { ...assembled, tools: [], sections: [{ name: 'router:go-connection-probe', text: GO_PROBE_SYSTEM_PROMPT, interpolate: false }] };
       step.assembled = assembled;
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
       const detection = detectionOf(task);
@@ -461,7 +462,11 @@ export class RouterService extends TypertRemoteService {
       }
       const detection = detectionOf(detectionTask);
       if (detection) {
-        step.detectionForecast = conservativeRequestForecast([...agent.session.deriveMessages(), ...decision.messages], step.assembled?.tools, detection.outputForecastTokens ?? detection.outputTokens);
+        // Native system/message projection happens after prepareRequest reserves
+        // the call. Include the probe section before that projection; duplicate
+        // historical system text only makes this estimate more conservative.
+        const currentSystem = detectionTask.openCodeGoDetection ? [{ role: 'system', content: [{ type: 'text', text: GO_PROBE_SYSTEM_PROMPT }] }] : [];
+        step.detectionForecast = conservativeRequestForecast([...agent.session.deriveMessages(), ...currentSystem, ...decision.messages], step.assembled?.tools, detection.outputForecastTokens ?? detection.outputTokens);
       }
       const hasImage = [...agent.session.deriveMessages(), ...messages].some(message => message.content.some(part => part.type === 'image'));
       const capability = step.selectionSnapshot?.capability;

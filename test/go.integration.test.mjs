@@ -30,6 +30,8 @@ test('Go full native detection accounts execution/title, stable sessions, unknow
     assert(f.requests.every(item => item.body.max_output_tokens <= 1024));
     assert.equal(f.requests[0].body.tools?.length ?? 0, 0);
     assert(!JSON.stringify(f.requests[0].body.input).includes('LONG_DESKTOP_INSTRUCTIONS'));
+    assert(JSON.stringify(f.requests[0].body.input).includes('This is a connection probe.'));
+    assert(task.calls[0].reservation.tokens.input >= Buffer.byteLength(JSON.stringify(f.requests[0].body.input)));
     assert(task.calls.every(call => call.selection.billingPath === 'opencode-go-subscription' && call.reservation.tokens.total > 0));
     assert.deepEqual(result.config, before.config); assert(!JSON.stringify(result).includes('controlled-go-host-key'));
     await f.restart();
