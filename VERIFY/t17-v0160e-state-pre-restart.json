@@ -1,0 +1,11 @@
+{
+  "label": "t17-v0160e",
+  "originalStatePath": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-controlled-home\\router\\desktop\\state.json",
+  "sealedStatePath": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-state-sealed.json",
+  "bytes": 1403939,
+  "sha256": "3878FFC41DE78CC27C21369928F7A7E3BB788B0CAFB2449AC718C5726D8655C6",
+  "controlledStop": "t17-v0160e-controlled-stopped.json",
+  "stateScopeProtocol": "t17-current-registry-refresh-v1",
+  "predeclaredScope": "Reopen only this isolated controlled profile; read-only public snapshot/modelCatalog; no prompt, policy mutation, model request or tool execution. Require complete Tasks/Calls/ledgers/config/default/counter and every stored non-connections field exact. Only the 14 controlled current registry entries may refresh auth/config generations by exactly 2, registry revision by exactly 28 and the listed timestamps; all other registry fields remain exact. Preserve both raw hashes and report whole-file bytes changed.",
+  "realModelRequests": 0
+}

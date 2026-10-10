@@ -1,0 +1,225 @@
+{
+  "label": "t17-v0160b",
+  "phase": "failed-controlled",
+  "files": [
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-0.txt",
+      "bytes": 2670,
+      "sha256": "64313074071EBA4932BD459772E20A40893ED7DEF3F3AACB8F81977A5078434C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-1.txt",
+      "bytes": 2384,
+      "sha256": "BDAE1CBF9734E0DF2ED4567AC54C726B5582CB96E9BD0D88E5D14C6E5AC1ECD3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-10.txt",
+      "bytes": 3791,
+      "sha256": "334F074D294E4864E8B9F8E7C993F84C574D60E22647757D25F81FA71613D0AA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-11.txt",
+      "bytes": 4936,
+      "sha256": "58CAF24FF5956F03F47BEAC8C5AAA3ED52A702A1FCD46585F9779FD3FCA33E2E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-12.txt",
+      "bytes": 5300,
+      "sha256": "57F6376B2EEF62E1131E3F95BCCE5EC2B14E27A1D97A5FFCFF5A954D585795D4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-13.txt",
+      "bytes": 7522,
+      "sha256": "60D2667AA17DE821BDDF6C14DB03F44B5BE071FD5AD71E2E070D432540035854"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-14.txt",
+      "bytes": 14779,
+      "sha256": "C7766BC9757E334159DFEAAE19EB06DFBA11431D4313061357B09A3E3FEB01D6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-15.txt",
+      "bytes": 2582,
+      "sha256": "D1C61048215C131546F0518BA53DCF1B7E1BF64564DB5CB18966CF4676974987"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-16.txt",
+      "bytes": 2318,
+      "sha256": "D9E2FC3EA807EC303BC7E941B951A37EB1CEEB28532CDBECCC1EC32CEA947543"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-17.txt",
+      "bytes": 1336,
+      "sha256": "67A7C2C7064333B1BD36FBB32C1A1E733334AD3500370512A4B282CF09395F93"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-18.txt",
+      "bytes": 2659,
+      "sha256": "2EF53D9F3C7367A63F1962A2FCADA5E7D265A74A4A5EC49600F9C2DC6EBF76ED"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-19.txt",
+      "bytes": 6401,
+      "sha256": "8F11C7B8DA20F3E669A2A79B0B0B3E400536CDF91775553121F2B622048DD3B0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-2.txt",
+      "bytes": 3945,
+      "sha256": "070C4F1EF3DFFC5157EC6F6906D0544BADF1200C0C0B784926E7FFF5AB63CBAE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-20.txt",
+      "bytes": 2254,
+      "sha256": "5A0E268ED83D2C7A68627E7B3DABF2FE36035EB6E932DABF2514FEA4981FD8B0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-3.txt",
+      "bytes": 1299,
+      "sha256": "10FD36342E3E54BF7D31C82394900ACD82FC06BA8CF66A893C17EEA63999A888"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-4.txt",
+      "bytes": 2385,
+      "sha256": "2F9A66C6114316AB553CC64FB3132E2BCB253FD2E9D9D1C5EB240A3B4288678C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-5.txt",
+      "bytes": 4913,
+      "sha256": "E66FD5E1BFB04AD23149F176D20A811DCEC80059B49A427AE7970897FDC05387"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-6.txt",
+      "bytes": 4200,
+      "sha256": "81CF948F4DAB7DB01BF90A1DCDEF8F617E1B6C811C8A7DB467C097D92ACC305D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-7.txt",
+      "bytes": 3992,
+      "sha256": "EB6E02D8F7912E1B1D7958A082A8AA83B306A3939FCC8FE83734AB50CE01897C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-8.txt",
+      "bytes": 1988,
+      "sha256": "CA5037B9EB58EF0580D2BB21D82F9E99E20C7414993DCD9236F7CCBDAD042664"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-dependency-9.txt",
+      "bytes": 2789,
+      "sha256": "D99AABF810C6798A14E45046F616D44C5A3397FA24937F83D3FD307DD7E8FD13"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-executed-renderer.mjs",
+      "bytes": 6200,
+      "sha256": "3CACA268D949027D1A54B39A3F9CC79D22634CC46A278E0AF1B170838EA1B4BD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160b-controlled-executed-rpc.mjs",
+      "bytes": 18822,
+      "sha256": "C0F90C5C55BD8AA9AD0C67BA647530E91FFAD16451F3771249360FE798B06828"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160a-failed-controlled-frozen.json",
+      "bytes": 9413,
+      "sha256": "DF478D120F98FC648109EC4B1C71BDF27945A51FF254BE77993E10AF20F89C42"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled-execution-sources.json",
+      "bytes": 9323,
+      "sha256": "A62FB52B4BF4AB65CC2289C80E1DB09B68CDCB8180ED0F067A0A93DFEBD5DD78"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled-home\\router\\desktop\\state.json",
+      "bytes": 69069,
+      "sha256": "8C3FDACE93DE8ED758AA1C176F63C58E377456CA2ED94A78BD28F486FBEF1421"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled-home\\t17-controlled-counts.json",
+      "bytes": 2032,
+      "sha256": "02B5422314ED2D6B81FB42F34A0F4AD20FD3E61532741C32791812F51247BF8F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled-owner.json",
+      "bytes": 619,
+      "sha256": "FD03763FDF8A89D6E6B12F3CD25D35415B6AD8EB36F1DBB8B00DD426675FF8FB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled-rpc-run.log",
+      "bytes": 625,
+      "sha256": "D3C0F3CF4B324C9F35476C9CA0DA25245B670043507DFB646AF0ABF0B317F667"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled-stopped.json",
+      "bytes": 418,
+      "sha256": "2AE136253E1BCF53113A66B104D8EBD8D52A13EF2060F871C2A083B2FAAD6486"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled.private.err.log",
+      "bytes": 2104,
+      "sha256": "EF49A2D9CD2D88108ED827B87C75BD3255D9D39C7DAEB98674271C8D5EA46ACD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-controlled.private.out.log",
+      "bytes": 207,
+      "sha256": "7342E2B2A87609BFD9536405A2E75AD30CA247D74856756891B3BBFAF84AFE0E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-desktop-initial.json",
+      "bytes": 212404,
+      "sha256": "5C7B2308621B58CE5909B46F32BE7D98E914ED568D297A08B17AD9AB475DDBB5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-desktop-owned.ps1",
+      "bytes": 6401,
+      "sha256": "8F11C7B8DA20F3E669A2A79B0B0B3E400536CDF91775553121F2B622048DD3B0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-fixture-bundle\\lib\\index.js",
+      "bytes": 12350,
+      "sha256": "2597CA09C6DF9EE7264A8AE18C1D228B00C4F81ED3DAEDAE0C4514356E03DF96"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-host-rpc.mjs",
+      "bytes": 2659,
+      "sha256": "2EF53D9F3C7367A63F1962A2FCADA5E7D265A74A4A5EC49600F9C2DC6EBF76ED"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-install.ps1",
+      "bytes": 2254,
+      "sha256": "5A0E268ED83D2C7A68627E7B3DABF2FE36035EB6E932DABF2514FEA4981FD8B0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "23278A3E7CEB660CD133351748EEB91C1E9D1306634C2F46B91CA4A0FC6A6C10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-offline-cli.log",
+      "bytes": 525,
+      "sha256": "055B34D0EC7AE75A10F32168AA306ABFA62A2683EA72AED4D1EF0ABC4FA7079B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-package-identity.json",
+      "bytes": 8203,
+      "sha256": "739602FDE86673045953AD810C85BA287BA974ABEA488F5D198C59B499BF74ED"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-preparation.json",
+      "bytes": 329,
+      "sha256": "D8D3D5E5D22A37B6C6C5D8C60019CF6FB7E27F8DBE46D90F1E225409F4F0F6CF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160b-reviewed-contract.md",
+      "bytes": 14779,
+      "sha256": "C7766BC9757E334159DFEAAE19EB06DFBA11431D4313061357B09A3E3FEB01D6"
+    }
+  ],
+  "realModelRequests": 0,
+  "priorLabels": {
+    "manifests": [
+      "t17-v0160a-failed-controlled-frozen.json"
+    ],
+    "files": 37,
+    "realModelRequests": 0
+  },
+  "note": "Hashes preserve raw owned log bytes without exporting private bootstrap contents."
+}

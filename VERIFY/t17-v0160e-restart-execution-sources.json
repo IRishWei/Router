@@ -1,0 +1,196 @@
+{
+  "stage": "restart",
+  "copied": [
+    {
+      "source": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-desktop-rpc-draft.mjs",
+      "executed": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-executed-rpc.mjs",
+      "bytes": 18822,
+      "sha256": "C0F90C5C55BD8AA9AD0C67BA647530E91FFAD16451F3771249360FE798B06828"
+    },
+    {
+      "source": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-installed-renderer-draft.mjs",
+      "executed": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-executed-renderer.mjs",
+      "bytes": 6200,
+      "sha256": "3CACA268D949027D1A54B39A3F9CC79D22634CC46A278E0AF1B170838EA1B4BD"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-capture-execution-sources.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-0.txt",
+      "bytes": 3103,
+      "sha256": "A515C8943586E5AA06C469DCA60FE27D4AFD28771638FA20D14486F02B44E2E4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-run-controlled.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-1.txt",
+      "bytes": 2384,
+      "sha256": "BDAE1CBF9734E0DF2ED4567AC54C726B5582CB96E9BD0D88E5D14C6E5AC1ECD3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-preservation.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-2.txt",
+      "bytes": 3945,
+      "sha256": "070C4F1EF3DFFC5157EC6F6906D0544BADF1200C0C0B784926E7FFF5AB63CBAE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-label-preservation.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-3.txt",
+      "bytes": 1299,
+      "sha256": "10FD36342E3E54BF7D31C82394900ACD82FC06BA8CF66A893C17EEA63999A888"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t15-complete-preservation.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-4.txt",
+      "bytes": 2385,
+      "sha256": "2F9A66C6114316AB553CC64FB3132E2BCB253FD2E9D9D1C5EB240A3B4288678C"
+    },
+    {
+      "path": "E:\\GPT\\Router项目\\test\\client-harness.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-5.txt",
+      "bytes": 4913,
+      "sha256": "E66FD5E1BFB04AD23149F176D20A811DCEC80059B49A427AE7970897FDC05387"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-desktop-prepare.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-6.txt",
+      "bytes": 4200,
+      "sha256": "81CF948F4DAB7DB01BF90A1DCDEF8F617E1B6C811C8A7DB467C097D92ACC305D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-package-freeze.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-7.txt",
+      "bytes": 3992,
+      "sha256": "EB6E02D8F7912E1B1D7958A082A8AA83B306A3939FCC8FE83734AB50CE01897C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-pack-reviewed.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-8.txt",
+      "bytes": 1988,
+      "sha256": "CA5037B9EB58EF0580D2BB21D82F9E99E20C7414993DCD9236F7CCBDAD042664"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-state-seal.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-9.txt",
+      "bytes": 3455,
+      "sha256": "798EDCAAB8F6E8235E6623A36008CBD007010E2D99E0A1E85F7F5E85818A64C1"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-export-proof.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-10.txt",
+      "bytes": 3791,
+      "sha256": "334F074D294E4864E8B9F8E7C993F84C574D60E22647757D25F81FA71613D0AA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-restart-state-scope.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-11.txt",
+      "bytes": 5373,
+      "sha256": "0BF1D3B92AA6AB42FE9943330BDDB8F956F0C9A916E89D9E3D56642AF0E85598"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-public-summary.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-12.txt",
+      "bytes": 5341,
+      "sha256": "7DAABA8B97B7598158A0A1CB532168813A93A273D830769BEFFC53A2293A7718"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-freeze-label.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-13.txt",
+      "bytes": 5740,
+      "sha256": "DE7A230CCF493C3AB425F8C4A932D9546ECABD670BC2C21FE3C6F7B20948F320"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-desktop-validation-plan.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-14.txt",
+      "bytes": 7522,
+      "sha256": "60D2667AA17DE821BDDF6C14DB03F44B5BE071FD5AD71E2E070D432540035854"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-reviewed-contract.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-15.txt",
+      "bytes": 14779,
+      "sha256": "8F7488267A3F69A993D8E8C15425AE4C495FF9040C3A5AE240B3C0A6528581AB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-desktop-validation-adjustment-1.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-16.txt",
+      "bytes": 2582,
+      "sha256": "D1C61048215C131546F0518BA53DCF1B7E1BF64564DB5CB18966CF4676974987"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-desktop-validation-adjustment-2.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-17.txt",
+      "bytes": 1710,
+      "sha256": "7B16E0EDC376ECB6C407B00CD907F9C3E2597224E429099CE3BE85543E9F2B47"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-desktop-validation-adjustment-3.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-18.txt",
+      "bytes": 1702,
+      "sha256": "2AF8B3A7F8D6B43C7EB756B5ACC87C9AA780D1B1A1E0EA62397BE71030B5A40F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-desktop-validation-adjustment-4.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-19.txt",
+      "bytes": 2845,
+      "sha256": "2E13F924B4D67DBB28B9F174541140BC42922F9CAE9BCF705CE223F334144794"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-installed-restart-scope-review.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-20.txt",
+      "bytes": 2332,
+      "sha256": "435E8B0532407A0C87F35C2295827F43B639D7C977E76DE4263C28E8743840A7"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160d-readonly-state-diagnosis.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-21.txt",
+      "bytes": 4881,
+      "sha256": "A9501AD1F455075D8663DE8ACDDAA20CA4F9B055CF4AB0119693BE33A7425041"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-source-review-issue-1.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-22.txt",
+      "bytes": 29076,
+      "sha256": "98DF71373C10CCA53FCBA97DBB216DDC273AA9424DA2B1BC8296EB0FAED58EA0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-source-review-issue-18.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-23.txt",
+      "bytes": 1355,
+      "sha256": "EC9421B5C61864B7D8E7B4C0870D597CD829487CFEB0F295455B8BA837E537EA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160a-readonly-diagnosis.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-24.txt",
+      "bytes": 2318,
+      "sha256": "D9E2FC3EA807EC303BC7E941B951A37EB1CEEB28532CDBECCC1EC32CEA947543"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160a-readonly-diagnosis.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-25.txt",
+      "bytes": 1336,
+      "sha256": "67A7C2C7064333B1BD36FBB32C1A1E733334AD3500370512A4B282CF09395F93"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-host-rpc.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-26.txt",
+      "bytes": 2659,
+      "sha256": "F82646636DB09397A078A5103EC46A22B2A05B8EF6C761D1C864F0798E228423"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-desktop-owned.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-27.txt",
+      "bytes": 6401,
+      "sha256": "2C9ED306429EBE60DCEC1EEE6F804ABA0D8FE7669CB2B78E9303059A42451C6D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-install.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-v0160e-restart-dependency-28.txt",
+      "bytes": 2254,
+      "sha256": "142E6022CB6C5586084D402E2AB9CB0DBE3E3EF9D8625969077053FE9BD9714A"
+    }
+  ],
+  "actualDesktopExecuted": false,
+  "realModelRequests": 0,
+  "note": "Prepared before launch; separate RPC, Renderer and owned-stop receipts establish execution results."
+}

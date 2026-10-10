@@ -1,0 +1,13 @@
+startedUtc=2026-10-10T18:22:11.9384411Z
+cwd=E:\GPT\Router项目
+base=3a8d9891fd11e1b4e2fd4621a32ad5204996d963 fixedHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee
+command=npm run build
+executable=C:\Program Files\nodejs\npm.cmd
+
+> @irishwei/dsh-router@0.16.0 build
+> node scripts/build.mjs
+
+exitCode=0
+commandWallSeconds=2.615
+rootBranch=codex/dsh-router-v1 rootHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee rootClean=true authorHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee authorClean=true
+result=PASS

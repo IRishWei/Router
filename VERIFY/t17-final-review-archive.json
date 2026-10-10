@@ -1,0 +1,315 @@
+{
+  "ticket": "https://github.com/IRishWei/Router/issues/18",
+  "version": "0.16.0",
+  "reviewedSourceSha": "82d67da51b0dbc7faf6502d6d764f63d3c4c9eee",
+  "phase": "installed-independent-review-complete",
+  "sourceReviews": "Standards/Spec PASS, 0 current findings",
+  "installedReviews": "Standards/Spec PASS, 0 current findings",
+  "immutableValidationPhase": "validation-complete-pending-independent-final-review",
+  "frozenFileEntriesVerified": 495,
+  "package": {
+    "path": "E:\\GPT\\Router项目\\artifacts\\irishwei-dsh-router-0.16.0.tgz",
+    "bytes": 233897,
+    "sha256": "64A7CFA962C08760D8C0C3235FCAB662CA449DD54C98B10796114728CC5C04FA",
+    "installedFilesVerified": 37
+  },
+  "actualControlledStreams": 59,
+  "productionModelRequests": 0,
+  "archiveFiles": [
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-package-identity.json",
+      "archivePath": "VERIFY/t17-v0160e-package-identity.json",
+      "bytes": 8203,
+      "sha256": "555B6AA8E14B713CF5DA8210E819F616A680973D8A1FAB56D65D72A5AA411B05"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-desktop-summary.json",
+      "archivePath": "VERIFY/t17-v0160e-desktop-summary.json",
+      "bytes": 14928,
+      "sha256": "6A4EF617573E784A1C3C86FCA1AF1B5A501977CFD780B33ABE3458E87F326457"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-public-proof.json",
+      "archivePath": "VERIFY/t17-v0160e-public-proof.json",
+      "bytes": 3328856,
+      "sha256": "DB6FA90802E90957AB2286DA30C72E435DB4D59597ADC3796292FDFF2DE37225"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-renderer-evidence.json",
+      "archivePath": "VERIFY/t17-v0160e-renderer-evidence.json",
+      "bytes": 1524,
+      "sha256": "1C33BED15AB90E9BD27B9211DEC0C5F48315EF2367D6EF0B42B0336166683A56"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-restart-evidence.json",
+      "archivePath": "VERIFY/t17-v0160e-restart-evidence.json",
+      "bytes": 1850,
+      "sha256": "F9CDEB8F0EAF718F3DB62A0F170F7E14FF9B9E663417C8054973AFCB4A134F39"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-restart-state-scope.json",
+      "archivePath": "VERIFY/t17-v0160e-restart-state-scope.json",
+      "bytes": 7543,
+      "sha256": "064CE3DD7172C22CF440E689137B74F7F514F014780A4CC9FA85D4B9B4349E2F"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-state-pre-restart.json",
+      "archivePath": "VERIFY/t17-v0160e-state-pre-restart.json",
+      "bytes": 1068,
+      "sha256": "FB230502B8A55DBD151EC7592E88692C9850A48DF8C4A75E9B223D03887A0595"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-validation-frozen.json",
+      "archivePath": "VERIFY/t17-v0160e-validation-frozen.json",
+      "bytes": 69970,
+      "sha256": "64B6CCDDCEB261CACD758FFB85923CD3661CD18E0A1BABB6523C7FEBEFDEA01B"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-postprocessing-repair.json",
+      "archivePath": "VERIFY/t17-v0160e-postprocessing-repair.json",
+      "bytes": 1498,
+      "sha256": "12168D381BA87C0BBDB7BFE89F2CE7CCACF6FE16C2167D0ED5E80232480C1CC9"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-reviewed-contract.md",
+      "archivePath": "VERIFY/t17-v0160e-reviewed-contract.md",
+      "bytes": 14779,
+      "sha256": "8F7488267A3F69A993D8E8C15425AE4C495FF9040C3A5AE240B3C0A6528581AB"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-controlled-execution-sources.json",
+      "archivePath": "VERIFY/t17-v0160e-controlled-execution-sources.json",
+      "bytes": 12599,
+      "sha256": "D6C42413B1F2C08667141B3378BFCDE913624FF2BA098C6D83FAA14E24D67DC6"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-restart-execution-sources.json",
+      "archivePath": "VERIFY/t17-v0160e-restart-execution-sources.json",
+      "bytes": 12503,
+      "sha256": "E099EB1C2CC56868B0AE69AC8B28841E7222E7A2571EA8BA1A11D1BFCB08CF32"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-offline-cli-receipt.json",
+      "archivePath": "VERIFY/t17-v0160e-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "870383233B285C151C237B91628E5615690CB45C7BB25DC5CFADC63090EA7233"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160a-failed-controlled-frozen.json",
+      "archivePath": "VERIFY/t17-v0160a-failed-controlled-frozen.json",
+      "bytes": 9413,
+      "sha256": "DF478D120F98FC648109EC4B1C71BDF27945A51FF254BE77993E10AF20F89C42"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160b-failed-controlled-frozen.json",
+      "archivePath": "VERIFY/t17-v0160b-failed-controlled-frozen.json",
+      "bytes": 10851,
+      "sha256": "4F6F88EC1AEAC07EFEB8B90FEA413415004B520CE3907D26AE8C3589B137E7B3"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160c-failed-controlled-frozen.json",
+      "archivePath": "VERIFY/t17-v0160c-failed-controlled-frozen.json",
+      "bytes": 11406,
+      "sha256": "49D21D522005C40491A0CE0729E800870D765864A4A720030FE43C0DFE2B45D4"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160d-failed-restart-frozen.json",
+      "archivePath": "VERIFY/t17-v0160d-failed-restart-frozen.json",
+      "bytes": 24351,
+      "sha256": "149B0CA34DDBB679131E2537400536891FA00347C19B18E5518DB21476750B8A"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160a-readonly-diagnosis.json",
+      "archivePath": "VERIFY/t17-v0160a-readonly-diagnosis.json",
+      "bytes": 1336,
+      "sha256": "67A7C2C7064333B1BD36FBB32C1A1E733334AD3500370512A4B282CF09395F93"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160d-readonly-state-diagnosis.json",
+      "archivePath": "VERIFY/t17-v0160d-readonly-state-diagnosis.json",
+      "bytes": 4881,
+      "sha256": "A9501AD1F455075D8663DE8ACDDAA20CA4F9B055CF4AB0119693BE33A7425041"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-source-standards-final.md",
+      "archivePath": "VERIFY/t17-source-standards-final.md",
+      "bytes": 2848,
+      "sha256": "E735CD0E7154D5380A44BFB58FF5014BB83EB61BE8307894939C416336F0D3B7"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-source-spec-final.md",
+      "archivePath": "VERIFY/t17-source-spec-final.md",
+      "bytes": 1836,
+      "sha256": "2D2AF6A3C21F13554C809D16FD7A6C0E87FBCB8CDC1937BDFB8A949731622C48"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-installed-standards-final.md",
+      "archivePath": "VERIFY/t17-installed-standards-final.md",
+      "bytes": 2945,
+      "sha256": "1E7E1B4B174F218B63B5B8CC34CF92309225C0B46CD209DC60CCB4420C71DE88"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-installed-spec-final.md",
+      "archivePath": "VERIFY/t17-installed-spec-final.md",
+      "bytes": 2394,
+      "sha256": "0E35F4B8BE480F0EBC3309B0413AF5B4572A61F22BB40E9D3336F091D4AC870E"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-installed-restart-scope-review.md",
+      "archivePath": "VERIFY/t17-installed-restart-scope-review.md",
+      "bytes": 2332,
+      "sha256": "435E8B0532407A0C87F35C2295827F43B639D7C977E76DE4263C28E8743840A7"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-desktop-validation-adjustment-1.md",
+      "archivePath": "VERIFY/t17-desktop-validation-adjustment-1.md",
+      "bytes": 2582,
+      "sha256": "D1C61048215C131546F0518BA53DCF1B7E1BF64564DB5CB18966CF4676974987"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-desktop-validation-adjustment-2.md",
+      "archivePath": "VERIFY/t17-desktop-validation-adjustment-2.md",
+      "bytes": 1710,
+      "sha256": "7B16E0EDC376ECB6C407B00CD907F9C3E2597224E429099CE3BE85543E9F2B47"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-desktop-validation-adjustment-3.md",
+      "archivePath": "VERIFY/t17-desktop-validation-adjustment-3.md",
+      "bytes": 1702,
+      "sha256": "2AF8B3A7F8D6B43C7EB756B5ACC87C9AA780D1B1A1E0EA62397BE71030B5A40F"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-desktop-validation-adjustment-4.md",
+      "archivePath": "VERIFY/t17-desktop-validation-adjustment-4.md",
+      "bytes": 2845,
+      "sha256": "2E13F924B4D67DBB28B9F174541140BC42922F9CAE9BCF705CE223F334144794"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-v0160e-controlled-executed-rpc.mjs",
+      "archivePath": "VERIFY/t17-v0160e-controlled-executed-rpc.mjs",
+      "bytes": 18822,
+      "sha256": "C0F90C5C55BD8AA9AD0C67BA647530E91FFAD16451F3771249360FE798B06828"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-v0160e-controlled-executed-renderer.mjs",
+      "archivePath": "VERIFY/t17-v0160e-controlled-executed-renderer.mjs",
+      "bytes": 6200,
+      "sha256": "3CACA268D949027D1A54B39A3F9CC79D22634CC46A278E0AF1B170838EA1B4BD"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-v0160e-restart-executed-rpc.mjs",
+      "archivePath": "VERIFY/t17-v0160e-restart-executed-rpc.mjs",
+      "bytes": 18822,
+      "sha256": "C0F90C5C55BD8AA9AD0C67BA647530E91FFAD16451F3771249360FE798B06828"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-v0160e-restart-executed-renderer.mjs",
+      "archivePath": "VERIFY/t17-v0160e-restart-executed-renderer.mjs",
+      "bytes": 6200,
+      "sha256": "3CACA268D949027D1A54B39A3F9CC79D22634CC46A278E0AF1B170838EA1B4BD"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-restart-state-scope-e-repair.mjs",
+      "archivePath": "VERIFY/t17-restart-state-scope-e-repair.mjs",
+      "bytes": 5546,
+      "sha256": "B75DBB10FF58349350DCE02F9F7F871902663538D04F531A3A36D679D81DCBB3"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-v0160e-postprocessing-freeze.mjs",
+      "archivePath": "VERIFY/t17-v0160e-postprocessing-freeze.mjs",
+      "bytes": 5951,
+      "sha256": "FC334B51687DF9940EE06FECC2546EB1F7FD76251B4C4B687471FD6EC19B6421"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-finish-receipt-hashes.json",
+      "archivePath": "VERIFY/t17-finish-receipt-hashes.json",
+      "bytes": 2057,
+      "sha256": "7CEA3EC936938DFB5E4D8CE4FE491CB6A815A9F055581666922CE2AFE2CD5CBF"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-finish-combined-receipt-hashes.json",
+      "archivePath": "VERIFY/t17-finish-combined-receipt-hashes.json",
+      "bytes": 2952,
+      "sha256": "22B53D8AB21AF15FBC33E7AF5A1A857DBCB4B200F05D881CC138372664FCC1B4"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-root-finish-receipt-hashes.json",
+      "archivePath": "VERIFY/t17-root-finish-receipt-hashes.json",
+      "bytes": 2567,
+      "sha256": "B105B18931CF1C9086A7E318179CF0E95D6ADD04DA4882F3F9007E299AE83C5E"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-merged-merge.log",
+      "archivePath": "VERIFY/t17-merged-merge.log",
+      "bytes": 1903,
+      "sha256": "4D954A64AA0F7B9F1E5D1A6FDCE26849ACEBCD0C0BFBAFB0342DC06B37CDC9F1"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-merged-build.log",
+      "archivePath": "VERIFY/t17-merged-build.log",
+      "bytes": 515,
+      "sha256": "970E4F391220B135F83B953500B927CB82AA06E601CC9E6056BBB6FDDDB2A2C6"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-merged-suite.log",
+      "archivePath": "VERIFY/t17-merged-suite.log",
+      "bytes": 58301,
+      "sha256": "230DDFF1355E4E904D3FCCC207AE2358B619176AE121DA321EAACEE24CAAD356"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-merged-check.log",
+      "archivePath": "VERIFY/t17-merged-check.log",
+      "bytes": 515,
+      "sha256": "50BF91DA74D9C5DB298A9B8F474ABA5AC53BD263A0E5A40840A2FA36BD7DEEC3"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-merged-diffcheck.log",
+      "archivePath": "VERIFY/t17-merged-diffcheck.log",
+      "bytes": 573,
+      "sha256": "2083DAB3705BF6428FC7A198EF8FC00A4ED0E0196ECCFB24E6D4BBA2531E20AB"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-merger-preflight-failure-1b2c349e.log",
+      "archivePath": "VERIFY/t17-merger-preflight-failure-1b2c349e.log",
+      "bytes": 1597,
+      "sha256": "5B2C909BC3FAE91D12E556C0A5FEF7D044F5A50950CA7B98F6955FEDA9954D1A"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-merger-summary-parser-failure-60c6b493.log",
+      "archivePath": "VERIFY/t17-merger-summary-parser-failure-60c6b493.log",
+      "bytes": 3010,
+      "sha256": "1779536CA475B2B5EC5BAB586FDBA8A49D7F8D968AB72865080804F7C13BF1A7"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-source-standards-r1.md",
+      "archivePath": "VERIFY/t17-source-standards-r1.md",
+      "bytes": 2183,
+      "sha256": "2DD7C27B83E5E9ADE7CFBC60A11DF231F723B9CDD039ED555EC8D17EE8E00C99"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-source-spec-r1.md",
+      "archivePath": "VERIFY/t17-source-spec-r1.md",
+      "bytes": 1941,
+      "sha256": "DC58E8F82D02D5FEFBCC9FE31FEE9C262ECA81D2E0997014952FD4067F4A14CA"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-source-standards-r2.md",
+      "archivePath": "VERIFY/t17-source-standards-r2.md",
+      "bytes": 2496,
+      "sha256": "7441DCEE6793BCCFCCA1777E41E1C8E4B1524AA98DF38C7D2C647A5F8BB97148"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-source-spec-r2.md",
+      "archivePath": "VERIFY/t17-source-spec-r2.md",
+      "bytes": 2261,
+      "sha256": "6B3556311E24CD21096952B6AF460DFE31F1CE8F8A59F9A6681160BB152C2765"
+    },
+    {
+      "sourcePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t17-v0160e-fixture-bundle/lib/index.js",
+      "archivePath": "VERIFY/t17-v0160e-installed-fixture.js",
+      "bytes": 12948,
+      "sha256": "4F5EDCEE40C836EFE2B79C3498C232EA3B7D7D91890715C371EEFB8E118E52AC"
+    }
+  ],
+  "note": "Byte copies only. The e pending-review phase and prior a/b/c/d failed phases are unchanged. Private log bodies, bootstrap URLs, and credentials are not archived. Whole state bytes changed only in the predeclared current registry refresh; full non-registry history is unchanged."
+}

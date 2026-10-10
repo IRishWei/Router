@@ -1,0 +1,36 @@
+{
+  "result": "STOP before merge",
+  "rootBranch": "codex/dsh-router-v1",
+  "rootHead": "3a8d9891fd11e1b4e2fd4621a32ad5204996d963",
+  "rootStatus": "",
+  "authorBranch": "codex/t17-context-takeover",
+  "authorHead": "82d67da51b0dbc7faf6502d6d764f63d3c4c9eee",
+  "authorStatus": "",
+  "intendedReceipts": [
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-merge.log",
+      "exists": false
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-build.log",
+      "exists": false
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-suite.log",
+      "exists": false
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-check.log",
+      "exists": false
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-diffcheck.log",
+      "exists": false
+    }
+  ],
+  "failedRunner": "t17-merger-runner-1b2c349e.ps1",
+  "diagnosis": "Get-Command git.exe returned two Application sources; the Source array became a combined invalid executable name. No merge or validation command ran.",
+  "runnerExitCode": 1,
+  "retryPerformed": false,
+  "failureReceipt": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merger-preflight-failure-1b2c349e.log"
+}

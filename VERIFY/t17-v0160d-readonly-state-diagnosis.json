@@ -1,0 +1,195 @@
+{
+  "label": "t17-v0160d",
+  "readOnly": true,
+  "exactBytesUnchanged": false,
+  "sealedSha256": "C9B01C055EE63376FF07886EC7BCB67FC9190EFB9D2F6E8B9898270E983D19C5",
+  "liveSha256": "B60F4EE9052BD97EF8EABD5E35868CD00E70864F0E6A9F580EECA5BA38BBB3A0",
+  "differences": [
+    {
+      "path": "state.connections.revision",
+      "before": 36,
+      "after": 64
+    },
+    {
+      "path": "state.connections.capturedAt",
+      "before": "2026-10-10T18:39:16.200Z",
+      "after": "2026-10-10T18:39:54.475Z"
+    },
+    {
+      "path": "state.connections.candidates.4.connectionConfigRevision",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.4.authEpoch",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.4.tombstone.at",
+      "before": "2026-10-10T18:38:57.127Z",
+      "after": "2026-10-10T18:39:54.491Z"
+    },
+    {
+      "path": "state.connections.candidates.5.connectionConfigRevision",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.5.authEpoch",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.5.tombstone.at",
+      "before": "2026-10-10T18:38:57.128Z",
+      "after": "2026-10-10T18:39:54.497Z"
+    },
+    {
+      "path": "state.connections.candidates.6.connectionConfigRevision",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.6.authEpoch",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.6.tombstone.at",
+      "before": "2026-10-10T18:38:57.128Z",
+      "after": "2026-10-10T18:39:54.503Z"
+    },
+    {
+      "path": "state.connections.candidates.7.connectionConfigRevision",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.7.authEpoch",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.7.tombstone.at",
+      "before": "2026-10-10T18:38:57.128Z",
+      "after": "2026-10-10T18:39:54.503Z"
+    },
+    {
+      "path": "state.connections.candidates.8.connectionConfigRevision",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.8.authEpoch",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.8.tombstone.at",
+      "before": "2026-10-10T18:38:57.128Z",
+      "after": "2026-10-10T18:39:54.503Z"
+    },
+    {
+      "path": "state.connections.candidates.9.connectionConfigRevision",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.9.authEpoch",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.9.tombstone.at",
+      "before": "2026-10-10T18:38:57.128Z",
+      "after": "2026-10-10T18:39:54.503Z"
+    },
+    {
+      "path": "state.connections.candidates.10.connectionConfigRevision",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.10.authEpoch",
+      "before": 2,
+      "after": 4
+    },
+    {
+      "path": "state.connections.candidates.10.tombstone.at",
+      "before": "2026-10-10T18:38:57.128Z",
+      "after": "2026-10-10T18:39:54.503Z"
+    },
+    {
+      "path": "state.connections.candidates.11.connectionConfigRevision",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.11.authEpoch",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.12.connectionConfigRevision",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.12.authEpoch",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.13.connectionConfigRevision",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.13.authEpoch",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.14.connectionConfigRevision",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.14.authEpoch",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.15.connectionConfigRevision",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.15.authEpoch",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.16.connectionConfigRevision",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.16.authEpoch",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.17.connectionConfigRevision",
+      "before": 1,
+      "after": 3
+    },
+    {
+      "path": "state.connections.candidates.17.authEpoch",
+      "before": 1,
+      "after": 3
+    }
+  ],
+  "realModelRequests": 0
+}

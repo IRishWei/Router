@@ -1,0 +1,83 @@
+{
+  "base": "3a8d9891fd11e1b4e2fd4621a32ad5204996d963",
+  "priorHead": "e26ac7ec3c518ce945da382f36ec147d10a82276",
+  "head": "82d67da51b0dbc7faf6502d6d764f63d3c4c9eee",
+  "preserved": [
+    {
+      "manifest": "t17-finish-receipt-hashes.json",
+      "files": 12
+    },
+    {
+      "manifest": "t17-finish-combined-receipt-hashes.json",
+      "files": 16
+    }
+  ],
+  "files": [
+    {
+      "file": "t17-root-finish-result.md",
+      "bytes": 2953,
+      "sha256": "56d9f91099946f2f9d6f20cb9c78bf1403b24bbb998e86d6b7b295ed431cd413"
+    },
+    {
+      "file": "t17-root-finish-validation.ps1",
+      "bytes": 1374,
+      "sha256": "a58ca19d9c0a05df0ece761baf7db12961c0d40a71220d042d94207af80a9b13"
+    },
+    {
+      "file": "t17-root-finish-freeze.mjs",
+      "bytes": 5575,
+      "sha256": "ae45b004df6024a61454d6bf839b5b319c055b7d20b2014f54bbabacc7f8e6ba"
+    },
+    {
+      "file": "t17-finish-late-early-error-red.log",
+      "bytes": 997,
+      "sha256": "0e734091118734b3e06ce4030621f743f773b97e93f1137674a9a5d0b35afc72"
+    },
+    {
+      "file": "t17-finish-late-early-error-green.log",
+      "bytes": 228,
+      "sha256": "4bf2945893cf89730e2674555ef4f2906767895455b852202706122b5e71d3cf"
+    },
+    {
+      "file": "t17-finish-late-registered-pending-red.log",
+      "bytes": 2339,
+      "sha256": "2623a83b440c8dd3192d2b21691b1efc7b165995faff8d5dedf505bbd8393e4c"
+    },
+    {
+      "file": "t17-finish-late-registered-pending-green.log",
+      "bytes": 343,
+      "sha256": "16b91296ada8a356100dc41bf24a4c21fb04f8183db0fed1157af574aec2bad9"
+    },
+    {
+      "file": "t17-root-finish-build.log",
+      "bytes": 67,
+      "sha256": "48a59165373fd076885186801890802b3192ecd030c9eee27ccd1f0d914b0409"
+    },
+    {
+      "file": "t17-root-finish-suite.log",
+      "bytes": 57779,
+      "sha256": "208869d93b0c89a50316d2a87ae13b85cc4e2469a40c14f3dffbc812ea996709"
+    },
+    {
+      "file": "t17-root-finish-check.log",
+      "bytes": 67,
+      "sha256": "b7effb4b0a7d649f8d815b87f974d44d75a72767d2f7e32c58696b14784131f2"
+    },
+    {
+      "file": "t17-root-finish-diffcheck.log",
+      "bytes": 516,
+      "sha256": "1ee139791bc1cb12bb61b283257e422f9a628029f6f60c469b04f412035c7827"
+    },
+    {
+      "file": "t17-root-finish-commit-diffcheck.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "t17-root-finish-integration-merge.log",
+      "bytes": 21,
+      "sha256": "6785c86f48e066e125db2b99c3c9fffddce2495ae2da837332b6f9887346e291"
+    }
+  ],
+  "realModelRequests": 0
+}

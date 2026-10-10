@@ -1,0 +1,43 @@
+{
+  "passed": true,
+  "stage": "controlled",
+  "installedClientSha256": "4AC7D440D06447D0ACB7E9F83C214E00C9229638321DDACECCFE107B7A45FEBA",
+  "nativeRenderer": true,
+  "nativeRpcCodec": true,
+  "livePublicRpc": true,
+  "imageTaskArtifactsDisplayed": true,
+  "takeoverPlanningAndObservedOwnerDisplayed": true,
+  "takeoverRows": [
+    "0f1458fb-a3bd-49c6-aa1a-69daebcef330",
+    "b37aa585-fc46-4a65-bc88-15cea8fdd7f8",
+    "529a8bc7-09c1-4797-a093-090887855cdc",
+    "030b7bb0-6727-44df-8253-4216e697f61a",
+    "9d7e69bd-91f7-4563-b4ee-bc6433950aec",
+    "f536e4ce-28c6-48ca-b089-d66998c9f53d",
+    "17e680a8-2ea7-4bfc-b42f-9a4a032760ed",
+    "cf09f53c-0a88-450c-bdee-cb5a5f560e4a",
+    "bd2a23fe-fd36-4fc2-9103-bb33a0e12242",
+    "21fbe0ba-74ae-46b8-915d-dc0ddabdf47a"
+  ],
+  "storedTasks": 12,
+  "recentWindow": 20,
+  "verifiedRows": [
+    "0f1458fb-a3bd-49c6-aa1a-69daebcef330",
+    "b37aa585-fc46-4a65-bc88-15cea8fdd7f8",
+    "fedb75e1-2c18-4b0d-8ee2-4de2fd69fea5",
+    "529a8bc7-09c1-4797-a093-090887855cdc",
+    "030b7bb0-6727-44df-8253-4216e697f61a",
+    "9d7e69bd-91f7-4563-b4ee-bc6433950aec",
+    "f536e4ce-28c6-48ca-b089-d66998c9f53d",
+    "17e680a8-2ea7-4bfc-b42f-9a4a032760ed",
+    "cf09f53c-0a88-450c-bdee-cb5a5f560e4a",
+    "bd2a23fe-fd36-4fc2-9103-bb33a0e12242",
+    "c4136b55-73c0-4169-a9e4-a71227cb7a8d",
+    "21fbe0ba-74ae-46b8-915d-dc0ddabdf47a"
+  ],
+  "earlyTasksOutsideWindow": 0,
+  "unconfirmedDisplayed": true,
+  "snapshotUnchanged": true,
+  "visualScreenshotVerified": false,
+  "realModelRequests": 0
+}

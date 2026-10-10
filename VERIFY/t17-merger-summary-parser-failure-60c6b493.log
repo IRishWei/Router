@@ -1,0 +1,67 @@
+{
+  "incident": "Read-only postflight summary parser assumed TAP prefix",
+  "parserExitCode": 1,
+  "error": "Unexpected serial suite summary: missing # tests 535",
+  "actualReporterSummary": [
+    "ℹ tests 535",
+    "ℹ suites 0",
+    "ℹ pass 535",
+    "ℹ fail 0",
+    "ℹ cancelled 0",
+    "ℹ skipped 0",
+    "ℹ todo 0",
+    "ℹ duration_ms 100707.4199"
+  ],
+  "requiredSequentialCommands": "merge/build/suite/check/diffcheck all exitCode=0/result=PASS",
+  "mergedHead": "82d67da51b0dbc7faf6502d6d764f63d3c4c9eee",
+  "finalRootBranch": "codex/dsh-router-v1",
+  "finalRootClean": true,
+  "finalAuthorClean": true,
+  "suiteCommandWallSeconds": 100.756,
+  "validationRerunPerformed": false,
+  "immutableMergedReceipts": [
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-merge.log",
+      "bytes": 1903,
+      "sha256": "4d954a64aa0f7b9f1e5d1a6fdce26849acebcd0c0bfbafb0342dc06b37cdc9f1"
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-build.log",
+      "bytes": 515,
+      "sha256": "970e4f391220b135f83b953500b927cb82aa06e601cc9e6056bbb6fdddb2a2c6"
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-suite.log",
+      "bytes": 58301,
+      "sha256": "230ddff1355e4e904d3fccc207ae2358b619176ae121da321eaacee24caad356"
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-check.log",
+      "bytes": 515,
+      "sha256": "50bf91da74d9c5db298a9b8f474aba5ac53bd263a0e5a40840a2fa36bd7deec3"
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merged-diffcheck.log",
+      "bytes": 573,
+      "sha256": "2083dab3705bf6428fc7a198ef8fc00a4ed0e0196eccfb24e6d4bba2531e20ab"
+    }
+  ],
+  "retainedExternalFiles": [
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merger-runner-1b2c349e.ps1",
+      "bytes": 7853,
+      "sha256": "1d1be54a480fa22610b564617c6b5fd0bfe5f8dfa4626d869cd329d9db28ed8c"
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merger-preflight-failure-1b2c349e.log",
+      "bytes": 1597,
+      "sha256": "5b2c909bc3fae91d12e556c0a5fef7d044f5a50950ca7b98f6955feda9954d1a"
+    },
+    {
+      "file": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merger-runner-60c6b493.ps1",
+      "bytes": 8306,
+      "sha256": "d203d48e9ceb7c747898520ea997854c55f2358d88651f3dbc4e6f0ae7841432"
+    }
+  ],
+  "failureReceipt": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t17-merger-summary-parser-failure-60c6b493.log"
+}

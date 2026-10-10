@@ -1,0 +1,88 @@
+{
+  "base": "3a8d9891fd11e1b4e2fd4621a32ad5204996d963",
+  "priorHead": "6e1b6ca925044f058fe19963ea2fbbe82bd2fa9c",
+  "head": "e26ac7ec3c518ce945da382f36ec147d10a82276",
+  "previousManifestVerified": 12,
+  "files": [
+    {
+      "file": "t17-finish-combined-result.md",
+      "bytes": 5879,
+      "sha256": "2fbe5220c2681536b036338875e6b0d8a28b9778e92f8d6a4fb02ecd3471d715"
+    },
+    {
+      "file": "t17-contract-combined-final.md",
+      "bytes": 14420,
+      "sha256": "888ca21cc1be0d242e7d87cfb735468e7a3bf6af3577768755ac1bfc55c2dc3f"
+    },
+    {
+      "file": "t17-finish-combined-unknown-red.log",
+      "bytes": 1041,
+      "sha256": "86ffb3bf4c104b4dee5abde03fdbeb3b4d8b128018c101e09cb749e71d9e1085"
+    },
+    {
+      "file": "t17-finish-combined-unknown-green.log",
+      "bytes": 251,
+      "sha256": "11877b7b80232ef64c49eb055d3f8a918ce3a5cda15b1ed9df1f2734c09aaf74"
+    },
+    {
+      "file": "t17-finish-combined-pending-red.log",
+      "bytes": 3362,
+      "sha256": "17b6238bcf6752905c76e803e8019335be87b496d45d8185c8427f14f80e22f4"
+    },
+    {
+      "file": "t17-finish-combined-pending-green.log",
+      "bytes": 368,
+      "sha256": "46da49ab5edb8d147c799741e3fb2ab148845705f6da0b1da831a360cb582d29"
+    },
+    {
+      "file": "t17-finish-combined-early-error-red.log",
+      "bytes": 4876,
+      "sha256": "9edcf87599b1bbcd8352bac39036b42a368594f90894f203dbbd641337663f54"
+    },
+    {
+      "file": "t17-finish-combined-early-error-green.log",
+      "bytes": 473,
+      "sha256": "63dddabc4d6f71a1e464b3fc037b22349af206f4dd5a44cb05224b86ae224709"
+    },
+    {
+      "file": "t17-finish-combined-build.log",
+      "bytes": 67,
+      "sha256": "48a59165373fd076885186801890802b3192ecd030c9eee27ccd1f0d914b0409"
+    },
+    {
+      "file": "t17-finish-combined-full-suite.log",
+      "bytes": 57476,
+      "sha256": "09a1f02eea9106c8545ee83a65b1b0b43029fcfba3106d2184e3907e9d1ef9f5"
+    },
+    {
+      "file": "t17-finish-combined-final-build.log",
+      "bytes": 67,
+      "sha256": "48a59165373fd076885186801890802b3192ecd030c9eee27ccd1f0d914b0409"
+    },
+    {
+      "file": "t17-finish-combined-final-full-suite.log",
+      "bytes": 57583,
+      "sha256": "f7366aeadb3ca9a7dc9230db5a09b24a68b587d4e17ee5015554f725da3229a2"
+    },
+    {
+      "file": "t17-finish-combined-final-check.log",
+      "bytes": 67,
+      "sha256": "b7effb4b0a7d649f8d815b87f974d44d75a72767d2f7e32c58696b14784131f2"
+    },
+    {
+      "file": "t17-finish-combined-final-diff-check.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "file": "t17-finish-combined-integration-merge.log",
+      "bytes": 21,
+      "sha256": "6785c86f48e066e125db2b99c3c9fffddce2495ae2da837332b6f9887346e291"
+    },
+    {
+      "file": "t17-finish-combined-final-integration-merge.log",
+      "bytes": 21,
+      "sha256": "6785c86f48e066e125db2b99c3c9fffddce2495ae2da837332b6f9887346e291"
+    }
+  ]
+}

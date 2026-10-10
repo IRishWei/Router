@@ -1,0 +1,411 @@
+{
+  "version": "0.16.0",
+  "reviewedSourceSha": "82d67da51b0dbc7faf6502d6d764f63d3c4c9eee",
+  "reviewedContract": {
+    "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-reviewed-contract.md",
+    "bytes": 14779,
+    "sha256": "8F7488267A3F69A993D8E8C15425AE4C495FF9040C3A5AE240B3C0A6528581AB",
+    "sourcePath": "docs/implementation/t17-takeover-contract.md",
+    "sourceBytes": 14339,
+    "sourceSha256": "A3050F7E4DE13C9DB591D5F4D55ECFC5C81ABA57E53D5C6538DE816553AD5729"
+  },
+  "package": {
+    "path": "E:\\GPT\\Router项目\\artifacts\\irishwei-dsh-router-0.16.0.tgz",
+    "bytes": 233897,
+    "sha256": "64A7CFA962C08760D8C0C3235FCAB662CA449DD54C98B10796114728CC5C04FA",
+    "installedFilesVerified": 37
+  },
+  "offlineCliReceipt": {
+    "version": "0.16.0",
+    "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-controlled-home",
+    "cliExitCode": 0,
+    "offline": true,
+    "hostProvidesPeers": true,
+    "realModelRequests": 0
+  },
+  "controlledStop": {
+    "purpose": "T17 controlled Desktop validation",
+    "stage": "controlled",
+    "pid": 27252,
+    "startedAt": "2026-10-10T18:46:52.0140516Z",
+    "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-controlled-home",
+    "executable": "E:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe",
+    "stopped": true,
+    "stoppedAt": "2026-10-10T18:47:16.6370659Z",
+    "ownedChildren": 4
+  },
+  "restartStop": {
+    "purpose": "T17 controlled Desktop validation",
+    "stage": "restart",
+    "pid": 13916,
+    "startedAt": "2026-10-10T18:47:35.5856845Z",
+    "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t17-v0160e-controlled-home",
+    "executable": "E:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe",
+    "stopped": true,
+    "stoppedAt": "2026-10-10T18:47:39.5913712Z",
+    "ownedChildren": 6
+  },
+  "scenarios": [
+    {
+      "name": "text",
+      "taskId": "21fbe0ba-74ae-46b8-915d-dc0ddabdf47a",
+      "setupTaskId": null,
+      "calls": 6,
+      "targetRequests": 1,
+      "verdict": "passed",
+      "refusalReason": null
+    },
+    {
+      "name": "image",
+      "taskId": "bd2a23fe-fd36-4fc2-9103-bb33a0e12242",
+      "setupTaskId": "c4136b55-73c0-4169-a9e4-a71227cb7a8d",
+      "calls": 5,
+      "targetRequests": 1,
+      "verdict": "passed",
+      "refusalReason": null
+    },
+    {
+      "name": "tools",
+      "taskId": "cf09f53c-0a88-450c-bdee-cb5a5f560e4a",
+      "setupTaskId": null,
+      "calls": 8,
+      "targetRequests": 2,
+      "verdict": "passed",
+      "refusalReason": null
+    },
+    {
+      "name": "duplicate-operation",
+      "taskId": "17e680a8-2ea7-4bfc-b42f-9a4a032760ed",
+      "setupTaskId": null,
+      "calls": 7,
+      "targetRequests": 1,
+      "verdict": "failed",
+      "refusalReason": "TAKEOVER_DUPLICATE_OPERATION"
+    },
+    {
+      "name": "fixed-denied",
+      "taskId": "f536e4ce-28c6-48ca-b089-d66998c9f53d",
+      "setupTaskId": null,
+      "calls": 5,
+      "targetRequests": 0,
+      "verdict": "failed",
+      "refusalReason": "FIXED_MODEL_TAKEOVER_NOT_AUTHORIZED"
+    },
+    {
+      "name": "capacity-small",
+      "taskId": "9d7e69bd-91f7-4563-b4ee-bc6433950aec",
+      "setupTaskId": null,
+      "calls": 5,
+      "targetRequests": 0,
+      "verdict": "failed",
+      "refusalReason": "TAKEOVER_CONTEXT_CAPACITY_EXCEEDED"
+    },
+    {
+      "name": "handoff-unknown",
+      "taskId": "030b7bb0-6727-44df-8253-4216e697f61a",
+      "setupTaskId": null,
+      "calls": 5,
+      "targetRequests": 0,
+      "verdict": "failed",
+      "refusalReason": "TAKEOVER_PROTOCOL_UNKNOWN"
+    },
+    {
+      "name": "format-unsupported",
+      "taskId": "529a8bc7-09c1-4797-a093-090887855cdc",
+      "setupTaskId": null,
+      "calls": 5,
+      "targetRequests": 0,
+      "verdict": "failed",
+      "refusalReason": "TAKEOVER_TOOL_PROTOCOL_UNSUPPORTED"
+    },
+    {
+      "name": "image-text-target",
+      "taskId": "b37aa585-fc46-4a65-bc88-15cea8fdd7f8",
+      "setupTaskId": "fedb75e1-2c18-4b0d-8ee2-4de2fd69fea5",
+      "calls": 4,
+      "targetRequests": 0,
+      "verdict": "failed",
+      "refusalReason": "TAKEOVER_IMAGE_CAPABILITY_UNSUPPORTED"
+    },
+    {
+      "name": "budget-revoked",
+      "taskId": "0f1458fb-a3bd-49c6-aa1a-69daebcef330",
+      "setupTaskId": null,
+      "calls": 6,
+      "targetRequests": 0,
+      "verdict": "failed",
+      "refusalReason": "MODEL_DISABLED"
+    }
+  ],
+  "Tasks": 12,
+  "Calls": 60,
+  "actualControlledStreams": 59,
+  "releasedUndispatchedCalls": 1,
+  "presetTokens": 472,
+  "presetTokensPerStream": 8,
+  "fullNativeSeamObservations": 69,
+  "toolBodyExecutions": 3,
+  "restoredConfig": true,
+  "globalDefaultUnchanged": true,
+  "restart": {
+    "newStreams": 0,
+    "fullTasksCallsLedgersUnchanged": true,
+    "configUnchanged": true,
+    "fixtureCounterUnchanged": true,
+    "stateScope": {
+      "label": "t17-v0160e",
+      "stateScopeProtocol": "t17-current-registry-refresh-v1",
+      "originalStateBytes": 1403939,
+      "originalStateSha256": "3878FFC41DE78CC27C21369928F7A7E3BB788B0CAFB2449AC718C5726D8655C6",
+      "currentStateBytes": 1403939,
+      "currentStateSha256": "1B19C5CA44A97D267353BCD1DB7BBA2188CE1AFF433185B2AB95E45B3DC838BB",
+      "rawRouterStateBytesUnchanged": false,
+      "allStoredFieldsOutsideCurrentRegistryUnchanged": true,
+      "completeHistoricalTasksConfigAndCapturesUnchanged": true,
+      "completeCounterBytesUnchanged": true,
+      "currentRegistryRefreshMatchesPredeclaredFields": true,
+      "registryRevisionDelta": 28,
+      "candidateEpochDelta": 2,
+      "refreshed": [
+        {
+          "candidateId": "2dc1c2ca-14db-45c6-b56c-741d8d7bc277",
+          "identity": {
+            "connectionId": "dsh-native:de73cc56-ec5a-4fb1-9c2b-b85b0e854e39",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "router-t17-controlled-fixture-main",
+            "model": "main"
+          },
+          "previousAuthEpoch": 2,
+          "currentAuthEpoch": 4,
+          "previousConfigRevision": 2,
+          "currentConfigRevision": 4
+        },
+        {
+          "candidateId": "53185ac5-6f36-4f9c-a550-98b3f7d7a976",
+          "identity": {
+            "connectionId": "dsh-native:89235f9d-34fd-49ae-97ce-4bc0a941ee0a",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "router-t17-controlled-fixture-advisor",
+            "model": "advisor"
+          },
+          "previousAuthEpoch": 2,
+          "currentAuthEpoch": 4,
+          "previousConfigRevision": 2,
+          "currentConfigRevision": 4
+        },
+        {
+          "candidateId": "7798bb90-42d9-4ac8-9412-8196aa0293e9",
+          "identity": {
+            "connectionId": "dsh-native:7d56f69d-d786-44dd-b2e2-514c8f47396e",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target"
+          },
+          "previousAuthEpoch": 2,
+          "currentAuthEpoch": 4,
+          "previousConfigRevision": 2,
+          "currentConfigRevision": 4
+        },
+        {
+          "candidateId": "bacfb584-a77b-45e8-b333-b9e03e202118",
+          "identity": {
+            "connectionId": "dsh-native:c88cdbbf-ad4d-4a58-a3ec-f74e4e14e29a",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-small"
+          },
+          "previousAuthEpoch": 2,
+          "currentAuthEpoch": 4,
+          "previousConfigRevision": 2,
+          "currentConfigRevision": 4
+        },
+        {
+          "candidateId": "206a2cfb-9897-42f7-a2fe-53e295f9a14d",
+          "identity": {
+            "connectionId": "dsh-native:65dc6041-b7db-4c80-abff-2e106e6e1497",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-text-only"
+          },
+          "previousAuthEpoch": 2,
+          "currentAuthEpoch": 4,
+          "previousConfigRevision": 2,
+          "currentConfigRevision": 4
+        },
+        {
+          "candidateId": "6ebe50fa-a295-4561-aa5c-6afcdb16f8c8",
+          "identity": {
+            "connectionId": "dsh-native:fbb300fe-6ba0-4410-83a2-8443d340986c",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-format-unsupported"
+          },
+          "previousAuthEpoch": 2,
+          "currentAuthEpoch": 4,
+          "previousConfigRevision": 2,
+          "currentConfigRevision": 4
+        },
+        {
+          "candidateId": "fac84809-6a70-452f-9fb9-453a07a61650",
+          "identity": {
+            "connectionId": "dsh-native:aa64fe03-4e0f-45ba-96ea-c76befd4fb7a",
+            "accountId": "unknown",
+            "billingPath": "unknown",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-unknown"
+          },
+          "previousAuthEpoch": 2,
+          "currentAuthEpoch": 4,
+          "previousConfigRevision": 2,
+          "currentConfigRevision": 4
+        },
+        {
+          "candidateId": "1a86d550-8a55-4ae8-9cf2-767e5e11a381",
+          "identity": {
+            "connectionId": "router-t17-controlled-fixture-main-connection",
+            "accountId": "router-t17-controlled-fixture-main-account",
+            "billingPath": "t17-controlled-fixture",
+            "provider": "router-t17-controlled-fixture-main",
+            "model": "main"
+          },
+          "previousAuthEpoch": 1,
+          "currentAuthEpoch": 3,
+          "previousConfigRevision": 1,
+          "currentConfigRevision": 3
+        },
+        {
+          "candidateId": "8d9aa959-3bb9-42ce-b92c-11125b0b2de9",
+          "identity": {
+            "connectionId": "router-t17-controlled-fixture-advisor-connection",
+            "accountId": "router-t17-controlled-fixture-advisor-account",
+            "billingPath": "t17-controlled-fixture",
+            "provider": "router-t17-controlled-fixture-advisor",
+            "model": "advisor"
+          },
+          "previousAuthEpoch": 1,
+          "currentAuthEpoch": 3,
+          "previousConfigRevision": 1,
+          "currentConfigRevision": 3
+        },
+        {
+          "candidateId": "5c98ab29-a4e1-4f5a-9eb8-de3e5345c5fe",
+          "identity": {
+            "connectionId": "router-t17-controlled-fixture-target-connection",
+            "accountId": "router-t17-controlled-fixture-target-account",
+            "billingPath": "t17-controlled-fixture",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target"
+          },
+          "previousAuthEpoch": 1,
+          "currentAuthEpoch": 3,
+          "previousConfigRevision": 1,
+          "currentConfigRevision": 3
+        },
+        {
+          "candidateId": "788ed02d-661e-4769-832e-564369652954",
+          "identity": {
+            "connectionId": "router-t17-controlled-fixture-target-connection",
+            "accountId": "router-t17-controlled-fixture-target-account",
+            "billingPath": "t17-controlled-fixture",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-small"
+          },
+          "previousAuthEpoch": 1,
+          "currentAuthEpoch": 3,
+          "previousConfigRevision": 1,
+          "currentConfigRevision": 3
+        },
+        {
+          "candidateId": "4648222d-0db6-4bee-9662-ff89ad9a581f",
+          "identity": {
+            "connectionId": "router-t17-controlled-fixture-target-connection",
+            "accountId": "router-t17-controlled-fixture-target-account",
+            "billingPath": "t17-controlled-fixture",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-text-only"
+          },
+          "previousAuthEpoch": 1,
+          "currentAuthEpoch": 3,
+          "previousConfigRevision": 1,
+          "currentConfigRevision": 3
+        },
+        {
+          "candidateId": "ed6be996-7e82-4f7f-8f9f-f8ebebf269ae",
+          "identity": {
+            "connectionId": "router-t17-controlled-fixture-target-connection",
+            "accountId": "router-t17-controlled-fixture-target-account",
+            "billingPath": "t17-controlled-fixture",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-format-unsupported"
+          },
+          "previousAuthEpoch": 1,
+          "currentAuthEpoch": 3,
+          "previousConfigRevision": 1,
+          "currentConfigRevision": 3
+        },
+        {
+          "candidateId": "fc48625e-966e-4954-9abb-f292c95816a0",
+          "identity": {
+            "connectionId": "router-t17-controlled-fixture-target-connection",
+            "accountId": "router-t17-controlled-fixture-target-account",
+            "billingPath": "t17-controlled-fixture",
+            "provider": "router-t17-controlled-fixture-target",
+            "model": "target-unknown"
+          },
+          "previousAuthEpoch": 1,
+          "currentAuthEpoch": 3,
+          "previousConfigRevision": 1,
+          "currentConfigRevision": 3
+        }
+      ],
+      "realModelRequests": 0
+    }
+  },
+  "Renderer": {
+    "verifiedRows": [
+      "0f1458fb-a3bd-49c6-aa1a-69daebcef330",
+      "b37aa585-fc46-4a65-bc88-15cea8fdd7f8",
+      "fedb75e1-2c18-4b0d-8ee2-4de2fd69fea5",
+      "529a8bc7-09c1-4797-a093-090887855cdc",
+      "030b7bb0-6727-44df-8253-4216e697f61a",
+      "9d7e69bd-91f7-4563-b4ee-bc6433950aec",
+      "f536e4ce-28c6-48ca-b089-d66998c9f53d",
+      "17e680a8-2ea7-4bfc-b42f-9a4a032760ed",
+      "cf09f53c-0a88-450c-bdee-cb5a5f560e4a",
+      "bd2a23fe-fd36-4fc2-9103-bb33a0e12242",
+      "c4136b55-73c0-4169-a9e4-a71227cb7a8d",
+      "21fbe0ba-74ae-46b8-915d-dc0ddabdf47a"
+    ],
+    "storedTasks": 12,
+    "takeoverPlanningAndObservedOwnerDisplayed": true,
+    "takeoverRows": [
+      "0f1458fb-a3bd-49c6-aa1a-69daebcef330",
+      "b37aa585-fc46-4a65-bc88-15cea8fdd7f8",
+      "529a8bc7-09c1-4797-a093-090887855cdc",
+      "030b7bb0-6727-44df-8253-4216e697f61a",
+      "9d7e69bd-91f7-4563-b4ee-bc6433950aec",
+      "f536e4ce-28c6-48ca-b089-d66998c9f53d",
+      "17e680a8-2ea7-4bfc-b42f-9a4a032760ed",
+      "cf09f53c-0a88-450c-bdee-cb5a5f560e4a",
+      "bd2a23fe-fd36-4fc2-9103-bb33a0e12242",
+      "21fbe0ba-74ae-46b8-915d-dc0ddabdf47a"
+    ],
+    "installedClientSha256": "4AC7D440D06447D0ACB7E9F83C214E00C9229638321DDACECCFE107B7A45FEBA",
+    "nativeRenderer": true,
+    "nativeRpcCodec": true,
+    "livePublicRpc": true,
+    "snapshotUnchanged": true,
+    "visualScreenshotVerified": false
+  },
+  "realModelRequests": 0,
+  "productionModelQualityVerified": false,
+  "productionBillingVerified": false,
+  "productionGoTakeoverVerified": false,
+  "phase": "controlled-validation-complete-pending-independent-final-review"
+}

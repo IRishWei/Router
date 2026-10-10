@@ -1,3 +1,6 @@
 # Preserve the frozen T15 evidence bytes across Windows checkouts.
 /VERIFY/t15-v0150*.json -text
 /VERIFY/t15-v0150*.md -text
+
+# Preserve T17 raw receipt bytes, including their original line endings and whitespace.
+/VERIFY/t17-* -text -whitespace

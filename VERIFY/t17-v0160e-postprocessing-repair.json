@@ -1,0 +1,20 @@
+{
+  "label": "t17-v0160e",
+  "phase": "postprocessing-parser-repair-before-final-freeze",
+  "observedFailure": {
+    "originalHelper": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-restart-state-scope.mjs",
+    "error": "TypeError: Cannot read properties of undefined (reading provider)",
+    "reason": "Persistent registry candidates store the five identity fields flat; RPC candidate DTOs expose nested identity."
+  },
+  "originalValidatorSha256": "0BF1D3B92AA6AB42FE9943330BDDB8F956F0C9A916E89D9E3D56642AF0E85598",
+  "repairedValidator": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-restart-state-scope-e-repair.mjs",
+  "repairedValidatorSha256": "B75DBB10FF58349350DCE02F9F7F871902663538D04F531A3A36D679D81DCBB3",
+  "originalFreezeSha256": "DE7A230CCF493C3AB425F8C4A932D9546ECABD670BC2C21FE3C6F7B20948F320",
+  "executedFreeze": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t17-v0160e-postprocessing-freeze.mjs",
+  "executedFreezeSha256": "FC334B51687DF9940EE06FECC2546EB1F7FD76251B4C4B687471FD6EC19B6421",
+  "criteriaChanged": false,
+  "additionalDesktopLaunches": 0,
+  "additionalLocalStreams": 0,
+  "realModelRequests": 0,
+  "note": "The original prepared validator and dependency copies remain unchanged. The replacement reads the correct declared persistent fields, preserving all exact historical and bounded registry assertions. No failed label is reclassified."
+}

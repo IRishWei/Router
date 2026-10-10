@@ -1,0 +1,10 @@
+startedUtc=2026-10-10T18:23:57.8367891Z
+cwd=E:\GPT\Router项目
+base=3a8d9891fd11e1b4e2fd4621a32ad5204996d963 fixedHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee
+command=git diff --check 3a8d9891fd11e1b4e2fd4621a32ad5204996d963...HEAD
+executable=C:\Program Files\Git\cmd\git.exe
+exitCode=0
+commandWallSeconds=0.040
+rootBranch=codex/dsh-router-v1 rootHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee rootClean=true authorHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee authorClean=true
+reviews=r3-byte-copies/PASS-0 preservedReceiptHashes=13+12+16/all-match
+result=PASS

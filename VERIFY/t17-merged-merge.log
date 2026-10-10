@@ -1,0 +1,33 @@
+startedUtc=2026-10-10T18:22:11.5483289Z
+cwd=E:\GPT\Router项目
+base=3a8d9891fd11e1b4e2fd4621a32ad5204996d963 fixedHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee
+command=git merge --ff-only 82d67da51b0dbc7faf6502d6d764f63d3c4c9eee
+executable=C:\Program Files\Git\cmd\git.exe
+Updating 3a8d989..82d67da
+Fast-forward
+ README.md                                          |   10 +
+ docs/implementation/t17-takeover-contract.md       |   79 ++
+ .../implementation/t17-takeover-source-evidence.md |   52 +
+ package-lock.json                                  |   12 +-
+ package.json                                       |    6 +-
+ scripts/build.mjs                                  |    2 +
+ src/client.js                                      |   37 +-
+ src/connections.mjs                                |    3 +
+ src/coordination.mjs                               |   12 +-
+ src/index.mjs                                      |  153 ++-
+ src/protocol.mjs                                   |   11 +-
+ src/takeover.mjs                                   |  419 ++++++
+ test/t16.integration.test.mjs                      |    4 +-
+ test/t17.client.test.mjs                           |   52 +
+ test/t17.integration.test.mjs                      | 1356 ++++++++++++++++++++
+ 15 files changed, 2186 insertions(+), 22 deletions(-)
+ create mode 100644 docs/implementation/t17-takeover-contract.md
+ create mode 100644 docs/implementation/t17-takeover-source-evidence.md
+ create mode 100644 src/takeover.mjs
+ create mode 100644 test/t17.client.test.mjs
+ create mode 100644 test/t17.integration.test.mjs
+exitCode=0
+commandWallSeconds=0.156
+rootBranch=codex/dsh-router-v1 rootHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee rootClean=true authorHead=82d67da51b0dbc7faf6502d6d764f63d3c4c9eee authorClean=true
+reviews=r3-byte-copies/PASS-0 preservedReceiptHashes=13+12+16/all-match
+result=PASS
