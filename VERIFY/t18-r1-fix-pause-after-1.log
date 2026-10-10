@@ -1,0 +1,27 @@
+✔ takeover recovery honors the smaller takeover output allowance throughout the real Native Task (385.0124ms)
+✔ the smaller takeover forecast reserves only its allowance and retains the original native image within the Task budget (431.2554ms)
+✔ takeover recovery honors the smaller recovery output and forecast allowances without changing the original takeover (263.214ms)
+✔ a public lifecycle plugin exception after a recovered response pauses the Task without erasing its output or usage (140.3305ms)
+✔ ambiguous late ancestry spanning two real native Tasks cannot run a child outside the recovery guard (161.0415ms)
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (82.4754ms)
+✔ real native retry before-router cannot expand the Task recovery cap (111.3349ms)
+✔ real native retry after-router cannot expand the Task recovery cap (107.1853ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (107.3667ms)
+✔ an owned recovery budget wait rechecks live disabled before any new adapter entry (74.3489ms)
+✔ an owned recovery budget wait rechecks live fixed before any new adapter entry (82.649ms)
+✔ an owned recovery budget wait rechecks live policy before any new adapter entry (77.9923ms)
+✔ an owned recovery budget wait rechecks live human before any new adapter entry (68.9264ms)
+✔ an owned recovery budget wait rechecks live pending before any new adapter entry (69.4716ms)
+✔ an owned recovery budget wait rechecks live stopped before any new adapter entry (83.4556ms)
+✔ the raw native final request gate rechecks permission after its independent awaited observation (80.9815ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (66.1975ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (90.7972ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3664.8667
+runExit=0 durationMs=3734

@@ -1,0 +1,5 @@
+
+> @irishwei/dsh-router@0.17.0 check
+> node scripts/check.mjs
+
+runExit=0 durationMs=2631

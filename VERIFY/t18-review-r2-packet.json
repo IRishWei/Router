@@ -1,0 +1,93 @@
+{
+  "base": "547b8b188036a43f4f5627f4cb103598c0c9d3f0",
+  "source": "33116cd196c29c59324466df2e0a15622ef5c7bb",
+  "round": "r2",
+  "worktree": "C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router项目",
+  "diffCommand": "git diff 547b8b188036a43f4f5627f4cb103598c0c9d3f0...33116cd196c29c59324466df2e0a15622ef5c7bb",
+  "commitListCommand": "git log 547b8b188036a43f4f5627f4cb103598c0c9d3f0..33116cd196c29c59324466df2e0a15622ef5c7bb --oneline",
+  "commits": [
+    "33116cd196c29c59324466df2e0a15622ef5c7bb fix: align takeover recovery token limits (#19)",
+    "2cc486add689e28cce549673b33fc8c96432db08 feat: add bounded Task failure recovery (#19)"
+  ],
+  "diff": {
+    "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r2-diff.patch",
+    "bytes": 202840,
+    "sha256": "542040B08FD80195D15CEC8EDD4BBD0482E9B34A2DFC6BD4088B777259F10447"
+  },
+  "sourceArchive": {
+    "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r2-source.tar",
+    "bytes": 11642880,
+    "sha256": "BCF7E9E5CDCE1289842EC70C88D1CA19E26F721455C8D85E1D3513C1061B1024"
+  },
+  "documents": [
+    {
+      "path": "AGENTS.md",
+      "bytes": 739,
+      "sha256": "C75E0B4FF73C0573950AB3D7C20EF377C2F3C1F5A45241830456189B048802A3"
+    },
+    {
+      "path": "README.md",
+      "bytes": 28715,
+      "sha256": "FFE682828CCB1A4CF8394C2FAB438AD7C382F5A3FD5E50FEB9AB16CFDB7BFBF9"
+    },
+    {
+      "path": "GLOSSARY.md",
+      "bytes": 2214,
+      "sha256": "BD44743E93C46CD6F028491D96CAE78E085F25A603380A725FD2337DBC4633A2"
+    },
+    {
+      "path": "docs/agents/issue-tracker.md",
+      "bytes": 1651,
+      "sha256": "F5DDD39977AD29667312E7D189D4FA10BDD69C7870AD884E0C597FA6004D41F6"
+    },
+    {
+      "path": "docs/agents/triage-labels.md",
+      "bytes": 425,
+      "sha256": "14BEF1116A089CF15E43CD240B5DA47C4F6093BE53E2AA0044D5570667090EA8"
+    },
+    {
+      "path": "docs/agents/domain.md",
+      "bytes": 700,
+      "sha256": "C7AA7CAAB5E5E52CFA688896F15BB80F3A34983FE6EC62D93A8CF0AF1181403E"
+    },
+    {
+      "path": "docs/adr/0001-preserve-handoff-context.md",
+      "bytes": 443,
+      "sha256": "CBECBBC015EB262E4F704FE241BB4B83FC28F6082B205B8E076942B0B6DC66E0"
+    },
+    {
+      "path": "docs/adr/0002-keep-unconfirmed-verdicts.md",
+      "bytes": 422,
+      "sha256": "ECE804189B0D434325112C3B839005A524C48647A5C0BD61BF3D82B0EE259A33"
+    },
+    {
+      "path": "docs/implementation/t18-failure-recovery-contract.md",
+      "bytes": 8676,
+      "sha256": "E92A3BC01A87AF9644FA0380C69D591DE72652FCD31518CD36D6C792B121244B"
+    },
+    {
+      "path": "docs/implementation/t18-failure-recovery-source-evidence.md",
+      "bytes": 9398,
+      "sha256": "0EE9EBA7FB9A6132C6A9FA9096CF0A3FE47FC01FBF37AD50F5277940A1ACA286"
+    }
+  ],
+  "authority": [
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-review-issue-1.json",
+      "bytes": 29231,
+      "sha256": "5993C8FDD2D76DB8298E80B8C1173BA05F9F1639C1D262EF3E7C5A09D6B0DABC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-review-issue-19.json",
+      "bytes": 1915,
+      "sha256": "28FBE55985556DD8A6AC5290CEA3118C13775DE81EA045CFCAA829811A2FAA7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-development-authority.json",
+      "bytes": 855,
+      "sha256": "7D10B08A6968490E6025068E0978A323489E56B9EC8E50EB7ABED59BB779C783"
+    }
+  ],
+  "phase": "source-review-packet-created",
+  "realModelRequests": 0
+}

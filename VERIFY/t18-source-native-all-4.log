@@ -1,0 +1,39 @@
+✔ real Renderer and strict public RPC opt into recovery, resolve one live Task and stop another without a terminal resume button (337.3168ms)
+✔ ambiguous late ancestry spanning two real native Tasks cannot run a child outside the recovery guard (201.3327ms)
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (81.5453ms)
+✔ real native retry before-router cannot expand the Task recovery cap (100.6419ms)
+✔ real native retry after-router cannot expand the Task recovery cap (105.2261ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (115.5706ms)
+✔ an owned recovery budget wait rechecks live disabled before any new adapter entry (76.0732ms)
+✔ an owned recovery budget wait rechecks live fixed before any new adapter entry (73.8889ms)
+✔ an owned recovery budget wait rechecks live policy before any new adapter entry (77.0717ms)
+✔ an owned recovery budget wait rechecks live human before any new adapter entry (81.4564ms)
+✔ an owned recovery budget wait rechecks live pending before any new adapter entry (77.4242ms)
+✔ an owned recovery budget wait rechecks live stopped before any new adapter entry (81.0389ms)
+✔ the raw native final request gate rechecks permission after its independent awaited observation (76.7442ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (70.738ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (101.3586ms)
+✔ execution, consultation and takeover share one recovery allowance instead of resetting it per phase (367.7018ms)
+✔ a real native title is accounted alongside all recovery Calls without changing its purpose or execution owner (97.7011ms)
+✔ known consultation failure cannot bypass earlier unknown Task usage through manual recovery (115.0392ms)
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (81.584ms)
+✔ recovery with an unknown configured money budget stops before another model entry (66.0483ms)
+✔ a takeover response with known usage and no partial content can recover without repeating the notice (298.5458ms)
+✔ consultation recovery keeps one intent and one advice while every attempt uses the same Task ledger (181.7852ms)
+✔ a live manual recovery has one CAS winner and a terminal Task cannot be revived (94.83ms)
+✔ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (158.7221ms)
+✔ a completed tool with unproved operation semantics prevents ordinary recovery before a new model entry (76.6566ms)
+✔ ordinary recovery cannot repeat a completed side effect using a new native tool call id (115.0809ms)
+✔ authorization, quota, partial and unknown failures retain their facts and cannot become difficulty or success (275.0025ms)
+✔ disabling routing during rate-limit backoff stops the owned Task rather than delegating native retry (62.2461ms)
+✔ credible rate-limit retry-after above the wait allowance pauses without sending early (54.8058ms)
+✔ Task recovery cap defeats a later outer always retry listener without a fourth dispatch (110.8848ms)
+✔ actual controlled OAuth refresh rejection records authorization recovery and cannot revive the ended Task (187.7397ms)
+ℹ tests 31
+ℹ suites 0
+ℹ pass 31
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6377.2436

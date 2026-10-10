@@ -1,0 +1,28 @@
+✖ real Renderer and strict public RPC opt into recovery, resolve one live Task and stop another without a terminal resume button (148.9768ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 732.4416
+
+✖ failing tests:
+
+test at test\t18.client.test.mjs:11:1
+✖ real Renderer and strict public RPC opt into recovery, resolve one live Task and stop another without a terminal resume button (148.9768ms)
+  AssertionError [ERR_ASSERTION]: [{"path":"/api","endpoint":"router/snapshot","payload":{"args":{}}},{"path":"/api","endpoint":"router/setRecoveryPolicy","payload":{"args":{"policy":{"enabled":true,"automatic":false,"alternativeCandidateId":null,"maxTokens":128,"forecastTokens":32768}}}}]
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.client.test.mjs:32:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

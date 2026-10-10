@@ -1,0 +1,214 @@
+{
+  "label": "t18-v0170g",
+  "stateScopeProtocol": "t18-current-registry-refresh-v1",
+  "originalStateBytes": 3239976,
+  "originalStateSha256": "6C00F3E5E13EEE9A907F94869D7FFB99B5FC713BC9665680A6C6790AD2A02188",
+  "currentStateBytes": 3239976,
+  "currentStateSha256": "704F278C50801E5EEB97DFB20F63960F2EE30EFB9ECB5A2938FA35C8A5D3F82F",
+  "rawRouterStateBytesUnchanged": false,
+  "allStoredFieldsOutsideCurrentRegistryUnchanged": true,
+  "completeHistoricalTasksConfigAndCapturesUnchanged": true,
+  "completeCounterBytesUnchanged": true,
+  "currentRegistryRefreshMatchesPredeclaredFields": true,
+  "registryRevisionDelta": 28,
+  "candidateEpochDelta": 2,
+  "refreshed": [
+    {
+      "candidateId": "6bd08b5f-917f-4348-90fe-f15bae52649d",
+      "identity": {
+        "connectionId": "dsh-native:8d71ea61-93f2-4373-b635-a15ec3f67ad3",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "router-t18-controlled-fixture",
+        "model": "main"
+      },
+      "previousAuthEpoch": 2,
+      "currentAuthEpoch": 4,
+      "previousConfigRevision": 2,
+      "currentConfigRevision": 4
+    },
+    {
+      "candidateId": "5f687c51-e498-462b-8f6d-6cdd6f29501e",
+      "identity": {
+        "connectionId": "dsh-native:bb304e94-9346-416e-bd1a-d7ca1239adb9",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "router-t18-controlled-fixture",
+        "model": "advisor"
+      },
+      "previousAuthEpoch": 2,
+      "currentAuthEpoch": 4,
+      "previousConfigRevision": 2,
+      "currentConfigRevision": 4
+    },
+    {
+      "candidateId": "65a4b9a5-d19b-4008-a4b5-5481c2a13071",
+      "identity": {
+        "connectionId": "dsh-native:987c1e13-0a92-43c4-804d-210cf90846ee",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative"
+      },
+      "previousAuthEpoch": 2,
+      "currentAuthEpoch": 4,
+      "previousConfigRevision": 2,
+      "currentConfigRevision": 4
+    },
+    {
+      "candidateId": "dda635b7-537f-4469-b976-c51cbd4c7683",
+      "identity": {
+        "connectionId": "dsh-native:fd600d1f-edbc-4cb5-8706-f4ad11e63ffc",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-small"
+      },
+      "previousAuthEpoch": 2,
+      "currentAuthEpoch": 4,
+      "previousConfigRevision": 2,
+      "currentConfigRevision": 4
+    },
+    {
+      "candidateId": "3501cdd4-3649-4e46-8b50-8fb71e309f8a",
+      "identity": {
+        "connectionId": "dsh-native:9e0af631-c01c-4358-bac3-279b18953a9e",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-text-only"
+      },
+      "previousAuthEpoch": 2,
+      "currentAuthEpoch": 4,
+      "previousConfigRevision": 2,
+      "currentConfigRevision": 4
+    },
+    {
+      "candidateId": "26fa51b8-b21e-4cf9-8607-88eb8e98440f",
+      "identity": {
+        "connectionId": "dsh-native:efe941cd-d525-43f2-920b-0b10fd49af02",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-format-unsupported"
+      },
+      "previousAuthEpoch": 2,
+      "currentAuthEpoch": 4,
+      "previousConfigRevision": 2,
+      "currentConfigRevision": 4
+    },
+    {
+      "candidateId": "73176b1a-0c96-4abd-a8a5-6e184e03f98b",
+      "identity": {
+        "connectionId": "dsh-native:7789ecdd-d7ba-4168-a276-e3e037130446",
+        "accountId": "unknown",
+        "billingPath": "unknown",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-unknown"
+      },
+      "previousAuthEpoch": 2,
+      "currentAuthEpoch": 4,
+      "previousConfigRevision": 2,
+      "currentConfigRevision": 4
+    },
+    {
+      "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "main"
+      },
+      "previousAuthEpoch": 1,
+      "currentAuthEpoch": 3,
+      "previousConfigRevision": 1,
+      "currentConfigRevision": 3
+    },
+    {
+      "candidateId": "bc7c1c81-137c-474f-83f7-223abeb83b2b",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "advisor"
+      },
+      "previousAuthEpoch": 1,
+      "currentAuthEpoch": 3,
+      "previousConfigRevision": 1,
+      "currentConfigRevision": 3
+    },
+    {
+      "candidateId": "2426befe-e417-4bdd-a433-aac36273e92b",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative"
+      },
+      "previousAuthEpoch": 1,
+      "currentAuthEpoch": 3,
+      "previousConfigRevision": 1,
+      "currentConfigRevision": 3
+    },
+    {
+      "candidateId": "b0089907-45ed-433c-9d83-8c006f1909a6",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-small"
+      },
+      "previousAuthEpoch": 1,
+      "currentAuthEpoch": 3,
+      "previousConfigRevision": 1,
+      "currentConfigRevision": 3
+    },
+    {
+      "candidateId": "4687737f-19b6-4ec3-b173-36d7503eddc3",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-text-only"
+      },
+      "previousAuthEpoch": 1,
+      "currentAuthEpoch": 3,
+      "previousConfigRevision": 1,
+      "currentConfigRevision": 3
+    },
+    {
+      "candidateId": "a2aa75e4-0223-497d-ae80-4ed31a143a28",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-format-unsupported"
+      },
+      "previousAuthEpoch": 1,
+      "currentAuthEpoch": 3,
+      "previousConfigRevision": 1,
+      "currentConfigRevision": 3
+    },
+    {
+      "candidateId": "32a42dc8-a97a-4b96-9557-779239769ceb",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "alternative-unknown"
+      },
+      "previousAuthEpoch": 1,
+      "currentAuthEpoch": 3,
+      "previousConfigRevision": 1,
+      "currentConfigRevision": 3
+    }
+  ],
+  "realModelRequests": 0
+}

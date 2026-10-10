@@ -1,0 +1,44 @@
+✖ stopping a real recovery budget wait closes the recovery before terminal history is reopened (151.6756ms)
+ℹ {"before":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"after":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"requests":0,"tools":0}
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 695.0439
+
+✖ failing tests:
+
+test at test\t18.terminal.test.mjs:9:1
+✖ stopping a real recovery budget wait closes the recovery before terminal history is reopened (151.6756ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:
+  + actual - expected
+  ... Skipped lines
+  
+    {
+      acceptanceRevision: null,
+      actualWaitMs: 2,
+      attempts: 1,
+      boundedHistory: null,
+  ...
+        ],
+  -     requirementHash: undefined,
+        sessionProof: {
+          contentGeneration: 0,
+          cursor: 8,
+          inheritedEventCount: 0,
+          interpreterTypes: [
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.terminal.test.mjs:44:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { version: 1, id: '21ee6bae-4ea4-4fa4-b651-21353e14dd49', revision: 5, attempts: 1, waitMs: 1, actualWaitMs: 2, state: 'paused', phase: 'execution', sourceCallId: '63d75a7d-8cf3-4768-912d-8df10b10efcb', originatingPurpose: 'execution', callId: '42a174f0-2b4b-48d9-ac8f-b113b5361634', category: 'network', failure: { code: 'CONNECTION' }, target: { candidateId: 'e7501dd8-70bc-4f04-8b2e-bd0b2c6bcf18', identity: [Object], registryEpoch: 5, connectionConfigRevision: 1, authEpoch: 1, capability: [Object], handoff: [Object], capabilities: [Object], maxContextTokens: 65536, quote: null, quoteVersion: null, enabled: true }, reason: 'RECOVERY_STOPPED', inputHash: '584a67830fd444da0551a65950adb924ec7f7a7318a32b5715b3f25aa300f9ae', fixedCandidateId: 'e7501dd8-70bc-4f04-8b2e-bd0b2c6bcf18', acceptanceRevision: null, requirementHash: null, coordinationRevision: null, maxTokens: 128, forecastTokens: 32768, portableHistory: { version: 1, messages: [Array], images: [], toolReceipts: [], toolHistory: [Object], hash: '4be1017678033300e49e03f64c47fe877f9452d5ac1ab9b09e70cca6d3d76b6a', contentGeneration: 0, inputHash: '584a67830fd444da0551a65950adb924ec7f7a7318a32b5715b3f25aa300f9ae', sessionProof: [Object] }, model: { provider: 't18-main', id: 'model', name: 'model', inputModalities: [Array], context: [Object], systemPromptUpdate: 'in-history', toolUpdate: 'in-history' }, boundedHistory: null, requestHash: null, imageForecast: null, deadline: 1791664955330 },
+    expected: { version: 1, id: '21ee6bae-4ea4-4fa4-b651-21353e14dd49', revision: 5, attempts: 1, waitMs: 1, actualWaitMs: 2, state: 'paused', phase: 'execution', sourceCallId: '63d75a7d-8cf3-4768-912d-8df10b10efcb', originatingPurpose: 'execution', callId: '42a174f0-2b4b-48d9-ac8f-b113b5361634', category: 'network', failure: { code: 'CONNECTION' }, target: { candidateId: 'e7501dd8-70bc-4f04-8b2e-bd0b2c6bcf18', identity: [Object], registryEpoch: 5, connectionConfigRevision: 1, authEpoch: 1, capability: [Object], handoff: [Object], capabilities: [Object], maxContextTokens: 65536, quote: null, quoteVersion: null, enabled: true }, reason: 'RECOVERY_STOPPED', inputHash: '584a67830fd444da0551a65950adb924ec7f7a7318a32b5715b3f25aa300f9ae', fixedCandidateId: 'e7501dd8-70bc-4f04-8b2e-bd0b2c6bcf18', acceptanceRevision: null, requirementHash: null, coordinationRevision: null, maxTokens: 128, forecastTokens: 32768, portableHistory: { version: 1, messages: [Array], images: [], toolReceipts: [], toolHistory: [Object], hash: '4be1017678033300e49e03f64c47fe877f9452d5ac1ab9b09e70cca6d3d76b6a', contentGeneration: 0, requirementHash: undefined, inputHash: '584a67830fd444da0551a65950adb924ec7f7a7318a32b5715b3f25aa300f9ae', sessionProof: [Object] }, model: { provider: 't18-main', id: 'model', name: 'model', inputModalities: [Array], context: [Object], systemPromptUpdate: 'in-history', toolUpdate: 'in-history' }, boundedHistory: null, requestHash: null, imageForecast: null, deadline: 1791664955330 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+COMMAND_EXIT=1 DURATION_SECONDS=0.7714262

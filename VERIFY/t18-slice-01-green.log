@@ -1,0 +1,9 @@
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (140.4585ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 786.4277

@@ -1,0 +1,19 @@
+✖ takeover recovery honors the smaller takeover output allowance throughout the real Native Task (393.5648ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 940.9805
+
+✖ failing tests:
+
+test at test\t18.caps.test.mjs:8:1
+✖ takeover recovery honors the smaller takeover output allowance throughout the real Native Task (393.5648ms)
+  TypeError: Cannot read properties of undefined (reading 'maxTokens')
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.caps.test.mjs:31:33)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)
+runExit=1 durationMs=1014

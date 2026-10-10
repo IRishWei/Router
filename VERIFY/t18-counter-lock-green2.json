@@ -1,0 +1,11 @@
+{
+  "round": "green2",
+  "passed": true,
+  "sourceSha256": "C9A2F75EB90D922316367A3A5EA54FCE830C140337A6C7EBA2A6613F5B4EB04A",
+  "failure": null,
+  "actualRecords": 1,
+  "childExit": 0,
+  "productionModelRequests": 0,
+  "out": "",
+  "err": ""
+}

@@ -1,0 +1,30 @@
+$ErrorActionPreference='Stop'
+$routerRoot='C:\Users\a1500\AppData\Local\Temp\router-implementation'
+$routerHome=[IO.Path]::GetFullPath((Join-Path $routerRoot 't18-v0170d-controlled-home'))
+$routerFixture=[IO.Path]::GetFullPath((Join-Path $routerRoot 't18-v0170d-fixture-bundle'))
+$routerFixtureArtifacts=Join-Path $routerRoot 't18-v0170d-fixture-artifacts'
+$routerPackage='E:\GPT\Router项目\artifacts\irishwei-dsh-router-0.17.0.tgz'
+$routerCli='E:\Program Files\DeepSeek Harness\resources\runtime\cli\bin\dsh.cmd'
+$routerLog=Join-Path $routerRoot 't18-v0170d-offline-cli.log'
+$routerReceipt=Join-Path $routerRoot 't18-v0170d-offline-cli-receipt.json'
+foreach($path in @($routerLog,$routerReceipt,$routerFixtureArtifacts)) { if (Test-Path -LiteralPath $path) { throw 'Fresh installation evidence required' } }
+if (-not (Test-Path -LiteralPath $routerHome) -or -not (Test-Path -LiteralPath $routerFixture)) { throw 'Controlled local server must be prepared first' }
+if (@(Get-CimInstance Win32_Process -Filter "Name='DeepSeek Harness.exe'").Count) { throw 'Existing Desktop prevents isolated installation' }
+[void](New-Item -ItemType Directory -Path $routerFixtureArtifacts)
+Push-Location -LiteralPath $routerFixture
+try {
+ $routerPack = & npm.cmd pack --offline --json --pack-destination $routerFixtureArtifacts
+ if ($LASTEXITCODE -ne 0) { throw 'Local fixture pack failed' }
+ $routerFixturePackage=Join-Path $routerFixtureArtifacts (($routerPack | ConvertFrom-Json)[0].filename)
+} finally { Pop-Location }
+$priorHome=$env:DSH_HOME
+try {
+ $env:DSH_HOME=$routerHome
+ $routerOutput = & $routerCli plugin --profile desktop add $routerPackage $routerFixturePackage --offline 2>&1
+ $routerExitCode=$LASTEXITCODE
+ [IO.File]::WriteAllText($routerLog,($routerOutput -join [Environment]::NewLine),[Text.UTF8Encoding]::new($false))
+ $routerValue=[ordered]@{version='0.17.0';home=$routerHome;cliExitCode=$routerExitCode;offline=$true;hostProvidesPeers=$true;realModelRequests=0}
+ [IO.File]::WriteAllText($routerReceipt,($routerValue | ConvertTo-Json),[Text.UTF8Encoding]::new($false))
+ if ($routerExitCode -ne 0) { throw 'Official CLI offline install failed; inspect preserved log' }
+ $routerValue | ConvertTo-Json -Compress
+} finally { $env:DSH_HOME=$priorHome }

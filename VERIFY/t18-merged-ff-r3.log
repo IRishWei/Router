@@ -1,0 +1,41 @@
+{"name":"ff","command":"git merge --ff-only 5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7","workingDirectory":"E:/GPT/Router项目","startedAtUtc":"2026-10-10T21:02:24.3750013Z"}
+Updating 547b8b1..5e51bf3
+Fast-forward
+ README.md                                          |   8 +
+ .../t18-failure-recovery-contract.md               |  72 ++++
+ .../t18-failure-recovery-source-evidence.md        |  97 ++++++
+ package-lock.json                                  |   4 +-
+ package.json                                       |   2 +-
+ scripts/build.mjs                                  |   2 +
+ src/client.js                                      |  39 ++-
+ src/coordination.mjs                               |  10 +-
+ src/index.mjs                                      | 348 +++++++++++++++++--
+ src/protocol.mjs                                   |   9 +-
+ src/recovery.mjs                                   |  33 ++
+ src/takeover.mjs                                   |  88 ++++-
+ test/t18-harness.mjs                               |  93 ++++++
+ test/t18.allocation-caps.test.mjs                  | 138 ++++++++
+ test/t18.caps.test.mjs                             | 130 ++++++++
+ test/t18.client.test.mjs                           |  59 ++++
+ test/t18.consultation-caps.test.mjs                | 133 ++++++++
+ test/t18.controls.test.mjs                         | 221 ++++++++++++
+ test/t18.integration.test.mjs                      | 369 +++++++++++++++++++++
+ test/t18.oauth.test.mjs                            |  49 +++
+ test/t18.proof.test.mjs                            |  99 ++++++
+ test/t18.terminal.test.mjs                         |  88 +++++
+ 22 files changed, 2037 insertions(+), 54 deletions(-)
+ create mode 100644 docs/implementation/t18-failure-recovery-contract.md
+ create mode 100644 docs/implementation/t18-failure-recovery-source-evidence.md
+ create mode 100644 src/recovery.mjs
+ create mode 100644 test/t18-harness.mjs
+ create mode 100644 test/t18.allocation-caps.test.mjs
+ create mode 100644 test/t18.caps.test.mjs
+ create mode 100644 test/t18.client.test.mjs
+ create mode 100644 test/t18.consultation-caps.test.mjs
+ create mode 100644 test/t18.controls.test.mjs
+ create mode 100644 test/t18.integration.test.mjs
+ create mode 100644 test/t18.oauth.test.mjs
+ create mode 100644 test/t18.proof.test.mjs
+ create mode 100644 test/t18.terminal.test.mjs
+
+[merger-receipt] {"exitCode":0,"durationMs":149.7573,"signal":null}

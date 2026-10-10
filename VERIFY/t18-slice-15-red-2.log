@@ -1,0 +1,30 @@
+✖ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (147.9751ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 685.4712
+
+✖ failing tests:
+
+test at test\t18.controls.test.mjs:9:1
+✖ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (147.9751ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'waiting-recovery'
+  - 'paused'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:28:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'waiting-recovery',
+    expected: 'paused',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

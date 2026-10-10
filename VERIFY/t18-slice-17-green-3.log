@@ -1,0 +1,9 @@
+✔ real Renderer and strict public RPC opt into recovery, resolve one live Task and stop another without a terminal resume button (328.6608ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 887.5713

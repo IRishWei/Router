@@ -1,0 +1,15 @@
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (147.6816ms)
+✔ a completed tool with unproved operation semantics prevents ordinary recovery before a new model entry (95.2347ms)
+✔ ordinary recovery cannot repeat a completed side effect using a new native tool call id (112.6314ms)
+✔ authorization, quota, partial and unknown failures retain their facts and cannot become difficulty or success (269.9985ms)
+✔ disabling routing during rate-limit backoff stops the owned Task rather than delegating native retry (60.9771ms)
+✔ credible rate-limit retry-after above the wait allowance pauses without sending early (63.636ms)
+✔ Task recovery cap defeats a later outer always retry listener without a fourth dispatch (99.9371ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1505.5092

@@ -1,0 +1,39 @@
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
+
+const repo = 'E:/GPT/Router项目';
+const notes = 'C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009';
+const hash = bytes => createHash('sha256').update(bytes).digest('hex').toUpperCase();
+
+export async function verifyPreservedEvidence() {
+  const prior = JSON.parse(execFileSync(process.execPath, [`${notes}/t17-preservation.mjs`, '--check'],
+    { cwd: repo, encoding: 'utf8', maxBuffer: 1024 * 1024 }).trim());
+  assert.equal(prior.passed, true);
+  const labels = JSON.parse(execFileSync(process.execPath, [`${notes}/t17-label-preservation.mjs`],
+    { cwd: repo, encoding: 'utf8', maxBuffer: 1024 * 1024 }).trim());
+  assert.equal(labels.files, 495);
+  const indexBytes = await readFile(`${repo}/VERIFY/t17-final-review-archive.json`);
+  assert.equal(hash(indexBytes), '42EBB967AA73E48F1599B297A0FB1F0C400ADF40CCCADFC3C4F7CD91CA888331');
+  const index = JSON.parse(indexBytes.toString('utf8'));
+  assert.equal(index.reviewedSourceSha, '82d67da51b0dbc7faf6502d6d764f63d3c4c9eee');
+  assert.equal(index.archiveFiles.length, 49);
+  assert.equal(index.immutableValidationPhase, 'validation-complete-pending-independent-final-review');
+  for (const row of index.archiveFiles) {
+    const copy = await readFile(`${repo}/${row.archivePath}`);
+    assert.equal(copy.length, row.bytes, row.archivePath);
+    assert.equal(hash(copy), row.sha256.toUpperCase(), row.archivePath);
+    assert.deepEqual(copy, await readFile(row.sourcePath), row.archivePath);
+  }
+  const packageBytes = await readFile(`${repo}/artifacts/irishwei-dsh-router-0.16.0.tgz`);
+  assert.equal(packageBytes.length, 233897);
+  assert.equal(hash(packageBytes), '64A7CFA962C08760D8C0C3235FCAB662CA449DD54C98B10796114728CC5C04FA');
+  return { passed: true, prior, T17FrozenFileEntries: 495, T17ArchiveFiles: 50,
+    T17PackageBytes: packageBytes.length, productionModelRequests: 0 };
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  console.log(JSON.stringify(await verifyPreservedEvidence()));
+}

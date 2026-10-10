@@ -1,0 +1,166 @@
+{
+  "stage": "controlled",
+  "copied": [
+    {
+      "source": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-desktop-rpc-draft.mjs",
+      "executed": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-executed-rpc.mjs",
+      "bytes": 21978,
+      "sha256": "FFF59FA7716D671C6811FF7D381EBA786201EA93D5E168A91E70D4F17E0593EE"
+    },
+    {
+      "source": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-installed-renderer-draft.mjs",
+      "executed": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-executed-renderer.mjs",
+      "bytes": 7963,
+      "sha256": "EF8BA1D9DDF6DB8995ACDEAAD50E2D99F92FE38D150AB25F98F0E795FA0F6C93"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-capture-execution-sources.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-0.txt",
+      "bytes": 2759,
+      "sha256": "11FC30174AD90B6E8B2890C87986F64DB19793C9CD5E46A5E4C14B3726BB36E8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-create-validation-plan.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-1.txt",
+      "bytes": 7760,
+      "sha256": "5942BBCFB0D30A5711C9FA219B718F720D68A8A1C728739CC292ED7F84B81FC6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-run-controlled.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-2.txt",
+      "bytes": 2437,
+      "sha256": "DFD9F480F254E2CEFA2B3850D510AFF1E55DCE0A03F215D136B9B91E9CB25BA5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-preservation.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-3.txt",
+      "bytes": 2251,
+      "sha256": "33DD825721A1472DD87DECEDA0AA3A16CBA53EEF6F06DC541144594518A4DB6F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-label-preservation.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-4.txt",
+      "bytes": 1777,
+      "sha256": "D1F836EBE04BE4EA1E45E04CBB5C6006F58A09BB9C301750C826CE355F5ED205"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-desktop-prepare.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-5.txt",
+      "bytes": 5362,
+      "sha256": "4E2FBE660D09ACA5B4DD2704D9DED6C406E335A5BB5E8AAF1C9251B779023A2F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-package-freeze.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-6.txt",
+      "bytes": 4679,
+      "sha256": "658C8455FEC25C2E87599DB3A3C1F2F89A07263349731D643D0A8C71FF0ABB89"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-pack-reviewed.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-7.txt",
+      "bytes": 2897,
+      "sha256": "116EE624F0DD436300605EFBDFDD46401AE40C33E5E9984A79A92C69424C242B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-fixture-final.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-8.txt",
+      "bytes": 14955,
+      "sha256": "9229B98EEBB940B8BFAFA4C8D473FF383688EEC953519396AEE829265E2194D5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-state-seal.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-9.txt",
+      "bytes": 3941,
+      "sha256": "79BCE2167CD97F16FBDFDA2878ED138DEABFC818948ACB82A5EE1EF25DE0A703"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-restart-state-scope.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-10.txt",
+      "bytes": 5136,
+      "sha256": "D89B1BB5AE0381ED15D88DD2FFB26B499B61919F35B83B8DA5A59C5AC191D479"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-export-proof.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-11.txt",
+      "bytes": 2381,
+      "sha256": "2742906692B608EC77CB87F1170297647F119BE69414F5BB713E3C670DAD1EE8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-public-summary.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-12.txt",
+      "bytes": 5004,
+      "sha256": "7680DD3C144929DA7B47ECBE0E2B89606189B18FEA4DC30022988532707EDC7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-freeze-label.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-13.txt",
+      "bytes": 4261,
+      "sha256": "2829BC5F3475F847FDF0683FD298D8C741772E84AFD840C14E26EBBEFB192B57"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-review-issue-1.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-14.txt",
+      "bytes": 29231,
+      "sha256": "5993C8FDD2D76DB8298E80B8C1173BA05F9F1639C1D262EF3E7C5A09D6B0DABC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-review-issue-19.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-15.txt",
+      "bytes": 1915,
+      "sha256": "28FBE55985556DD8A6AC5290CEA3118C13775DE81EA045CFCAA829811A2FAA7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-development-authority.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-16.txt",
+      "bytes": 855,
+      "sha256": "7D10B08A6968490E6025068E0978A323489E56B9EC8E50EB7ABED59BB779C783"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-final-reviewed-source.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-17.txt",
+      "bytes": 6028,
+      "sha256": "978305B120AF0DC22B8DB341E43BE54EA1EEE9DDBD89BB32604083B4122D22FE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-validation-plan.json",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-18.txt",
+      "bytes": 11720,
+      "sha256": "5AAE89874F89143FAC58EEE887EE2969075656FDB3673E895040A1D480F69C9A"
+    },
+    {
+      "path": "E:\\GPT\\Router项目\\test\\client-harness.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-19.txt",
+      "bytes": 4913,
+      "sha256": "E66FD5E1BFB04AD23149F176D20A811DCEC80059B49A427AE7970897FDC05387"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170d-reviewed-contract.md",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-20.txt",
+      "bytes": 11283,
+      "sha256": "B8CB3EBEC4F5F8AE605158611E7CD2A4C87FF5CE35B00073916515245CE690BC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170d-host-rpc.mjs",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-21.txt",
+      "bytes": 2657,
+      "sha256": "A37747D4D3F3C4FE7D9235DD7F8228D73F0C0EC57095D2791115FDF594A2997A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170d-desktop-owned.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-22.txt",
+      "bytes": 6401,
+      "sha256": "F9566E188ED43E8E83C7806263551787D4D8A676CE329B44DC66DFF1D3A69E80"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170d-install.ps1",
+      "captured": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170d-controlled-dependency-23.txt",
+      "bytes": 2254,
+      "sha256": "E236B715287C41BD5E12CD1D6DAC5B3789DAD07602D250B9865AFBAE2541419B"
+    }
+  ],
+  "actualDesktopExecuted": false,
+  "realModelRequests": 0,
+  "note": "Captured before launch. Separate public RPC, Renderer and owned-stop receipts establish actual execution results."
+}

@@ -1,0 +1,41 @@
+param(
+ [ValidateSet('controlled','restart')][string]$Stage='controlled',
+ [ValidatePattern('^t18-v017\d[a-z]$')][string]$Label='t18-v0170a',
+ [switch]$VerifyRenderer
+)
+$ErrorActionPreference='Stop'
+$routerEvidenceRoot='C:/Users/a1500/AppData/Local/Temp/router-implementation'
+$routerNotes=Join-Path $routerEvidenceRoot 'implement-spec-go-20261009'
+$routerOwnedScript=Join-Path $routerEvidenceRoot ($Label+'-desktop-owned.ps1')
+$routerOwner=Join-Path $routerEvidenceRoot ($Label+'-'+$Stage+'-owner.json')
+$routerRpcLog=Join-Path $routerEvidenceRoot ($Label+'-'+$Stage+'-rpc-run.log')
+$routerRendererLog=Join-Path $routerEvidenceRoot ($Label+'-'+$Stage+'-renderer-run.log')
+$routerStopped=Join-Path $routerEvidenceRoot ($Label+'-'+$Stage+'-stopped.json')
+$routerRunRenderer=($Stage -eq 'controlled' -or $VerifyRenderer)
+foreach($routerPath in @($routerRpcLog,$routerOwner,$routerStopped)) {
+ if (Test-Path -LiteralPath $routerPath) { throw 'A fresh owned run and log are required' }
+}
+if ($routerRunRenderer -and (Test-Path -LiteralPath $routerRendererLog)) { throw 'A fresh Renderer log is required' }
+& node.exe (Join-Path $routerNotes 't18-label-preservation.mjs')
+if ($LASTEXITCODE -ne 0) { throw 'Frozen evidence changed before launch' }
+if ($Stage -eq 'restart') {
+ & node.exe (Join-Path $routerNotes 't18-state-seal.mjs') $Label 'verify-pre-restart'
+ if ($LASTEXITCODE -ne 0) { throw 'Predeclared restart preservation failed before launch' }
+}
+& node.exe (Join-Path $routerNotes 't18-capture-execution-sources.mjs') $Stage $Label
+if ($LASTEXITCODE -ne 0) { throw 'Execution-source capture failed before launch' }
+try {
+ & $routerOwnedScript -Action launch -Stage $Stage
+ if ($LASTEXITCODE -ne 0) { throw 'Owned Desktop launch failed' }
+ & node.exe (Join-Path $routerNotes ($Label+'-'+$Stage+'-executed-rpc.mjs')) $Stage $Label *> $routerRpcLog
+ if ($LASTEXITCODE -ne 0) { throw ('Controlled public RPC verification failed; receipt retained at '+$routerRpcLog) }
+ if ($routerRunRenderer) {
+  & node.exe (Join-Path $routerNotes ($Label+'-'+$Stage+'-executed-renderer.mjs')) $Stage $Label *> $routerRendererLog
+  if ($LASTEXITCODE -ne 0) { throw ('Installed Renderer verification failed; receipt retained at '+$routerRendererLog) }
+ }
+ [ordered]@{stage=$Stage;verified=$true;realModelRequests=0} | ConvertTo-Json -Compress
+} finally {
+ if (Test-Path -LiteralPath $routerOwner) {
+  & $routerOwnedScript -Action stop -Stage $Stage
+ }
+}

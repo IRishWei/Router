@@ -1,0 +1,11 @@
+✔ compatible native allocation retains its initial ceiling and uses the smaller recovery allowance for the new Call (133.2961ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"maxTokens":64,"actualMaxTokens":[1024,64],"calls":2}
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 675.2039
+COMMAND_EXIT=0 DURATION_SECONDS=0.7493113

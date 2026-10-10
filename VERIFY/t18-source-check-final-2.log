@@ -1,0 +1,4 @@
+
+> @irishwei/dsh-router@0.17.0 check
+> node scripts/check.mjs
+

@@ -1,0 +1,105 @@
+{
+  "passed": true,
+  "version": "0.17.0",
+  "tasks": 58,
+  "fullTasksCallsLedgersUnchanged": true,
+  "configUnchanged": true,
+  "globalDefaultUnchanged": true,
+  "fixtureCounterUnchanged": true,
+  "newStreams": 0,
+  "preservation": {
+    "passed": true,
+    "preservation": {
+      "passed": true,
+      "prior": {
+        "passed": true,
+        "prior": {
+          "passed": true,
+          "prior": {
+            "priorFrozenFilesVerified": 166,
+            "legacyStateBytes": 9114595,
+            "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+            "t07FrozenFilesVerified": 39,
+            "goAndCompatibleFrozenPackagesVerified": true,
+            "realModelRequests": 0
+          },
+          "records": [
+            {
+              "manifest": "t15-v0150a-failed-frozen.json",
+              "manifestSha256": "785d8ae8f3603d0927347e927c0ce4aa1149b476cf066a67bfe0545c6955115e",
+              "verified": 12,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150b-failed-frozen.json",
+              "manifestSha256": "1b349af29df7f4534c86f24948abf0ba43b21fd5c7f2043344c30e8018ff520e",
+              "verified": 19,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150c-partial-frozen.json",
+              "manifestSha256": "24b5a597f90bef9eda740179cff01a3a20714a08d8c87eccb94a988ab24f64d3",
+              "verified": 28,
+              "sealedLiveState": true
+            }
+          ],
+          "verifiedT15CapturedFiles": 59,
+          "sealedStateMatchesPreRestartManifest": true,
+          "liveControlledStateMatchesSealedBytes": true,
+          "liveStateScope": "isolated controlled profile intentionally reopened; full public Tasks/config/counts/default equality is separately required",
+          "realModelRequests": 0
+        },
+        "t15ValidationFiles": 59,
+        "t15InstalledFiles": 36,
+        "t15RepositoryCopies": 14,
+        "finalReviewReports": 2,
+        "realModelRequests": 0
+      },
+      "T17FrozenFileEntries": 495,
+      "T17ArchiveFiles": 50,
+      "T17PackageBytes": 233897,
+      "productionModelRequests": 0
+    },
+    "records": [
+      {
+        "manifest": "t18-v0170a-failed-frozen.json",
+        "manifestSha256": "2F3E6395CCF633382A9BA6BFF505DAF7D7EC83E115C8C7194F3125BFF3BA0F07",
+        "phase": "failed-controlled",
+        "filesVerified": 45
+      },
+      {
+        "manifest": "t18-v0170b-failed-frozen.json",
+        "manifestSha256": "D791CF1A194400ECF9AA59905250ED285347EC76C010A524DBBA297FD3F738DE",
+        "phase": "failed-controlled",
+        "filesVerified": 51
+      },
+      {
+        "manifest": "t18-v0170c-failed-frozen.json",
+        "manifestSha256": "2189C55CDC5348C3CC41BFC038BCA1993C44F725E23B7C869C9EF3970376483E",
+        "phase": "failed-controlled",
+        "filesVerified": 58
+      },
+      {
+        "manifest": "t18-v0170d-failed-frozen.json",
+        "manifestSha256": "12EBF9B3B5E0B5E97C288F32CCDE6307E32E3F0504F46E778999DCFBA4668653",
+        "phase": "failed-controlled",
+        "filesVerified": 71
+      },
+      {
+        "manifest": "t18-v0170e-failed-frozen.json",
+        "manifestSha256": "5D06B5A24029FA46E6A393DF7B8EBAB9C086596F0C51124127CFA5DBCF43050C",
+        "phase": "failed-controlled",
+        "filesVerified": 58
+      },
+      {
+        "manifest": "t18-v0170f-failed-frozen.json",
+        "manifestSha256": "725040EAEF5E99989E5C904E4CD245621F936153C1C579A1384AB259180B6228",
+        "phase": "failed-controlled",
+        "filesVerified": 76
+      }
+    ],
+    "frozenT18FileEntries": 359,
+    "realModelRequests": 0
+  },
+  "realModelRequests": 0
+}

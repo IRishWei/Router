@@ -1,0 +1,21 @@
+✖ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (90.5986ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 717.1873
+
+✖ failing tests:
+
+test at test\t18.integration.test.mjs:148:1
+✖ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (90.5986ms)
+  TypeError: Unknown candidate
+      at ConnectionRegistry.resolve (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/src/connections.mjs:253:27)
+      at RouterService.setPriceQuote (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/src/index.mjs:1271:41)
+      at Object.apply (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/node_modules/@deepseek-ai/cordis/lib/index.js:120:36)
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.integration.test.mjs:159:22)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)

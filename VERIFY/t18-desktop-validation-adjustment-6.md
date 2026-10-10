@@ -1,0 +1,7 @@
+# T18 prelaunch adjustment after immutable installed round f
+
+Round t18-v0170f completed 25 scenario assertions. The next actual installed Renderer stopped before finding the exact manual-stop retry/stop buttons. Its initial public snapshot passed the exact Task/recovery id/revision and waiting-user assertions; the owned stopped profile still retained the same live waiting-user Task with nativeLifecycle=null. The driver nevertheless tested controls immediately after mounting/clicking, unlike its existing static Renderer branch which already waited for snapshot loading. The failed round remains failed-controlled; its 76-entry frozen manifest SHA256 is 725040EAEF5E99989E5C904E4CD245621F936153C1C579A1384AB259180B6228.
+
+The next live Renderer driver waits at most 10000ms for both exact Task buttons to exist and be enabled, using the real asynchronous public snapshot transport and React act boundary. Failure to reach this state still fails. It then performs one actual installed stop action, verifies the exact CAS payload and public Task settlement, refreshes terminal records and verifies the controls disappear. No already failed profile is reopened.
+
+This changes only external UI readiness observation. Router/package, fixture responses, recovery limits, budgets, stream ceiling and overall run deadline remain unchanged. The previous local filesystem red/green receipts remain valid; all original failures and execution captures remain immutable. Production model requests remain zero.

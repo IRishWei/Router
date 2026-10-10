@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import { readFile, readdir } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { verifyPreservedEvidence } from './t18-preservation.mjs';
+
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const hash = bytes => createHash('sha256').update(bytes).digest('hex').toUpperCase();
+export async function verifyFrozenT18Labels() {
+  const preservation = await verifyPreservedEvidence();
+  const names = (await readdir(directory)).filter(name => /^t18-v017\d[a-z]-(?:failed|validation)-frozen\.json$/.test(name)).sort();
+  const records = [];
+  for (const name of names) {
+    const manifestBytes = await readFile(join(directory, name));
+    const manifest = JSON.parse(manifestBytes);
+    assert.equal(manifest.realModelRequests, 0);
+    assert(Array.isArray(manifest.files));
+    assert.equal(new Set(manifest.files.map(file => file.path)).size, manifest.files.length);
+    for (const file of manifest.files) {
+      const bytes = await readFile(file.path);
+      assert.equal(bytes.length, file.bytes, 'Frozen T18 byte count changed: ' + file.path);
+      assert.equal(hash(bytes), file.sha256.toUpperCase(), 'Frozen T18 hash changed: ' + file.path);
+    }
+    records.push({ manifest: name, manifestSha256: hash(manifestBytes), phase: manifest.phase, filesVerified: manifest.files.length });
+  }
+  return { passed: true, preservation, records, frozenT18FileEntries: records.reduce((sum, record) => sum + record.filesVerified, 0), realModelRequests: 0 };
+}
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) console.log(JSON.stringify(await verifyFrozenT18Labels()));

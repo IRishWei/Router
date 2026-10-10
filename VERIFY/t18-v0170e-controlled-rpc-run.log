@@ -1,0 +1,21 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'paused'
+- 'completed'
+
+    at run (file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170e-controlled-executed-rpc.mjs:97:14)
+    at async file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170e-controlled-executed-rpc.mjs:243:37 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'paused',
+  expected: 'completed',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

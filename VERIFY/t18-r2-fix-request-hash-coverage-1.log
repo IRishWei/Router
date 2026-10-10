@@ -1,0 +1,34 @@
+✔ a real consultation recovery obeys the smaller recovery cap with one owned intent and one advice (258.999ms)
+✖ the exact owned consultation request still fails its final intent hash when retained input changes (135.8135ms)
+ℹ {"pauseReason":"RECOVERY_FAILURE_UNSAFE","recoveryState":"paused","recoveryReason":"RECOVERY_FAILURE_UNSAFE","retryFailure":"AUXILIARY_CALL_FAILED","requestHash":"1cf7f0b0fe208a577e7f6258a55b503e92197de3c1db8fa41ff46138d986f78a"}
+✔ a copied consultation recovery request cannot inherit the original owned request identity (128.7588ms)
+ℹ {"pauseReason":"RECOVERY_FAILURE_UNSAFE","recoveryState":"paused","recoveryReason":"RECOVERY_FAILURE_UNSAFE","calls":[{"purpose":"execution","status":"completed","dispatched":true},{"purpose":"execution","status":"completed","dispatched":true},{"purpose":"consultation","status":"failed","dispatched":true,"failureCode":"CONNECTION"},{"purpose":"consultation","status":"failed","dispatched":false,"failureCode":"MODEL_NOT_FOUND"}]}
+✔ a real consultation recovery keeps the smaller consultation cap and forecast within the finite Task budget (199.1513ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1308.2115
+
+✖ failing tests:
+
+test at test\t18.consultation-caps.test.mjs:54:1
+✖ the exact owned consultation request still fails its final intent hash when retained input changes (135.8135ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  false !== true
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.consultation-caps.test.mjs:73:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+runExit=1 durationMs=1496

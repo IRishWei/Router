@@ -1,0 +1,128 @@
+{
+  "passed": true,
+  "source": "5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7",
+  "base": "547b8b188036a43f4f5627f4cb103598c0c9d3f0",
+  "version": "0.17.0",
+  "branch": "codex/dsh-router-v1",
+  "clean": true,
+  "tests": 588,
+  "suitePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-suite-r3.log",
+  "realModelRequests": 0,
+  "steps": [
+    {
+      "name": "guard-before",
+      "command": "node \"C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-label-preservation.mjs\"",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-guard-before-r3.log",
+      "durationMs": 1239.2201,
+      "sha256": "5998D3287B43C86283E6B815E034AD77A3AEA112728968958BA9FAB6CE3BA231",
+      "bytes": 1732
+    },
+    {
+      "name": "preflight",
+      "command": "node \"C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-independent-merger-state-r3.mjs\" preflight",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-preflight-r3.log",
+      "durationMs": 294.7434,
+      "sha256": "F4E1DF32E51887E959A5B074726CAF8B8767F13646E7D5E441A9F6122549F601",
+      "bytes": 1159
+    },
+    {
+      "name": "ff",
+      "command": "git merge --ff-only 5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-ff-r3.log",
+      "durationMs": 149.7573,
+      "sha256": "0406D0D3B82FF2D5F4206609D2E2D857A833AEE91C8F53DDEA7D298EA7083CA3",
+      "bytes": 2426
+    },
+    {
+      "name": "head-version",
+      "command": "node \"C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-independent-merger-state-r3.mjs\" merged",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-head-version-r3.log",
+      "durationMs": 332.7611,
+      "sha256": "F8F24CD28B6DE7320027E5EFCDFCEE468492926A624E629249321CE00EBEC26A",
+      "bytes": 710
+    },
+    {
+      "name": "build",
+      "command": "node scripts/build.mjs",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-build-r3.log",
+      "durationMs": 382.3746,
+      "sha256": "3B6CDE6F37033F1CB6D86199BD14E508D002723FB85EA70EFAA3F459B7EDC7B3",
+      "bytes": 208
+    },
+    {
+      "name": "suite",
+      "command": "node --test --test-concurrency=1 --test-timeout=30000 test/*.test.mjs",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-suite-r3.log",
+      "durationMs": 83951.3139,
+      "sha256": "2713B85933BEBD68AA11FE7AC556F1D6FBF9A8034E1553D34C362DD8ABA8D9E8",
+      "bytes": 64701
+    },
+    {
+      "name": "check",
+      "command": "node scripts/check.mjs",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-check-r3.log",
+      "durationMs": 1725.2906,
+      "sha256": "D667E1259571EBFD7B73BA3C58DB19A415F77435A701DAC7CAD91A1AFBAF8C62",
+      "bytes": 209
+    },
+    {
+      "name": "diff",
+      "command": "git diff --check",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-diff-r3.log",
+      "durationMs": 101.5536,
+      "sha256": "800FE722610351904F7E8D31E8189E2AF19A48AD0BE688863F5AACE3C36A54C4",
+      "bytes": 201
+    },
+    {
+      "name": "guard-after",
+      "command": "node \"C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-label-preservation.mjs\"",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-guard-after-r3.log",
+      "durationMs": 1250.8121,
+      "sha256": "3DC271835C0A204041139E0F51224B5C2E59CA56240562D8E2B102C8823A3814",
+      "bytes": 1731
+    },
+    {
+      "name": "cleanliness",
+      "command": "node \"C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-independent-merger-state-r3.mjs\" final",
+      "exitCode": 0,
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-cleanliness-r3.log",
+      "durationMs": 304.4288,
+      "sha256": "08BEA4DCC44B783E99816831FAA26A526B571D51F6EC3EDFBB67413EBDA84D48",
+      "bytes": 707
+    }
+  ],
+  "suiteResults": {
+    "tests": 588,
+    "suites": 0,
+    "pass": 588,
+    "fail": 0,
+    "cancelled": 0,
+    "skipped": 0,
+    "todo": 0,
+    "duration_ms": 83830.9036
+  },
+  "suiteDurationMs": 83951.3139,
+  "independentReviewReports": [
+    {
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-source-standards-r3.md",
+      "bytes": 2193,
+      "sha256": "C300F2886CC31B5299F2A112BC377795250C3E57D332D6468FFC26189FDF2DD5",
+      "result": "PASS"
+    },
+    {
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-source-spec-r3.md",
+      "bytes": 1892,
+      "sha256": "36F0977EEA097FF24F90D25363347BE60AA8F606EAF68CA3E8B804615DF443DF",
+      "result": "PASS"
+    }
+  ]
+}

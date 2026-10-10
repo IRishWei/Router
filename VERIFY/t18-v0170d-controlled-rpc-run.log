@@ -1,0 +1,20 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The input did not match the regular expression /RECOVERY_STALE|RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED/. Input:
+
+'RPC resolveTaskRecovery: gateway/internal'
+
+    at run (file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170d-controlled-executed-rpc.mjs:117:14)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170d-controlled-executed-rpc.mjs:237:37 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'RPC resolveTaskRecovery: gateway/internal',
+  expected: /RECOVERY_STALE|RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED/,
+  operator: 'match',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

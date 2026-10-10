@@ -1,0 +1,12 @@
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (119.4895ms)
+✔ disabling routing during rate-limit backoff stops the owned Task rather than delegating native retry (75.6427ms)
+✔ credible rate-limit retry-after above the wait allowance pauses without sending early (53.7612ms)
+✔ Task recovery cap defeats a later outer always retry listener without a fourth dispatch (99.6493ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 982.3673

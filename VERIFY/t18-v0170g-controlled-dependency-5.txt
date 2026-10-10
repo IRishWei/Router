@@ -1,0 +1,76 @@
+import assert from 'node:assert/strict';
+import { mkdir, readFile, writeFile, access } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { join } from 'node:path';
+import { verifyFrozenT18Labels } from './t18-label-preservation.mjs';
+
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const notes = join(directory, 'implement-spec-go-20261009');
+const root = 'E:/GPT/Router项目';
+const label = process.argv[2], version = process.argv[3];
+assert(/^t18-v017\d[a-z]$/.test(label), 'A fresh T18 evidence label is required');
+assert(/^0\.17\.\d$/.test(version), 'A T18 candidate version is required');
+const identity = JSON.parse(await readFile(join(directory, label + '-package-identity.json'), 'utf8'));
+assert.equal(identity.version, version);
+const gate = JSON.parse(await readFile(join(notes, 't18-final-reviewed-source.json'), 'utf8'));
+assert(gate.standards.passed && gate.spec.passed && gate.merger.passed);
+assert.equal(gate.source, identity.reviewedSourceSha);
+assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim(), identity.reviewedSourceSha);
+const home = join(directory, label + '-controlled-home');
+const fixture = join(directory, label + '-fixture-bundle');
+const absent = async path => {
+  try { await access(path); throw new Error('Controlled path or helper already exists: ' + path); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+};
+for (const path of [home, fixture, join(directory, label + '-preparation.json')]) await absent(path);
+const templatePath = join(notes, 't18-fixture-final.mjs');
+const templateBytes = await readFile(templatePath);
+const template = templateBytes.toString('utf8');
+assert(template.includes('router-t18-controlled-fixture'));
+assert(template.includes('t18-controlled-counts.json'));
+const planPath = join(notes, label + '-validation-plan.json');
+const plan = JSON.parse(await readFile(planPath, 'utf8'));
+assert.equal(plan.source, identity.reviewedSourceSha);
+assert.equal(plan.version, version);
+assert.equal(plan.label, label);
+assert.equal(plan.fixture.sha256, createHash('sha256').update(templateBytes).digest('hex').toUpperCase());
+assert.equal(plan.productionModelRequests, 0);
+const helpers = [];
+for (const suffix of ['desktop-owned.ps1', 'install.ps1', 'host-rpc.mjs']) {
+  let source = await readFile(join(directory, 't15-v0150c-' + suffix), 'utf8');
+  source = source.replaceAll('t15-v0150c', label).replaceAll('0.15.0', version)
+    .replaceAll('T15 controlled Desktop validation', 'T18 controlled Desktop validation')
+    .replaceAll('t15-controlled-counts.json', 't18-controlled-counts.json');
+  if (suffix === 'host-rpc.mjs') {
+    const oldGuard = "import { checkPriorRecords } from './t11-v0120a-preservation.mjs';";
+    assert(source.includes(oldGuard));
+    source = source.replace(oldGuard, "import { verifyPreservedEvidence } from './implement-spec-go-20261009/t18-preservation.mjs';\nawait verifyPreservedEvidence();");
+    const oldResultCheck = "assert(result.result?.ok,`RPC ${method}: ${result.result?.error?.code??'unknown'}`);return result.result.value;";
+    assert(source.includes(oldResultCheck));
+    source = source.replace(oldResultCheck, "if(!result.result?.ok) throw Object.assign(new Error(`RPC ${method}: ${result.result?.error?.code??'unknown'}`),{publicRpcError:{rpcId,method:`${namespace}/${method}`,httpStatus:response.status,code:result.result?.error?.code??'unknown'}});return result.result.value;");
+  }
+  assert(!source.includes('t15-v0150c') && !source.includes('T15 controlled Desktop validation'));
+  const path = join(directory, label + '-' + suffix);
+  await absent(path);
+  helpers.push({ path, source });
+}
+await verifyFrozenT18Labels();
+await mkdir(join(home, 'profiles/desktop'), { recursive: true });
+await mkdir(join(fixture, 'lib'), { recursive: true });
+const save = (path, value) => writeFile(path, typeof value === 'string' ? value : JSON.stringify(value, null, 2), { flag: 'wx' });
+await save(join(home, 'profiles/desktop/package.json'), { name: 'dsh-profile-desktop', private: true, dependencies: {},
+  dsh: { profile: { bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-web-app', '@irishwei/dsh-router', '@irishwei/dsh-router-t18-fixture'] } } });
+await save(join(home, 'profiles/desktop/pnpm-workspace.yaml'), 'packages:\n  - .\nnodeLinker: hoisted\nautoInstallPeers: false\n');
+await save(join(home, 'profiles/desktop/cordis.yml'), '[]\n');
+await save(join(home, 'profiles/desktop/cordis.patch.yml'), '- id: agent-default-model\n  name: "@deepseek-ai/dsh-agent-default-model"\n  config:\n    provider: router-t18-controlled-fixture\n    model: main\n');
+  await save(join(home, 't18-controlled-counts.json'), { realModelRequests: 0, requests: [], toolExecutions: [], nativeSeams: [], toolRestrictions: [], recorderIoRetries: [] });
+await save(join(home, 't18-controlled-scenario.json'), { mode: null, sessionId: null, requestId: null });
+await save(join(fixture, 'package.json'), { name: '@irishwei/dsh-router-t18-fixture', version: '0.1.0', type: 'module', main: 'lib/index.js',
+  files: ['lib', 'cordis.patch.yml'], dsh: { manifestVersion: 1, bundle: { patch: './cordis.patch.yml' } } });
+await save(join(fixture, 'cordis.patch.yml'), '- insert:\n    - id: t18-fixture\n      name: "@irishwei/dsh-router-t18-fixture"\n      before: adaptive-router\n');
+await save(join(fixture, 'lib/index.js'), template);
+for (const helper of helpers) await save(helper.path, helper.source);
+await save(join(directory, label + '-preparation.json'), { prepared: true, version, source: identity.reviewedSourceSha,
+  home, fixture, planPath, templatePath, purpose: 'T18 controlled Desktop validation', realModelRequests: 0 });
+console.log(JSON.stringify({ prepared: true, version, home, realModelRequests: 0 }));

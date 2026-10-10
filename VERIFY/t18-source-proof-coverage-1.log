@@ -1,0 +1,52 @@
+✔ a full native recovery refuses unsafe alternative billing without a target model entry (186.5297ms)
+✖ a full native recovery refuses unsafe alternative protocol without a target model entry (121.1353ms)
+✔ a full native recovery refuses unsafe alternative capacity without a target model entry (125.5728ms)
+✔ a full native recovery refuses unsafe alternative fixed without a target model entry (141.4519ms)
+✖ ordinary recovery retains the exact image attachment and proves declared image pricing (43.4585ms)
+✖ ordinary recovery retains the exact image attachment and refuses unknown image pricing (28.1986ms)
+✔ a real recovery state write failure stops dispatch and releases reservations while retaining known usage (47.9756ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 4
+ℹ fail 3
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1313.6725
+
+✖ failing tests:
+
+test at test\t18.proof.test.mjs:8:68
+✖ a full native recovery refuses unsafe alternative protocol without a target model entry (121.1353ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /PROTOCOL_UNSUPPORTED/. Input:
+  
+  'RECOVERY_MODEL_FORMAT_UNSUPPORTED'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.proof.test.mjs:24:59)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'RECOVERY_MODEL_FORMAT_UNSUPPORTED',
+    expected: /PROTOCOL_UNSUPPORTED/,
+    operator: 'match',
+    diff: 'simple'
+  }
+
+test at test\t18.proof.test.mjs:30:45
+✖ ordinary recovery retains the exact image attachment and proves declared image pricing (43.4585ms)
+  Error [RemoteError]: Model "controlled" does not support image input.
+      at admit (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js:873:95) {
+    code: 'session/attachment-invalid',
+    details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
+    isDSHRemoteError: true
+  }
+
+test at test\t18.proof.test.mjs:30:45
+✖ ordinary recovery retains the exact image attachment and refuses unknown image pricing (28.1986ms)
+  Error [RemoteError]: Model "controlled" does not support image input.
+      at admit (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/node_modules/@deepseek-ai/dsh-api-session-controller/lib/index.js:873:95) {
+    code: 'session/attachment-invalid',
+    details: { reason: 'MODEL_DOES_NOT_SUPPORT_IMAGES' },
+    isDSHRemoteError: true
+  }

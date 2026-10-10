@@ -1,0 +1,16 @@
+✖ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (180.2099ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 966.4191
+
+✖ failing tests:
+
+test at test\t18.controls.test.mjs:9:1
+✖ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (180.2099ms)
+  TypeError: Cannot read properties of undefined (reading 'snapshot')
+      at submitTask (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:56:37)

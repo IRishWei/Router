@@ -1,0 +1,213 @@
+// Draft external transport fixture. No Host is launched by this file.
+// The final installation plan must pin the reviewed Router commit and this source.
+import assert from 'node:assert/strict';
+import { readFile, writeFile, rename } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
+import { LlmAdapter, LlmError, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
+
+export const inject = ['llm', 'profileContext', 'attachments', 'tools'];
+const provider = 'router-t18-controlled-fixture';
+const models = ['main', 'advisor', 'alternative', 'alternative-small', 'alternative-text-only', 'alternative-format-unsupported', 'alternative-unknown'];
+const toolNames = ['t18_local_read_receipt', 't18_local_write_receipt', 't18_local_unproved_receipt'];
+const nativeToolNames = [...toolNames, 'subagent'];
+const digest = bytes => createHash('sha256').update(bytes).digest('hex');
+const textOf = message => (message?.content ?? []).filter(part => part.type === 'text').map(part => part.text).join('\n');
+const caseOf = messages => (messages ?? []).map(textOf).findLast(text => /^T18_CASE [a-z-]+(?:\n|$)/.test(text))?.split(/\r?\n/, 1)[0].slice('T18_CASE '.length) ?? null;
+const supportsImage = model => !['advisor', 'alternative-text-only'].includes(model);
+const contextWindow = model => model === 'alternative-small' ? 128 : 262144;
+const handoff = model => model === 'alternative-unknown' ? null : {
+  protocol: 'dsh-canonical-v1',
+  toolProtocol: model === 'alternative-format-unsupported' ? 'unsupported' : 'function-json-schema-v1',
+  confidence: 'declared', source: 'T18-local-predetermined-canonical-contract',
+};
+const capability = model => ({
+  text: { supported: true, confidence: 'declared', source: 'T18-local-fixture' },
+  image: { supported: supportsImage(model), confidence: 'declared', source: 'T18-local-fixture' },
+  tools: { supported: true, confidence: 'declared', source: 'T18-local-fixture' },
+});
+const knownUsage = () => ({ type: 'usage', usage: { inputTokens: 4, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 8 } });
+
+function* toolResponse(id, name, args) {
+  const raw = JSON.stringify(args);
+  yield { type: 'block-start', index: 0, blockType: 'tool-call' };
+  yield { type: 'tool-call-delta', index: 0, id, name, argumentsDelta: raw };
+  yield { type: 'block-end', index: 0, block: { type: 'tool-call', id, name, arguments: raw } };
+  yield knownUsage();
+  yield { type: 'finish', reason: { kind: 'tool-calls' } };
+}
+
+function createRecorder(home) {
+  let queue = Promise.resolve();
+  return function record(field, value) {
+    let result;
+    queue = queue.then(async () => {
+      const path = join(home, 't18-controlled-counts.json');
+      const data = JSON.parse(await readFile(path, 'utf8'));
+      assert.equal(data.realModelRequests, 0);
+      data[field] ??= [];
+      if (field === 'requests') assert(data.requests.length < 160, 'Local fixture stream ceiling reached');
+      data[field].push(value);
+      result = field === 'requests' ? data.requests.filter(entry => entry.sessionId === value.sessionId
+        && entry.externalPresetControl?.requestId === value.externalPresetControl?.requestId
+        && entry.mode === value.mode && entry.model === value.model && entry.purpose === value.purpose).length : data[field].length;
+      const pending = join(home, 't18-controlled-counts.pending.json');
+      await writeFile(pending, JSON.stringify(data, null, 2));
+      await rename(pending, path);
+    });
+    return queue.then(() => result);
+  };
+}
+
+function failureFor(mode, model, attempt, hasOriginalTool) {
+  if (model === 'advisor') return mode === 'consultation-recovery' && attempt === 1 ? { code: 'CONNECTION', status: 503 } : null;
+  if (model === 'alternative') return mode === 'takeover-recovery' && attempt === 1 ? { code: 'CONNECTION', status: 503 } : null;
+  if (model !== 'main') return null;
+  if (['network-exhausted', 'alternative-complete', 'capacity-refused', 'protocol-refused', 'tool-format-refused', 'image-refused'].includes(mode)) return { code: 'CONNECTION', status: 503 };
+  if (['fixed-no-alternative', 'manual-current-only'].includes(mode) && attempt <= 2) return { code: 'CONNECTION', status: 503 };
+  if (['duplicate-operation', 'operation-unproved'].includes(mode)) return hasOriginalTool && attempt === 2 ? { code: 'CONNECTION', status: 503 } : null;
+  if (attempt !== 1) return null;
+  if (['network-recovered', 'image-complete', 'manual-retry', 'manual-stop', 'budget-stop', 'budget-unknown-money'].includes(mode)) return { code: 'CONNECTION', status: 503 };
+  if (mode === 'rate-limit-too-long') return { code: 'RATE_LIMIT', status: 429, providerRetryAfterMs: 1500 };
+  if (mode === 'permit-revoked') return { code: 'RATE_LIMIT', status: 429, providerRetryAfterMs: 500 };
+  if (mode === 'authorization') return { code: 'INVALID_CREDENTIAL', status: 401 };
+  if (mode === 'quota') return { code: 'ACCOUNT_QUOTA', status: 403 };
+  if (mode === 'unknown-usage') return { code: 'CONNECTION', status: 503, unknownUsage: true };
+  if (mode === 'partial-response') return { code: 'CONNECTION', status: 503, partial: true };
+  if (mode === 'opaque-failure') return { code: 'T18_OPAQUE_FAILURE' };
+  return null;
+}
+
+class FixtureAdapter extends LlmAdapter {
+  constructor(attachments, record, home) { super(); this.attachments = attachments; this.record = record; this.home = home; }
+  providerInfo(id) { return { id, name: 'T18 local predetermined fixture; no API, quality or billing claim' }; }
+  async listModels(id) {
+    return models.map(model => ({ provider: id, id: model, name: 'T18 local ' + model, inputModalities: supportsImage(model) ? ['text', 'image'] : ['text'] }));
+  }
+  async resolveModel(id, model) {
+    assert(models.includes(model));
+    return { provider: id, id: model, name: 'T18 local ' + model,
+      inputModalities: supportsImage(model) ? ['text', 'image'] : ['text'],
+      context: { contextWindow: contextWindow(model) }, defaultMaxTokens: model === 'main' ? 128 : 512,
+      systemPromptUpdate: 'in-history', toolUpdate: 'in-history' };
+  }
+  imageRequestPricing() { return { priceImages: images => images.map(() => ({ visualTokens: 64, text: '' })) }; }
+  async *stream(request) {
+    request.signal?.throwIfAborted();
+    assert.equal(request.provider, provider);
+    assert(models.includes(request.model));
+    const wireCaseMode = caseOf(request.messages);
+    const isTitle = request.purpose === 'session-title';
+    const control = JSON.parse(await readFile(join(this.home, 't18-controlled-scenario.json'), 'utf8'));
+    const mode = wireCaseMode ?? (!isTitle && request.model === 'advisor' ? control.mode : null);
+    if (!isTitle && request.model !== 'advisor' && mode) {
+      assert.equal(mode, control.mode, 'The explicit external preset must match the actual native case marker');
+      assert.equal(request.sessionId, control.sessionId, 'The explicit external preset must match the native Session');
+    }
+    const sources = (request.messages ?? []).map(message => message.source?.kind).filter(Boolean);
+    const images = (request.messages ?? []).flatMap(message => (message.content ?? []).filter(part => part.type === 'image'));
+    const imageMetadata = [];
+    for (const part of images) {
+      assert(part.attachment && !part.offloaded);
+      const stored = await this.attachments.readImage(part.attachment);
+      assert.equal(stored.ref.attachmentId, part.attachment.attachmentId);
+      imageMetadata.push({ attachmentId: stored.ref.attachmentId, mediaType: stored.ref.mediaType,
+        bytes: stored.data.length, dataHash: digest(stored.data) });
+    }
+    const visible = { system: request.system ?? null,
+      messages: (request.messages ?? []).map(message => ({ id: message.id ?? null, role: message.role,
+        toolCallId: message.toolCallId ?? null, source: message.source ?? null, content: message.content })), tools: request.tools ?? [] };
+    const attempt = await this.record('requests', { provider: request.provider, model: request.model, mode,
+      externalPresetControl: control,
+      wireCaseMode, modeSource: wireCaseMode ? 'actual-native-text-marker' : !isTitle && request.model === 'advisor' ? 'explicit-external-preset-control' : null,
+      sessionId: request.sessionId ?? null, purpose: request.purpose ?? null, sources, visible, imageMetadata,
+      fullVisibleRequestBytes: Buffer.byteLength(JSON.stringify(visible)), maxTokens: request.maxTokens ?? null,
+      historicalReplayPresent: (request.messages ?? []).some(message => message.replayState != null || message.source?.replayState != null),
+      realModelRequests: 0 });
+    if (request.model.startsWith('alternative-')) throw new LlmError('Refused local target unexpectedly entered its Adapter', 'MODEL_NOT_FOUND');
+    const originalId = mode && 't18-original-' + mode;
+    const hasOriginalTool = (request.messages ?? []).some(message => message.toolCallId === originalId);
+    if (!isTitle && request.model === 'main' && ['duplicate-operation', 'operation-unproved'].includes(mode) && !hasOriginalTool) {
+      yield* toolResponse(originalId, mode === 'duplicate-operation' ? 't18_local_write_receipt' : 't18_local_unproved_receipt', { operationId: 't18-one-completed-operation' });
+      return;
+    }
+    const failure = isTitle ? null : failureFor(mode, request.model, attempt, hasOriginalTool);
+    if (failure) {
+      if (failure.partial) {
+        yield { type: 'block-start', index: 0, blockType: 'text' };
+        yield { type: 'text-delta', index: 0, text: 'PARTIAL_UNCONFIRMED_T18' };
+        yield { type: 'block-end', index: 0, block: { type: 'text', text: 'PARTIAL_UNCONFIRMED_T18' } };
+      }
+      if (!failure.unknownUsage) yield knownUsage();
+      throw new LlmError('T18_LOCAL_SECRET_BODY_MUST_NOT_ENTER_FAILURE_DTO', failure.code, {
+        ...(failure.status ? { status: failure.status } : {}),
+        ...(failure.providerRetryAfterMs ? { providerRetryAfterMs: failure.providerRetryAfterMs } : {}),
+        requestId: 't18-local-opaque-request-id',
+      });
+    }
+    if (!isTitle && request.model === 'main' && mode === 'duplicate-operation' && hasOriginalTool && attempt > 2) {
+      yield* toolResponse('t18-new-id-repeated-operation', 't18_local_write_receipt', { operationId: 't18-one-completed-operation' });
+      return;
+    }
+    let text = 'T18 local fixture title or prime';
+    if (!isTitle && request.model === 'advisor') text = 'Keep the complete original constraints and work. Expand the artifact to its required length.';
+    else if (mode && !isTitle) {
+      if (['consultation-recovery', 'takeover-recovery'].includes(mode)) {
+        text = request.model === 'main' ? 'A'.repeat(sources.includes('router-consultation') ? (mode === 'consultation-recovery' ? 24 : 14) : sources.includes('router-self-repair') ? 9 : 4) : 'A'.repeat(24);
+      } else text = 'T18_RECOVERED_LOCAL_RESULT';
+    }
+    request.signal?.throwIfAborted();
+    yield { type: 'block-start', index: 0, blockType: 'text' };
+    yield { type: 'text-delta', index: 0, text };
+    yield { type: 'block-end', index: 0, block: { type: 'text', text } };
+    yield knownUsage();
+    yield { type: 'finish', reason: { kind: 'stop' } };
+  }
+}
+
+export function apply(ctx) {
+  const record = createRecorder(ctx.profileContext.home);
+  const restricted = new WeakSet();
+  ctx.on('agent/created', async ({ agent }) => {
+    assert(!restricted.has(agent)); restricted.add(agent);
+    agent.ctx.tools.restrict({ allow: toolNames });
+    const initialCatalog = agent.ctx.tools.schemas(agent).map(tool => tool.name).sort();
+    assert.equal(JSON.stringify(initialCatalog), JSON.stringify([...toolNames].sort()));
+    await record('toolRestrictions', { sessionId: agent.session.id, allow: toolNames, initialCatalog,
+      publicBoundary: 'agent/created before queued input assembly', realModelRequests: 0 });
+  }, { global: true });
+  ctx.on('llm/stream', (request, next) => (async function* () {
+    if (request.provider !== provider && request.provider !== 'router-controlled') throw new LlmError('Isolated T18 fixture denies production streams', 'MODEL_NOT_FOUND');
+    const nativeInput = { provider: request.provider, model: request.model, maxTokens: request.maxTokens ?? null,
+      system: request.system ?? null, messages: request.messages ?? [], tools: request.tools ?? [], toolHistory: request.toolHistory ?? null };
+    await record('nativeSeams', { provider: request.provider, model: request.model, sessionId: request.sessionId ?? null,
+      purpose: request.purpose ?? null, nativeAgentLoop: isAgentLoopRequest(request), frozen: Object.isFrozen(request),
+      nativeToolNames: (request.tools ?? []).map(tool => tool.name).sort(),
+      nativeToolsPrototypeMatchesFixtureRealm: Object.getPrototypeOf(request.tools ?? []) === Array.prototype,
+      mode: caseOf(request.messages), nativeInput, nativeInputHash: digest(JSON.stringify(nativeInput)), realModelRequests: 0 });
+    if (isAgentLoopRequest(request) && request.provider === provider) assert.equal(JSON.stringify((request.tools ?? []).map(tool => tool.name).sort()), JSON.stringify([...nativeToolNames].sort()));
+    yield* next();
+  })());
+  ctx.llm.registerAdapter([provider], new FixtureAdapter(ctx.attachments, record, ctx.profileContext.home));
+  for (const [name, effect] of [[toolNames[0], 'read'], [toolNames[1], 'side-effect'], [toolNames[2], null]]) {
+    ctx.tools.register({ name, description: 'T18 local complete receipt',
+      parameters: { type: 'object', properties: { operationId: { type: 'string' } }, additionalProperties: false },
+      ...(effect ? { routerOperation: { version: 1, effect, idempotencyKey: effect === 'side-effect' ? 'operationId' : null,
+        source: 'T18-local-registry-owner-contract', confidence: 'declared' } } : {}),
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+      async execute(args, exec) {
+        exec.signal?.throwIfAborted();
+        await record('toolExecutions', { name, effect, args, realModelRequests: 0 });
+        exec.signal?.throwIfAborted();
+        return effect === 'side-effect' ? 'T18_COMPLETED_SIDE_EFFECT:' + args.operationId : 'T18_COMPLETE_READ_RECEIPT:ORIGINAL_LITERAL_VALUE';
+      },
+    });
+  }
+  ctx.inject(['router'], inner => {
+    const unregister = inner.router.registerOwned({ provider, connectionId: provider + '-connection', accountId: provider + '-account',
+      billingPath: 't18-controlled-fixture', ownership: 'router-owned', source: 't18-controlled-fixture',
+      sourceKey: provider + ':v1', configRevision: 1, configured: true, authorizationStatus: 'configured',
+      models: models.map(model => ({ model, name: 'T18 local ' + model, maxContextTokens: contextWindow(model), capability: capability(model), handoff: handoff(model) })) });
+    inner.effect(() => unregister, 'router: T18 controlled candidate lifetime');
+  });
+}

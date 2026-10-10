@@ -1,0 +1,19 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The input did not match the regular expression /MODEL_FORMAT_UNSUPPORTED/. Input:
+
+'RECOVERY_TOOL_PROTOCOL_UNSUPPORTED'
+
+    at run (file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170b-controlled-executed-rpc.mjs:153:28)
+    at async file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170b-controlled-executed-rpc.mjs:230:37 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'RECOVERY_TOOL_PROTOCOL_UNSUPPORTED',
+  expected: /MODEL_FORMAT_UNSUPPORTED/,
+  operator: 'match',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

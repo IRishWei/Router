@@ -1,0 +1,15 @@
+✖ a takeover response with known usage and no partial content can recover without repeating the notice (371.2499ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1026.0833
+
+✖ failing tests:
+
+test at test\t18.integration.test.mjs:35:1
+✖ a takeover response with known usage and no partial content can recover without repeating the notice (371.2499ms)
+  [Error: ENOTEMPTY: directory not empty, rmdir 'C:\Users\a1500\AppData\Local\Temp\router-t18-takeover-juxIXV\router\test'] { errno: -4051, code: 'ENOTEMPTY', syscall: 'rmdir', path: 'C:\\Users\\a1500\\AppData\\Local\\Temp\\router-t18-takeover-juxIXV\\router\\test' }

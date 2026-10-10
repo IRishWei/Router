@@ -1,0 +1,11 @@
+{
+  "purpose": "T18 controlled Desktop validation",
+  "stage": "controlled",
+  "pid": 23028,
+  "startedAt": "2026-10-10T21:13:30.0943204Z",
+  "home": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170b-controlled-home",
+  "executable": "E:\\Program Files\\DeepSeek Harness\\DeepSeek Harness.exe",
+  "stopped": true,
+  "stoppedAt": "2026-10-10T21:13:42.7546964Z",
+  "ownedChildren": 4
+}

@@ -1,0 +1,535 @@
+diff --git a/docs/implementation/t18-failure-recovery-contract.md b/docs/implementation/t18-failure-recovery-contract.md
+index 6abaaab..fe6ed05 100644
+--- a/docs/implementation/t18-failure-recovery-contract.md
++++ b/docs/implementation/t18-failure-recovery-contract.md
+@@ -57,6 +57,10 @@ await router.resolveTaskRecovery({
+ 
+ 接管恢复同时遵守原接管许可与恢复许可。规划时冻结 `recovery.maxTokens` 为两套 `maxTokens` 的较小值，`recovery.forecastTokens` 为两套 `forecastTokens` 的较小值。完整输入、图像价格与容量证明、Native Request 分配、实际 prepared、最终请求和预算均使用这两个有效上限；两套独立派发门还核对精确 recovery/plan/Call 归属。恢复 Call 的 `reservation.tokens.output` 等于有效 max，`total` 等于有效 forecast，`input` 等于二者之差；该 Call 对应的 `takeover.plan.forecast` 保存相同预留。恢复最终请求与接管最终请求各自保存实际相同的 max 与 prepared 配置。两套原 policy 保留；首次接管和后续非恢复接管 Call 继续使用原接管上限，既有 Call 不改写。
+ 
++执行、咨询与接管恢复均不能扩大原请求已经分配的输出许可。有效 `recovery.maxTokens` 同时受 recovery policy、所在 phase policy、原 logical request 的明确 max 和原实际请求配置限制。执行使用原 Native Call 的 `hostConfig.maxTokens`；咨询使用原 `coordinationPolicy.maxTokens`、logical request max 与实际 prepared `call.snapshot.maxTokens`；接管使用原 plan policy 和 Native 配置。缺少原请求的明确 max 时不凭空添加一个原上限，但仍受配置的 recovery/phase 上限约束。有效 forecast 为 recovery 与咨询/接管 phase forecast 的较小值；执行没有另一套 phase forecast，沿用 recovery forecast。
++
++咨询重试创建采用有效 max 的 logical request，同时冻结该请求的完整 messages/tools/system 与 max 的 `requestHash`。实际 prepared options 重新绑定精确的 owned WeakMap 归属，最终门核对同一 intent、实际 Call、hash、prepared max 和精确 input/output/total reservation；复制 options 后通过公开 LLM 再进入不能继承该归属。所有实际尝试仍保留同一 intent 与 `consultation.callIds`，advice 只交回一次。原非恢复咨询使用原 coordination 上限。兼容连接的 owned 1024 预设是上限，不能提高明确 request max；兼容 Native 首次调用仍使用原 1024 预设，恢复使用冻结的有效 max。每一步规划、容量/图像证明、预算、allocation、prepared 和 final 都使用这个有效许可，原 policy 和已完成/失败 Call 保留。
++
+ ## 人工等待与重启
+ 
+ 人工按钮只存在于仍 live、awaited 的 waiting-user 边界。停止可取消待派发预留和当前 Task。修改许可/模型、用户 steer、原生 pending、停止或存储失败会唤醒等待并使旧 plan 失效。CAS action fulfilled 只表示消费了这个 live 决定，随后竞态仍可让硬门拒绝派发。
+@@ -64,3 +68,5 @@ await router.resolveTaskRecovery({
+ 工具保护与故障处理共用暂停转换，统一设置 paused/reason、增加 revision、记录 timeline、持久化并唤醒 live recovery waiter。工具暂停保留原 failure/source/phase 与已消费次数、计划等待和实际等待；故障处理按原调用来源更新故障字段，不退还 grant 或清空已有历史证明。
+ 
+ 终态和重启没有公开 resume 旧 Task 的能力。resolver 返回 `RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED`；UI 明确提示修复后发送新任务，不会复活旧任务。重启时未完成 recovery 记 `RECOVERY_RESTARTED_UNKNOWN`，Task 记 HOST_RESTARTED，次数/计划等待/原始 Call 与未知状态保留；没有后台计时器、模型请求、advice、工具或私有状态复活。原 T17 和 T16 的 pending/restart 保护继续使用原合同。
++
++原 Native `turn/end` 同时关闭尚未结束的恢复，不留下 `call-reserved` 等 live 状态。预算恢复等待上的 `stopTask` 实际终态为 Task `BUDGET_STOPPED` / recovery paused `RECOVERY_STOPPED`；waiting-user 的 resolver stop 通过原取消信号结束 awaited 边界，实际 recovery reason 为 `RECOVERY_CANCELED`。结束时保留 failure、source/Call、次数、等待与历史证明。读取这些已结束任务时，完整持久化 recovery 和 timeline 保持原值，不再改写成 `RECOVERY_RESTARTED_UNKNOWN`；resolver 仍拒绝复活旧 Task。
+diff --git a/docs/implementation/t18-failure-recovery-source-evidence.md b/docs/implementation/t18-failure-recovery-source-evidence.md
+index 310fc60..2edf4e1 100644
+--- a/docs/implementation/t18-failure-recovery-source-evidence.md
++++ b/docs/implementation/t18-failure-recovery-source-evidence.md
+@@ -14,6 +14,9 @@
+ | t18.oauth.test.mjs | 真实 ChatGPT session/credential/refresh/adapter chain；临时 fake credential home + 本地 HTTP token endpoint 返回 INVALID_GRANT；1 refresh、0 responses、0 模型派发、终态 resolver 拒绝 |
+ | t18.client.test.mjs | 实际 rc.2 Renderer/Typert codec/严格 RPC 从关闭配置启用恢复、精确 live retry/stop、终态无 resume 按钮、新 Task 指引 |
+ | t18.caps.test.mjs | 接管/恢复 max 128/512 两方向、forecast 16384/32768 两方向、原接管上限保留、两套 prepared/final 及精确预留一致、16500 token 预算与真实原图附件/字节 |
++| t18.consultation-caps.test.mjs | 咨询/恢复 max 64/128 与 forecast4096/8192 两方向、4500 token有限预算、原咨询许可保留、owned prepared/final/hash/reservation 同步、一个 intent/一次 advice/全部实际 Call、复制 owned 请求拒绝 |
++| t18.allocation-caps.test.mjs | 原 Native compatible1024 与恢复64/2048两方向、owned compatible咨询128/恢复64、logical2048但原实际 prepared1024、精确有效许可与完整 Task账本 |
++| t18.terminal.test.mjs | 真实预算等待停止后的终态恢复归一、完整持久化 recovery/timeline重启保留、0新请求/工具、manual resolver stop 的实际RECOVERY_CANCELED |
+ 
+ OAuth 证据只认证本地受控刷新拒绝链路，通用 AUTH fixture 只认证分类。标题与恢复执行均逐 Call 对账；例如标题 1、原执行失败 1、恢复执行 1 = 3 Call / 36 fixture token。phase 共享案例原执行 4、咨询 2、目标 1 = 7 Call / 84 fixture token，目标首次失败后没有第 8 次请求；咨询仍一个 intent，接管仍一个 notice。副作用重复案例 body=1；ambiguous late child 红阶段 body=1，修复后 body=0。
+ 
+@@ -55,6 +58,40 @@ Standards 的非阻断重复暂停转换在此复审修复阶段合并。真实
+ 
+ 本轮仍未打包、安装、启动 Desktop 或执行真实模型请求；独立 r2 源码复审和随后安装验证需绑定新固定提交。
+ 
++## r2 固定提交复审修复
++
++独立 Spec 复审针对 `33116cd196c29c59324466df2e0a15622ef5c7bb` 确认 P2：咨询恢复沿用原 logical request max，未遵守较小的 recovery 上限。先加入 recovery64/consultation128、forecast4096/8192 的完整 Task red，再冻结有效 max 和 owned logical request/hash，green 后才加入反向配置。反向以4500 token有限预算观察原错误8192预留造成 waiting-budget，修复后预留4096、完整 Task完成。原首次咨询分别128和64；两方向恢复均64/4096，1个意图、1次advice、2个咨询实际Call，完整 Task均5 Call/60 fixture token。
++
++随后逐条审查 allocation：compatible Native 的1024预设会覆盖恢复64，实际 prepared门拒绝；反向 recovery2048则可扩大原1024许可；compatible owned请求也会把咨询128/恢复64改为1024。新增完整 Task逐片 red→green，原 Native首发1024保留，恢复受原实际Native/owned prepared上限及全部phase/recovery许可共同限制。咨询 logical2048但实际prepared1024的额外切片先被拒绝，修复后正确冻结1024，完整输入证明、requestHash、实际请求与预算一致。四个allocation案例分别2 Call/24、5 Call/60、2 Call/24、5 Call/60 fixture token。
++
++原 stopped budget-wait 只断言 Task暂停；新的完整终态/只读重启 red观察到 before recovery=call-reserved/reason=null，after被改成RECOVERY_RESTARTED_UNKNOWN。Native turn/end现在关闭未结束恢复，实际 before/after均paused/RECOVERY_STOPPED，原调用、次数、完整proof和timeline保留，重启0模型请求/0工具。manual resolver stop已有取消链路保持paused/RECOVERY_CANCELED、1 Call/12 fixture token；这条为已有行为coverage，不伪造red。
++
++所有本轮原输出、red测试副本和逐片green源码diff使用全新的 `t18-r2-fix-*` 文件名，以FileMode.CreateNew拒绝覆盖。原r1/r2审查、旧证据和冻结包没有修改。
++
++| 完整切片 | red → green 原输出（统一 t18-r2-fix- 前缀、.log 后缀） |
++| --- | --- |
++| recovery64/consult128及较小recovery forecast | slice01-red-1 → slice01-green-1 |
++| recovery128/consult64及较小consultation forecast，4500 token预算 | slice02-red-1 → slice02-green-1 |
++| 原Native compatible1024/恢复64 | allocation-native-red-1 → allocation-native-green-2 |
++| recovery2048不得扩大原Native1024 | allocation-source-red-1 → allocation-source-green-1 |
++| owned compatible首发咨询128/恢复64 | allocation-owned-red-1 → allocation-owned-green-1 |
++| logical两套2048/原实际prepared1024 | allocation-owned-source-red-1 → allocation-owned-source-green-1 |
++| budget stop终态及读取历史 | terminal-budget-red-1 → terminal-budget-green-2 |
++
++复制owned options的公开LLM重入案例由既有gate拒绝：原咨询失败保持CONNECTION，恢复Call不派发、预留released，3个实际入口/36 fixture token，无advice；原输出为owned-identity-coverage-1（3/3）。独立request-hash-coverage-1保留一次fixture假设失败：尝试修改已由SDK冻结的nested messages，先抛TypeError成为AUXILIARY_CALL_FAILED，未到final hash门，不能冒称验证该门；这条无效用例已移除。两方向cap成功案例经过原独立final hash门，证明新的有效max已绑定到保存的logical hash。allocation-native-green-1保留一次断言纠正：Adapter收到SDK投影，不能用Adapter副本证明native WeakSet，改为观察原公开llm/stream原始request和已保存final native证明。terminal-budget-green-1保留JSON落盘省略undefined字段的断言纠正，green-2直接与实际持久化记录比较。均未覆盖原失败输出，也未用这些fixture错误代替行为red。
++
++本轮新增9个完整行为案例：咨询cap2、owned复制拒绝1、allocation4、terminal2。最终原输出如下，duration为外围Stopwatch；所有命令exit=0。
++
++| 检查 | 结果与duration | fresh原输出 |
++| --- | --- | --- |
++| 全部serial test / concurrency1 / timeout30000 | 588/588 PASS（旧535 + T18 53），85.605s；runner85.5150257s | t18-r2-fix-full-serial-1.log |
++| T18全部完整测试 | 53/53 PASS，13.029s；runner12.927613s | t18-r2-fix-native-all-1.log |
++| npm run build | 0.17.0 PASS，0.462s | t18-r2-fix-build-1.log |
++| npm run check | PASS，2.147s | t18-r2-fix-check-1.log |
++| git diff --check | PASS，0.116s | t18-r2-fix-diff-check-1.log |
++
++本轮未打包、安装、启动Desktop/RPC或执行真实模型请求；独立r3源码双轴和后续集成验证须绑定新固定提交。
++
+ ## 限制
+ 
+ 这些成功与 token 数均来自预设本地模型和本地 transport，不证明真实模型重试效果、OAuth 官方账号有效性、真实 Go/API 权限、套餐剩余量或节省现金。声明的 portable protocol 只有完整保留/拒绝边界的受控证明；缺少当前真实 provider 的完整元数据时仍保守暂停。没有旧 Task 的公开恢复能力；重启只保留证据并明确停止。
+diff --git a/src/index.mjs b/src/index.mjs
+index caebc47..8d73d36 100644
+--- a/src/index.mjs
++++ b/src/index.mjs
+@@ -562,7 +562,7 @@ export class RouterService extends TypertRemoteService {
+       if (stepSnapshot?.takeover?.planId && task.routingPauseReason?.startsWith('TAKEOVER_') && !(recovery?.safeTakeoverPlanId === stepSnapshot.takeover.planId && task.routingPauseReason === 'TAKEOVER_TARGET_RESPONSE_FAILED')) throw new LlmError('The interrupted takeover requires explicit resolution', task.routingPauseReason);
+       if (task?.deepSeekDetection) config.maxTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS;
+       if (task?.openCodeGoDetection) config.maxTokens = task.openCodeGoDetection.outputTokens;
+-      if (stepSnapshot?.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed') config.maxTokens = 1024;
++      if (stepSnapshot?.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed') config.maxTokens = recovery?.maxTokens ?? 1024;
+       if (stepSnapshot?.takeover?.planId) config.maxTokens = recovery?.safeTakeoverPlanId === stepSnapshot.takeover.planId ? recovery.maxTokens : task.takeoverPolicy.maxTokens;
+       const blocked = stepSnapshot && manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : this.#restriction(config);
+       if (blocked) {
+@@ -824,7 +824,7 @@ export class RouterService extends TypertRemoteService {
+         const recovery = task.recoveryOwned && await service.#recoverFailure(agent, task, call, failure ?? call.failure ?? { code: call.failureCode ?? 'CONSULTATION_NOT_COMPLETED' }, request.signal, request);
+         if (recovery?.kind !== 'retry') { if (caught) throw caught; yield { type: 'finish', reason: { kind: 'error', failure: { ...failure, message: 'The consultation did not complete' } } }; return; }
+         const state = task.recovery, target = state.target;
+-        request = { ...request, provider: target.identity.provider, model: target.identity.model };
++        request = { ...request, provider: target.identity.provider, model: target.identity.model, maxTokens: state.maxTokens };
+         service.#verifyRecoveryBoundary(agent, task, state, request.signal);
+         const before = task.calls.length;
+         const reserved = service.reserveCall(taskId, { purpose: 'consultation', step: call.step, selection: target.identity, candidateId: target.candidateId, selectionSnapshot: target, forecast: recoveryForecast(state.forecastTokens, state.maxTokens) }, request.signal);
+@@ -839,7 +839,7 @@ export class RouterService extends TypertRemoteService {
+   #ownedCallStream(task, request, existingCall = null, source = null) {
+     if (task.deepSeekDetection) request = withOutputLimit(request, DEEPSEEK_DETECTION_OUTPUT_TOKENS);
+     if (task.openCodeGoDetection) request = withOutputLimit(request, task.openCodeGoDetection.outputTokens);
+-    if (request.provider?.startsWith('router-compatible-')) request = withOutputLimit(request, 1024);
++    if (request.provider?.startsWith('router-compatible-')) request = withOutputLimit(request, Math.min(request.maxTokens ?? 1024, 1024));
+     const service = this, controller = new AbortController();
+     const originalSignal = existingCall ? this.#callSignals.get(existingCall.id) : request.signal ?? new AbortController().signal;
+     const owner = { task, call: existingCall, controller, started: false, iterators: new Set(), usage: null, finish: null, config: structuredClone(existingCall?.routerSnapshot ?? this.#state.config) };
+@@ -1534,8 +1534,10 @@ export class RouterService extends TypertRemoteService {
+       call.failure = facts;
+       const blocked = !task.recoveryPolicy.enabled ? 'RECOVERY_DISABLED' : category === 'authorization' ? 'RECOVERY_REAUTHORIZE_REQUIRED' : category === 'quota' ? 'RECOVERY_QUOTA_REQUIRED' : call.partialResponse ? 'RECOVERY_RESPONSE_PARTIAL' : (task.recovery?.attempts ?? 0) >= RECOVERY_LIMITS.attempts ? 'RECOVERY_ATTEMPT_LIMIT' : facts.providerRetryAfterMs > RECOVERY_LIMITS.delayMs || (task.recovery?.waitMs ?? 0) + (facts.providerRetryAfterMs ?? 0) > RECOVERY_LIMITS.totalWaitMs ? 'RECOVERY_WAIT_LIMIT' : !['network', 'rate-limit'].includes(category) ? 'RECOVERY_FAILURE_UNSAFE' : tokensOf(call.usage).total === null || ledgerOf(task).unknownTokenCalls.total > 0 ? 'RECOVERY_USAGE_UNKNOWN' : null;
+       if (blocked) { this.#pauseRecovery(task, call, facts, category, blocked); await this.flush(); return; }
+-      const maxTokens = boundedRequest?.maxTokens ?? Math.min(task.recoveryPolicy.maxTokens, call.takeoverPlanId ? task.takeover.plan.policy.maxTokens : task.recoveryPolicy.maxTokens);
+-      const forecastTokens = Math.min(task.recoveryPolicy.forecastTokens, call.takeoverPlanId ? task.takeover.plan.policy.forecastTokens : task.recoveryPolicy.forecastTokens);
++      const phasePolicy = call.purpose === 'consultation' ? task.coordinationPolicy : call.takeoverPlanId ? task.takeover.plan.policy : task.recoveryPolicy;
++      const sourceMaxTokens = call.hostConfig?.maxTokens ?? call.snapshot?.maxTokens;
++      const maxTokens = Math.min(task.recoveryPolicy.maxTokens, phasePolicy.maxTokens, boundedRequest?.maxTokens ?? Infinity, sourceMaxTokens ?? Infinity);
++      const forecastTokens = Math.min(task.recoveryPolicy.forecastTokens, phasePolicy.forecastTokens);
+       task.recovery = { version: 1, id: task.recovery?.id ?? randomUUID(), revision: (task.recovery?.revision ?? 0) + 1, attempts: (task.recovery?.attempts ?? 0) + 1, waitMs: task.recovery?.waitMs ?? 0, actualWaitMs: task.recovery?.actualWaitMs ?? 0, state: 'planning', phase: call.purpose === 'consultation' ? 'consultation' : call.takeoverPlanId ? 'takeover' : 'execution', sourceCallId: call.id, originatingPurpose: call.purpose === 'consultation' ? 'consultation' : 'execution', callId: null, category, failure: facts, target: structuredClone(call.selectionSnapshot), reason: null, inputHash: jsonHash(task.inputs), fixedCandidateId: this.#state.config.fixedCandidateId, acceptanceRevision: task.acceptance?.revision ?? null, requirementHash: task.acceptance?.requirementHash ?? null, coordinationRevision: task.coordination?.revision ?? null, maxTokens, forecastTokens };
+       task.timeline.push({ kind: 'recovery-grant', recoveryId: task.recovery.id, sourceCallId: call.id, phase: task.recovery.phase, attempt: task.recovery.attempts, category });
+       this.#persist(); await this.flush();
+@@ -1551,9 +1553,9 @@ export class RouterService extends TypertRemoteService {
+         this.#verifyRecoveryBoundary(agent, task, task.recovery, signal);
+         recovery.model = await this.#takeover.resolveHandoffTarget(recovery.target, signal, () => this.#verifyRecoveryBoundary(agent, task, recovery, signal));
+         const assembled = this.#steps.get(agent).assembled;
+-        const proofRequest = boundedRequest ?? { messages: agent.session.deriveMessages(), tools: assembled.tools, toolHistory: agent.session.toolHistory(), system: renderPrompt(assembled) };
++        const proofRequest = boundedRequest ? { ...boundedRequest, maxTokens: recovery.maxTokens } : { messages: agent.session.deriveMessages(), tools: assembled.tools, toolHistory: agent.session.toolHistory(), system: renderPrompt(assembled) };
+         recovery.boundedHistory = boundedRequest ? this.#takeover.boundedHandoffHistory(boundedRequest.messages) : null;
+-        recovery.requestHash = boundedRequest ? jsonHash({ messages: boundedRequest.messages, maxTokens: boundedRequest.maxTokens, tools: boundedRequest.tools ?? [], system: boundedRequest.system ?? null }) : null;
++        recovery.requestHash = boundedRequest ? jsonHash({ messages: proofRequest.messages, maxTokens: proofRequest.maxTokens, tools: proofRequest.tools ?? [], system: proofRequest.system ?? null }) : null;
+         const proof = await this.#takeover.auditHandoffRequest({ request: proofRequest, agent, target: recovery.target, model: recovery.model, maxTokens: recovery.maxTokens, forecastTokens: recovery.forecastTokens, history: recovery.boundedHistory ?? recovery.portableHistory, signal, recheck: () => this.#verifyRecoveryBoundary(agent, task, recovery, signal) });
+         recovery.imageForecast = proof.imageForecast;
+         if (call.takeoverPlanId) {
+@@ -1635,7 +1637,7 @@ export class RouterService extends TypertRemoteService {
+     const task = owner.task, state = task.recovery, call = owner.call;
+     const recheck = () => this.#verifyRecoveryBoundary(agent, task, state, request.signal);
+     recheck();
+-    if (!owner.recoveryBoundModel || this.#ownedRequests.get(request) !== owner || state.callId !== call.id || !sameRoute(request, state.target.identity) || jsonHash({ messages: request.messages, maxTokens: request.maxTokens, tools: request.tools ?? [], system: request.system ?? null }) !== state.requestHash) throw new LlmError('The consultation intent or prepared handle changed', 'RECOVERY_FINAL_REQUEST_CHANGED');
++    if (!owner.recoveryBoundModel || this.#ownedRequests.get(request) !== owner || state.callId !== call.id || !sameRoute(request, state.target.identity) || request.maxTokens !== state.maxTokens || call.reservation.tokens.output !== state.maxTokens || call.reservation.tokens.total !== state.forecastTokens || call.reservation.tokens.input !== state.forecastTokens - state.maxTokens || jsonHash({ messages: request.messages, maxTokens: request.maxTokens, tools: request.tools ?? [], system: request.system ?? null }) !== state.requestHash) throw new LlmError('The consultation intent or prepared handle changed', 'RECOVERY_FINAL_REQUEST_CHANGED');
+     const history = await this.#takeover.captureHandoffHistory(agent, task, request.signal, recheck);
+     recheck();
+     const proof = await this.#takeover.auditHandoffRequest({ request, agent, target: state.target, model: owner.recoveryBoundModel, maxTokens: state.maxTokens, forecastTokens: state.forecastTokens, history: state.boundedHistory, signal: request.signal, recheck });
+@@ -1799,9 +1801,13 @@ export class RouterService extends TypertRemoteService {
+         if (call && call.status !== 'completed') { call.failure = facts; call.failureCode = facts.code; }
+         this.#pauseRecovery(task, call, facts, category, category === 'authorization' ? 'RECOVERY_REAUTHORIZE_REQUIRED' : category === 'quota' ? 'RECOVERY_QUOTA_REQUIRED' : 'RECOVERY_PLUGIN_EXCEPTION');
+       }
+-      if (reason?.error && task.recovery && !['paused', 'completed'].includes(task.recovery.state)) {
+-        const source = task.calls.find(item => item.id === task.recovery.sourceCallId);
+-        this.#pauseRecovery(task, source, task.recovery.failure, task.recovery.category, reason.error.code ?? 'RECOVERY_PLUGIN_EXCEPTION');
++      if (task.recovery && !['paused', 'completed'].includes(task.recovery.state)) {
++        if (reason?.error) {
++          const source = task.calls.find(item => item.id === task.recovery.sourceCallId);
++          this.#pauseRecovery(task, source, task.recovery.failure, task.recovery.category, reason.error.code ?? 'RECOVERY_PLUGIN_EXCEPTION');
++        } else {
++          this.#transitionRecoveryPause(task, task.budget.stopRequested ? 'RECOVERY_STOPPED' : reason?.kind === 'completed' ? 'RECOVERY_NATIVE_ENDED' : 'RECOVERY_CANCELED');
++        }
+       }
+       task.nativeLifecycle = reason?.kind === 'completed' && !this.#storageError ? 'completed' : 'paused';
+       task.nativeEndedAt = new Date().toISOString();
+diff --git a/test/t18.allocation-caps.test.mjs b/test/t18.allocation-caps.test.mjs
+new file mode 100644
+index 0000000..f8cf6bb
+--- /dev/null
++++ b/test/t18.allocation-caps.test.mjs
+@@ -0,0 +1,138 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { mkdtemp, rm } from 'node:fs/promises';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++import { isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
++import { prepare, prepareCoordination, register, RecoveryFixture, submitTask, assertAccounted, coordinationPrompt } from './t18-harness.mjs';
++
++test('compatible native allocation retains its initial ceiling and uses the smaller recovery allowance for the new Call', async t => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-compatible-native-cap-'));
++  let ctx;
++  try {
++    const fixture = await prepare(home, { mainOptions: { billingPath: 'compatible-unconfirmed' }, policy: { maxTokens: 64, forecastTokens: 4096 } }); ctx = fixture.ctx;
++    fixture.main.failures = [{ code: 'CONNECTION' }];
++    const task = await submitTask(ctx, fixture.sessionId);
++    t.diagnostic(JSON.stringify({ lifecycle: task.lifecycle, recoveryReason: task.recovery.reason, maxTokens: task.recovery.maxTokens, actualMaxTokens: fixture.main.requests.map(request => request.maxTokens), calls: task.calls.length }));
++    assert.equal(task.lifecycle, 'completed', task.recovery.reason);
++    assert.deepEqual(fixture.main.requests.map(request => request.maxTokens), [1024, 64]);
++    assert.equal(task.recovery.state, 'completed');
++    assert.equal(task.recovery.maxTokens, 64);
++    assert.equal(task.recovery.forecastTokens, 4096);
++    const retry = task.calls.find(call => call.recoveryId);
++    assert.equal(retry.reservation.tokens.input, 4032);
++    assert.equal(retry.reservation.tokens.output, 64);
++    assert.equal(retry.reservation.tokens.total, 4096);
++    assert.equal(task.recovery.finalRequest.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.prepared.config.maxTokens, 64);
++    assert.ok(fixture.nativeRequests.every(isAgentLoopRequest));
++    assert.equal(task.recovery.finalRequest.nativeRequest, true);
++    assert.equal(fixture.nativeRequests.length, 2);
++    assert.equal(task.recovery.target.candidateId, fixture.registration.candidate.candidateId);
++    assert.equal(task.recovery.attempts, 1);
++    assert.equal(task.calls.length, 2);
++    assert.equal(task.ledger.tokens.total, 24);
++    assertAccounted(task, [fixture.main]);
++  } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
++});
++
++test('compatible owned consultation allocation preserves the consultation cap before recovery and the smaller frozen cap afterward', async t => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-compatible-consult-cap-'));
++  let ctx;
++  try {
++    const fixture = await prepareCoordination(home, { policy: { maxTokens: 64, forecastTokens: 4096 } }); ctx = fixture.ctx;
++    const advisor = new RecoveryFixture();
++    const registration = await register(ctx, 'router-compatible-t18-advisor', advisor, { billingPath: 'compatible-unconfirmed' });
++    await ctx.router.setCoordinationPolicy({ ...(await ctx.router.snapshot()).config.coordination, candidateId: registration.candidate.candidateId, maxTokens: 128, forecastTokens: 8192 });
++    advisor.failures = [{ code: 'CONNECTION' }];
++    const task = await submitTask(ctx, fixture.sessionId, coordinationPrompt);
++    t.diagnostic(JSON.stringify({ lifecycle: task.lifecycle, recoveryReason: task.recovery.reason, recoveryMaxTokens: task.recovery.maxTokens, actualMaxTokens: advisor.requests.map(request => request.maxTokens) }));
++    assert.equal(task.lifecycle, 'completed', task.recovery.reason);
++    assert.equal(task.acceptance.verdict, 'passed');
++    assert.deepEqual(advisor.requests.map(request => request.maxTokens), [128, 64]);
++    assert.equal(task.recovery.maxTokens, 64);
++    assert.equal(task.recovery.forecastTokens, 4096);
++    const [original, retry] = task.calls.filter(call => call.purpose === 'consultation');
++    assert.equal(original.snapshot.maxTokens, 128);
++    assert.equal(original.reservation.tokens.output, 128);
++    assert.equal(retry.snapshot.maxTokens, 64);
++    assert.equal(retry.reservation.tokens.input, 4032);
++    assert.equal(retry.reservation.tokens.output, 64);
++    assert.equal(retry.reservation.tokens.total, 4096);
++    assert.equal(task.recovery.finalRequest.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.prepared.config.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.ownedRequest, true);
++    assert.equal(task.recovery.finalRequest.callId, retry.id);
++    assert.equal(task.coordination.consultationAttempts, 1);
++    assert.deepEqual(task.coordination.episodes[0].consultation.callIds, [original.id, retry.id]);
++    assert.equal(ctx.agents.get(fixture.sessionId).session.deriveMessages().filter(message => message.source?.kind === 'router-consultation').length, 1);
++    assert.equal(fixture.advisor.requests.length, 0);
++    assert.equal(task.calls.length, 5);
++    assert.equal(task.ledger.tokens.total, 60);
++    assertAccounted(task, [fixture.main, advisor]);
++  } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
++});
++
++test('execution recovery cannot enlarge the original native request allowance even when its recovery policy is larger', async t => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-compatible-native-ceiling-'));
++  let ctx;
++  try {
++    const fixture = await prepare(home, { mainOptions: { billingPath: 'compatible-unconfirmed' }, policy: { maxTokens: 2048, forecastTokens: 8192 } }); ctx = fixture.ctx;
++    fixture.main.failures = [{ code: 'CONNECTION' }];
++    const task = await submitTask(ctx, fixture.sessionId);
++    t.diagnostic(JSON.stringify({ lifecycle: task.lifecycle, recoveryMaxTokens: task.recovery.maxTokens, actualMaxTokens: fixture.main.requests.map(request => request.maxTokens) }));
++    assert.equal(task.lifecycle, 'completed', task.recovery.reason);
++    assert.deepEqual(fixture.main.requests.map(request => request.maxTokens), [1024, 1024]);
++    assert.equal(task.recoveryPolicy.maxTokens, 2048);
++    assert.equal(task.recovery.maxTokens, 1024);
++    assert.equal(task.recovery.forecastTokens, 8192);
++    const retry = task.calls.find(call => call.recoveryId);
++    assert.equal(task.calls[0].hostConfig.maxTokens, 1024);
++    assert.equal(retry.hostConfig.maxTokens, 1024);
++    assert.equal(retry.reservation.tokens.output, 1024);
++    assert.equal(retry.reservation.tokens.input, 7168);
++    assert.equal(retry.reservation.tokens.total, 8192);
++    assert.equal(task.recovery.finalRequest.maxTokens, 1024);
++    assert.equal(task.recovery.finalRequest.prepared.config.maxTokens, 1024);
++    assert.equal(task.recovery.attempts, 1);
++    assert.equal(task.calls.length, 2);
++    assert.equal(task.ledger.tokens.total, 24);
++    assertAccounted(task, [fixture.main]);
++  } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
++});
++
++test('consultation recovery freezes the actual prepared source ceiling when both logical policies allow more', async t => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-compatible-consult-ceiling-'));
++  let ctx;
++  try {
++    const fixture = await prepareCoordination(home, { policy: { maxTokens: 2048, forecastTokens: 8192 } }); ctx = fixture.ctx;
++    const advisor = new RecoveryFixture();
++    const registration = await register(ctx, 'router-compatible-t18-source-ceiling', advisor, { billingPath: 'compatible-unconfirmed' });
++    await ctx.router.setCoordinationPolicy({ ...(await ctx.router.snapshot()).config.coordination, candidateId: registration.candidate.candidateId, maxTokens: 2048, forecastTokens: 8192 });
++    advisor.failures = [{ code: 'CONNECTION' }];
++    const task = await submitTask(ctx, fixture.sessionId, coordinationPrompt);
++    t.diagnostic(JSON.stringify({ lifecycle: task.lifecycle, recoveryReason: task.recovery.reason, recoveryMaxTokens: task.recovery.maxTokens, actualMaxTokens: advisor.requests.map(request => request.maxTokens) }));
++    assert.equal(task.lifecycle, 'completed', task.recovery.reason);
++    assert.equal(task.acceptance.verdict, 'passed');
++    assert.deepEqual(advisor.requests.map(request => request.maxTokens), [1024, 1024]);
++    assert.equal(task.coordinationPolicy.maxTokens, 2048);
++    assert.equal(task.recoveryPolicy.maxTokens, 2048);
++    assert.equal(task.recovery.maxTokens, 1024);
++    assert.equal(task.recovery.forecastTokens, 8192);
++    const [original, retry] = task.calls.filter(call => call.purpose === 'consultation');
++    assert.equal(original.snapshot.maxTokens, 1024);
++    assert.equal(retry.snapshot.maxTokens, 1024);
++    assert.equal(retry.reservation.tokens.input, 7168);
++    assert.equal(retry.reservation.tokens.output, 1024);
++    assert.equal(retry.reservation.tokens.total, 8192);
++    assert.equal(task.recovery.finalRequest.maxTokens, 1024);
++    assert.equal(task.recovery.finalRequest.prepared.config.maxTokens, 1024);
++    assert.equal(task.recovery.finalRequest.ownedRequest, true);
++    assert.equal(task.coordination.consultationAttempts, 1);
++    assert.deepEqual(task.coordination.episodes[0].consultation.callIds, [original.id, retry.id]);
++    assert.equal(ctx.agents.get(fixture.sessionId).session.deriveMessages().filter(message => message.source?.kind === 'router-consultation').length, 1);
++    assert.equal(task.calls.length, 5);
++    assert.equal(task.ledger.tokens.total, 60);
++    assertAccounted(task, [fixture.main, advisor]);
++  } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
++});
+diff --git a/test/t18.consultation-caps.test.mjs b/test/t18.consultation-caps.test.mjs
+new file mode 100644
+index 0000000..80416c8
+--- /dev/null
++++ b/test/t18.consultation-caps.test.mjs
+@@ -0,0 +1,133 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { mkdtemp, rm } from 'node:fs/promises';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++import { isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
++import { prepareCoordination, submitTask, assertAccounted, coordinationPrompt, waitForSnapshot } from './t18-harness.mjs';
++
++test('a real consultation recovery obeys the smaller recovery cap with one owned intent and one advice', async () => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-consult-recovery-cap-'));
++  let ctx;
++  try {
++    const fixture = await prepareCoordination(home, { policy: { maxTokens: 64, forecastTokens: 4096 } }); ctx = fixture.ctx;
++    await ctx.router.setCoordinationPolicy({ ...(await ctx.router.snapshot()).config.coordination, maxTokens: 128, forecastTokens: 8192 });
++    fixture.advisor.failures = [{ code: 'CONNECTION' }];
++    const task = await submitTask(ctx, fixture.sessionId, coordinationPrompt);
++    assert.equal(task.lifecycle, 'completed', task.recovery?.reason);
++    assert.equal(task.acceptance.verdict, 'passed');
++    assert.deepEqual(fixture.advisor.requests.map(request => request.maxTokens), [128, 64]);
++    assert.equal(task.recovery.maxTokens, 64);
++    assert.equal(task.recovery.forecastTokens, 4096);
++    assert.equal(task.recovery.phase, 'consultation');
++    assert.equal(task.recovery.attempts, 1);
++    const [original, retry] = task.calls.filter(call => call.purpose === 'consultation');
++    assert.equal(original.reservation.tokens.output, 128);
++    assert.ok(original.reservation.tokens.total <= 8192);
++    assert.equal(original.snapshot.maxTokens, 128);
++    assert.equal(retry.reservation.tokens.output, 64);
++    assert.equal(retry.reservation.tokens.input, 4032);
++    assert.equal(retry.reservation.tokens.total, 4096);
++    assert.equal(retry.snapshot.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.prepared.config.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.callId, retry.id);
++    assert.equal(task.recovery.finalRequest.ownedRequest, true);
++    assert.equal(task.recovery.finalRequest.nativeRequest, false);
++    assert.equal(isAgentLoopRequest(fixture.advisor.requests[1]), false);
++    assert.ok(Object.isFrozen(fixture.advisor.requests[1]));
++    assert.deepEqual(fixture.advisor.requests[1].messages, fixture.advisor.requests[0].messages);
++    assert.equal(task.coordination.consultationAttempts, 1);
++    const consultation = task.coordination.episodes[0].consultation;
++    assert.equal(consultation.state, 'advice-delivered');
++    assert.deepEqual(consultation.callIds, [original.id, retry.id]);
++    assert.equal(consultation.callId, retry.id);
++    assert.ok([original, retry].every(call => call.consultationIntentCallId === original.id));
++    assert.equal(ctx.agents.get(fixture.sessionId).session.deriveMessages().filter(message => message.source?.kind === 'router-consultation').length, 1);
++    assert.equal(task.calls.length, 5);
++    assert.equal(task.ledger.tokens.total, 60);
++    assert.equal(fixture.nativeRequests.length, 3);
++    assertAccounted(task, [fixture.main, fixture.advisor]);
++  } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
++});
++
++test('a copied consultation recovery request cannot inherit the original owned request identity', async t => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-consult-owned-identity-'));
++  let ctx;
++  try {
++    const fixture = await prepareCoordination(home, { policy: { maxTokens: 64, forecastTokens: 4096 } }); ctx = fixture.ctx;
++    fixture.advisor.failures = [{ code: 'CONNECTION' }];
++    let copied = false;
++    ctx.on('llm/stream', (request, next) => {
++      if (request.provider === 't18-advisor' && request.maxTokens === 64 && !copied) {
++        copied = true;
++        return ctx.llm.stream({ ...request });
++      }
++      return next();
++    }, { prepend: true });
++    const task = await submitTask(ctx, fixture.sessionId, coordinationPrompt);
++    t.diagnostic(JSON.stringify({ pauseReason: task.pauseReason, recoveryState: task.recovery.state, recoveryReason: task.recovery.reason, calls: task.calls.map(call => ({ purpose: call.purpose, status: call.status, dispatched: call.dispatchStarted, failureCode: call.failureCode })) }));
++    assert.equal(copied, true);
++    assert.equal(task.lifecycle, 'paused');
++    assert.equal(task.recovery.state, 'paused');
++    assert.equal(fixture.advisor.requests.length, 1);
++    const [original, retry] = task.calls.filter(call => call.purpose === 'consultation');
++    assert.equal(original.failure.code, 'CONNECTION');
++    assert.equal(retry.dispatchStarted, false);
++    assert.equal(retry.reservation.state, 'released');
++    assert.equal(task.coordination.consultationAttempts, 1);
++    assert.deepEqual(task.coordination.episodes[0].consultation.callIds, [original.id, retry.id]);
++    assert.equal(ctx.agents.get(fixture.sessionId).session.deriveMessages().filter(message => message.source?.kind === 'router-consultation').length, 0);
++    const blocked = (await ctx.router.snapshot()).blockedRequests;
++    assert.ok(blocked.some(request => request.provider === 't18-advisor' && request.status === 'not-dispatched' && request.reason === 'AUXILIARY_TASK_UNAVAILABLE'));
++    assert.equal(task.ledger.tokens.total, 36);
++    assert.equal(task.ledger.unknownTokenCalls.total, 0);
++    assertAccounted(task, [fixture.main, fixture.advisor]);
++  } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
++});
++
++test('a real consultation recovery keeps the smaller consultation cap and forecast within the finite Task budget', async () => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-consult-policy-cap-'));
++  let ctx, running;
++  try {
++    const fixture = await prepareCoordination(home, { policy: { maxTokens: 128, forecastTokens: 8192 } }); ctx = fixture.ctx;
++    await ctx.router.setCoordinationPolicy({ ...(await ctx.router.snapshot()).config.coordination, maxTokens: 64, forecastTokens: 4096 });
++    await ctx.router.setBudgetDefaults({ tokens: 4500, durationMs: 60000, money: [] });
++    fixture.advisor.failures = [{ code: 'CONNECTION' }];
++    running = submitTask(ctx, fixture.sessionId, coordinationPrompt);
++    const boundary = await waitForSnapshot(ctx, snapshot => snapshot.tasks.find(task => task.sessionId === fixture.sessionId && task.recovery && ['completed', 'paused', 'waiting-budget'].includes(task.lifecycle)));
++    assert.equal(boundary.lifecycle, 'completed', JSON.stringify({ reason: boundary.recovery.reason, forecastTokens: boundary.recovery.forecastTokens, budget: boundary.budget.waiting, entries: fixture.advisor.requests.length }));
++    const task = await running;
++    assert.equal(task.acceptance.verdict, 'passed');
++    assert.deepEqual(fixture.advisor.requests.map(request => request.maxTokens), [64, 64]);
++    assert.equal(task.recovery.maxTokens, 64);
++    assert.equal(task.recovery.forecastTokens, 4096);
++    const [original, retry] = task.calls.filter(call => call.purpose === 'consultation');
++    assert.equal(original.reservation.tokens.output, 64);
++    assert.ok(original.reservation.tokens.total <= 4096);
++    assert.equal(original.snapshot.maxTokens, 64);
++    assert.equal(retry.reservation.tokens.output, 64);
++    assert.equal(retry.reservation.tokens.input, 4032);
++    assert.equal(retry.reservation.tokens.total, 4096);
++    assert.equal(retry.snapshot.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.prepared.config.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.maxTokens, 64);
++    assert.equal(task.recovery.finalRequest.ownedRequest, true);
++    assert.deepEqual(fixture.advisor.requests[1].messages, fixture.advisor.requests[0].messages);
++    assert.equal(task.coordination.consultationAttempts, 1);
++    assert.deepEqual(task.coordination.episodes[0].consultation.callIds, [original.id, retry.id]);
++    assert.equal(task.coordination.episodes[0].consultation.callId, retry.id);
++    assert.equal(ctx.agents.get(fixture.sessionId).session.deriveMessages().filter(message => message.source?.kind === 'router-consultation').length, 1);
++    assert.equal(task.timeline.filter(event => event.kind === 'budget-wait').length, 0);
++    assert.equal(task.recovery.attempts, 1);
++    assert.equal(task.calls.length, 5);
++    assert.equal(task.ledger.tokens.total, 60);
++    assertAccounted(task, [fixture.main, fixture.advisor]);
++  } finally {
++    if (ctx) {
++      for (const task of (await ctx.router.snapshot()).tasks.filter(task => !task.nativeLifecycle && ['running', 'waiting-budget', 'waiting-recovery'].includes(task.lifecycle))) await ctx.router.stopTask(task.id);
++      await running?.catch(() => {}); await ctx.fiber.dispose();
++    }
++    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
++  }
++});
+diff --git a/test/t18.terminal.test.mjs b/test/t18.terminal.test.mjs
+new file mode 100644
+index 0000000..2e1710f
+--- /dev/null
++++ b/test/t18.terminal.test.mjs
+@@ -0,0 +1,88 @@
++import test from 'node:test';
++import assert from 'node:assert/strict';
++import { mkdtemp, mkdir, readFile, writeFile, rm } from 'node:fs/promises';
++import { join } from 'node:path';
++import { tmpdir } from 'node:os';
++import { startNative } from './t02-harness.mjs';
++import { prepare, submitTask, waitForSnapshot, assertAccounted } from './t18-harness.mjs';
++
++test('stopping a real recovery budget wait closes the recovery before terminal history is reopened', async t => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-terminal-budget-'));
++  const restoredHome = await mkdtemp(join(tmpdir(), 'router-t18-terminal-budget-read-'));
++  let ctx, restored, running;
++  try {
++    const fixture = await prepare(home); ctx = fixture.ctx;
++    await ctx.router.setBudgetDefaults({ tokens: 20, durationMs: 60000, money: [] });
++    fixture.main.failures = [{ code: 'CONNECTION' }];
++    running = submitTask(ctx, fixture.sessionId);
++    const waiting = await waitForSnapshot(ctx, snapshot => snapshot.tasks.find(task => task.lifecycle === 'waiting-budget' && task.recovery?.state === 'call-reserved'));
++    await ctx.router.stopTask(waiting.id);
++    const before = await running;
++    await ctx.router.flush();
++    await mkdir(join(restoredHome, 'router', 'test'), { recursive: true });
++    const saved = await readFile(join(home, 'router', 'test', 'state.json'), 'utf8');
++    const persisted = JSON.parse(saved).tasks.find(task => task.id === before.id);
++    await writeFile(join(restoredHome, 'router', 'test', 'state.json'), saved);
++    let requests = 0, tools = 0;
++    restored = await startNative(restoredHome, { beforeRouter: current => {
++      current.on('llm/stream', (_request, next) => { requests++; return next(); });
++      current.on('tools/pre-execute', (_exec, next) => { tools++; return next(); });
++    } });
++    const after = (await restored.router.snapshot()).tasks.find(task => task.id === before.id);
++    t.diagnostic(JSON.stringify({ before: { lifecycle: before.lifecycle, pauseReason: before.pauseReason, recoveryState: before.recovery.state, recoveryReason: before.recovery.reason }, after: { lifecycle: after.lifecycle, pauseReason: after.pauseReason, recoveryState: after.recovery.state, recoveryReason: after.recovery.reason }, requests, tools }));
++    assert.equal(before.lifecycle, 'paused');
++    assert.equal(before.pauseReason, 'BUDGET_STOPPED');
++    assert.equal(before.recovery.state, 'paused');
++    assert.equal(before.recovery.reason, 'RECOVERY_STOPPED');
++    assert.equal(before.recovery.attempts, 1);
++    assert.equal(before.recovery.failure.code, 'CONNECTION');
++    assert.equal(before.recovery.sourceCallId, before.calls[0].id);
++    assert.equal(before.calls.filter(call => call.recoveryId).length, 1);
++    assert.equal(before.calls[1].dispatchStarted, false);
++    assert.equal(before.calls[1].reservation.state, 'released');
++    assert.equal(before.ledger.tokens.total, 12);
++    assert.equal(before.ledger.unknownTokenCalls.total, 0);
++    assertAccounted(before, [fixture.main]);
++    assert.deepEqual(after.recovery, persisted.recovery);
++    assert.deepEqual(after.timeline, persisted.timeline);
++    assert.equal(after.pauseReason, before.pauseReason);
++    assert.equal(after.calls.length, before.calls.length);
++    assert.equal(requests, 0); assert.equal(tools, 0);
++    await assert.rejects(restored.router.resolveTaskRecovery({ taskId: after.id, recoveryId: after.recovery.id, expectedRevision: after.recovery.revision, action: 'retry-current' }), { code: 'RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED' });
++  } finally {
++    if (ctx) { for (const task of (await ctx.router.snapshot()).tasks.filter(task => !task.nativeLifecycle)) await ctx.router.stopTask(task.id); await running; await ctx.fiber.dispose(); }
++    await restored?.fiber.dispose();
++    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
++    await rm(restoredHome, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
++  }
++});
++
++test('a live manual stop ends its awaited recovery with the actual canceled reason and no retry', async t => {
++  const home = await mkdtemp(join(tmpdir(), 'router-t18-terminal-manual-'));
++  let ctx, running;
++  try {
++    const fixture = await prepare(home, { policy: { automatic: false } }); ctx = fixture.ctx;
++    fixture.main.failures = [{ code: 'CONNECTION' }];
++    running = submitTask(ctx, fixture.sessionId);
++    const waiting = await waitForSnapshot(ctx, snapshot => snapshot.tasks.find(task => task.recovery?.state === 'waiting-user'));
++    await ctx.router.resolveTaskRecovery({ taskId: waiting.id, recoveryId: waiting.recovery.id, expectedRevision: waiting.recovery.revision, action: 'stop' });
++    const task = await running;
++    t.diagnostic(JSON.stringify({ lifecycle: task.lifecycle, pauseReason: task.pauseReason, recoveryState: task.recovery.state, recoveryReason: task.recovery.reason, requests: fixture.main.requests.length, calls: task.calls.length }));
++    assert.equal(task.lifecycle, 'paused');
++    assert.equal(task.pauseReason, 'BUDGET_STOPPED');
++    assert.equal(task.recovery.state, 'paused');
++    assert.equal(task.recovery.reason, 'RECOVERY_CANCELED');
++    assert.equal(task.recovery.userAction, 'stop');
++    assert.equal(task.recovery.attempts, 1);
++    assert.equal(task.recovery.waitMs, 0);
++    assert.equal(task.recovery.failure.code, 'CONNECTION');
++    assert.equal(fixture.main.requests.length, 1);
++    assert.equal(task.calls.length, 1);
++    assert.equal(task.ledger.tokens.total, 12);
++    assertAccounted(task, [fixture.main]);
++    await assert.rejects(ctx.router.resolveTaskRecovery({ taskId: task.id, recoveryId: task.recovery.id, expectedRevision: task.recovery.revision, action: 'retry-current' }), { code: 'RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED' });
++  } finally {
++    if (ctx) { for (const task of (await ctx.router.snapshot()).tasks.filter(task => !task.nativeLifecycle)) await ctx.router.stopTask(task.id); await running; await ctx.fiber.dispose(); }
++    await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 });
++  }
++});

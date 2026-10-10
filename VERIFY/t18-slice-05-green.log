@@ -1,0 +1,9 @@
+✔ authorization, quota, partial and unknown failures retain their facts and cannot become difficulty or success (270.2917ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 907.2644

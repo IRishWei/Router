@@ -1,0 +1,52 @@
+{
+  "passed": true,
+  "stage": "controlled",
+  "installedClientSha256": "1927FE229112EEBCC64EFB0C30FDDF82DF0571856FEAA751A3306A85020B7D53",
+  "nativeRenderer": true,
+  "nativeRpcCodec": true,
+  "livePublicRpc": true,
+  "storedTasks": 58,
+  "recentWindow": 20,
+  "verifiedRows": [
+    "221cac84-dedd-4ac9-922b-16c26a1d222b",
+    "31c54697-b30c-4b10-81a6-626ae5d59eaf",
+    "016f4705-5201-42e5-b092-2fe8ed34e3dd",
+    "6d365a5b-8bcf-4318-a41f-48dd3700039f",
+    "508958ee-1932-4a37-9778-fbfcfec33371",
+    "e0ff76ac-e336-409e-b60d-c83678d1a526",
+    "f0f5d309-042b-4870-8d1f-983a9af66896",
+    "133a8b8c-b49b-4538-b2fd-dcc331f30329",
+    "ef5a8c6a-5d09-4661-8def-3a7efdf3f9a1",
+    "b229a0b9-0e34-4ebf-9fdb-7f7a3c37b6b8",
+    "37c047fc-43d5-4e33-bc59-e75cc9b19ae7",
+    "4e463762-11a7-4f49-b219-6037e1764e26",
+    "9b8dc08c-21ec-4339-ba8f-c9ec95ba2eb3",
+    "b0469704-2ff7-40fa-a66c-4486e69e78cb",
+    "4f0b49cb-d89e-468b-a275-01b69793723d",
+    "75eba39f-63c3-40ee-bed4-a46f4ac5fa80",
+    "442c795e-7ac7-40fa-8240-fff8366b1738",
+    "f5e0b0fa-ed99-452f-b4f5-b2775f6848bf",
+    "58e97986-d771-49e5-8275-997cf2c87a6d",
+    "682cb6ad-e61c-45c3-961d-8bad4ce22406"
+  ],
+  "recoveryRows": [
+    "221cac84-dedd-4ac9-922b-16c26a1d222b",
+    "016f4705-5201-42e5-b092-2fe8ed34e3dd",
+    "508958ee-1932-4a37-9778-fbfcfec33371",
+    "f0f5d309-042b-4870-8d1f-983a9af66896",
+    "ef5a8c6a-5d09-4661-8def-3a7efdf3f9a1",
+    "37c047fc-43d5-4e33-bc59-e75cc9b19ae7",
+    "9b8dc08c-21ec-4339-ba8f-c9ec95ba2eb3",
+    "4f0b49cb-d89e-468b-a275-01b69793723d",
+    "442c795e-7ac7-40fa-8240-fff8366b1738",
+    "58e97986-d771-49e5-8275-997cf2c87a6d"
+  ],
+  "authorizationRows": [
+    "4f0b49cb-d89e-468b-a275-01b69793723d"
+  ],
+  "earlyTasksOutsideWindow": 38,
+  "snapshotUnchanged": true,
+  "terminalTaskHasNoResumeControl": true,
+  "visualScreenshotVerified": false,
+  "realModelRequests": 0
+}

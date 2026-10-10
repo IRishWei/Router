@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const label = process.argv[2];
+assert(/^t18-v017\d[a-z]$/.test(label));
+const load = async suffix => JSON.parse(await readFile(join(directory, label + '-' + suffix), 'utf8'));
+const [manifest, evidence, renderer, liveRenderer, restart, controlledStop, restartStop, cli, scope] = await Promise.all(
+  ['package-identity.json', 'desktop-evidence.json', 'renderer-evidence.json', 'live-renderer-evidence.json', 'restart-evidence.json',
+    'controlled-stopped.json', 'restart-stopped.json', 'offline-cli-receipt.json', 'restart-state-scope.json'].map(load));
+assert(evidence.passed && renderer.passed && liveRenderer.passed && restart.passed);
+assert.equal(evidence.version, manifest.version); assert.equal(restart.version, manifest.version);
+assert.equal(cli.cliExitCode, 0); assert.equal(cli.offline, true); assert.equal(cli.version, manifest.version);
+const expectedHome = join(directory, label + '-controlled-home').replaceAll('\\', '/');
+for (const [stage, stop] of [['controlled', controlledStop], ['restart', restartStop]]) {
+  assert.equal(stop.stopped, true); assert.equal(stop.stage, stage);
+  assert.equal(stop.purpose, 'T18 controlled Desktop validation');
+  assert.equal(stop.home.replaceAll('\\', '/'), expectedHome);
+}
+assert.equal(cli.home.replaceAll('\\', '/'), expectedHome);
+const hash = bytes => createHash('sha256').update(bytes).digest('hex').toUpperCase();
+assert.equal(hash(await readFile(manifest.path)), manifest.sha256);
+const contractBytes = await readFile(manifest.reviewedContract.path);
+assert.equal(contractBytes.length, manifest.reviewedContract.bytes); assert.equal(hash(contractBytes), manifest.reviewedContract.sha256);
+for (const entry of manifest.files) {
+  const bytes = await readFile(join(expectedHome, 'profiles/desktop/node_modules/@irishwei/dsh-router', entry.file));
+  assert.equal(bytes.length, entry.bytes); assert.equal(hash(bytes), entry.sha256);
+}
+const calls = evidence.final.tasks.flatMap(task => task.calls);
+assert.equal(calls.filter(call => call.dispatchStarted).length, evidence.counts.requests.length);
+assert.equal(evidence.counts.realModelRequests, 0); assert.equal(restart.newStreams, 0);
+assert(evidence.final.tasks.every(task => task.calls.every(call => ['released', 'settled'].includes(call.reservation.state))));
+const knownPresetTokens = calls.reduce((sum, call) => sum + (call.usage?.totalTokens ?? 0), 0);
+assert.equal(evidence.final.tasks.reduce((sum, task) => sum + task.ledger.tokens.total, 0), knownPresetTokens);
+const dispatched = calls.filter(call => call.dispatchStarted);
+const unknownUsageCalls = dispatched.filter(call => call.usage == null).length;
+assert.equal(knownPresetTokens, (dispatched.length - unknownUsageCalls) * evidence.presetUsagePerStream);
+assert(scope.allStoredFieldsOutsideCurrentRegistryUnchanged && scope.completeCounterBytesUnchanged && scope.currentRegistryRefreshMatchesPredeclaredFields);
+assert.equal(renderer.verifiedRows.length, Math.min(20, evidence.final.tasks.length));
+assert.equal(renderer.earlyTasksOutsideWindow, Math.max(0, evidence.final.tasks.length - 20));
+const summary = { version: manifest.version, reviewedSourceSha: manifest.reviewedSourceSha, reviewedContract: manifest.reviewedContract,
+  package: { path: manifest.path, bytes: manifest.bytes, sha256: manifest.sha256, installedFilesVerified: manifest.files.length },
+  offlineCliReceipt: cli, controlledStop, restartStop, scenarios: evidence.observations,
+  Tasks: evidence.final.tasks.length, Calls: calls.length, actualControlledStreams: evidence.counts.requests.length,
+  releasedUndispatchedCalls: calls.filter(call => !call.dispatchStarted).length,
+  knownPresetTokens, presetTokensPerKnownStream: evidence.presetUsagePerStream,
+  unknownUsageCalls,
+  fullNativeSeamObservations: evidence.counts.nativeSeams.length, toolBodyExecutions: evidence.counts.toolExecutions.length,
+  restoredConfig: true, globalDefaultUnchanged: true,
+  restart: { newStreams: 0, fullTasksCallsLedgersUnchanged: restart.fullTasksCallsLedgersUnchanged,
+    configUnchanged: restart.configUnchanged, fixtureCounterUnchanged: restart.fixtureCounterUnchanged, stateScope: scope },
+  Renderer: { ...renderer, liveRecovery: liveRenderer },
+  realModelRequests: 0, productionModelQualityVerified: false, productionBillingVerified: false,
+  productionGoRecoveryVerified: false, officialApiRecoveryVerified: false, secondAccountVerified: false,
+  phase: 'controlled-validation-complete-pending-independent-final-review' };
+await writeFile(join(directory, label + '-desktop-summary.json'), JSON.stringify(summary, null, 2), { flag: 'wx' });
+console.log(JSON.stringify({ summaryCreated: true, tasks: summary.Tasks, localStreams: summary.actualControlledStreams, knownPresetTokens, realModelRequests: 0 }));

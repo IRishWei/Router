@@ -1,0 +1,2247 @@
+{
+  "passed": true,
+  "stage": "controlled",
+  "installedClientSha256": "1927FE229112EEBCC64EFB0C30FDDF82DF0571856FEAA751A3306A85020B7D53",
+  "nativeRenderer": true,
+  "nativeRpcCodec": true,
+  "livePublicRpc": true,
+  "beforeTask": {
+    "id": "f0f5d309-042b-4870-8d1f-983a9af66896",
+    "sessionId": "session-be959664-dd88-41c1-ae7a-a91438158f1f",
+    "turn": 2,
+    "lifecycle": "waiting-recovery",
+    "acceptance": {
+      "verdict": "unconfirmed",
+      "evidence": []
+    },
+    "acceptancePolicy": {
+      "enabled": false,
+      "review": {
+        "enabled": false,
+        "candidateId": null,
+        "allowCrossModel": false,
+        "maxTokens": 512,
+        "forecastTokens": 16384
+      }
+    },
+    "coordinationPolicy": {
+      "enabled": false,
+      "candidateId": null,
+      "allowCrossModel": false,
+      "allowFixedModel": false,
+      "maxTokens": 256,
+      "maxAdviceChars": 1024,
+      "forecastTokens": 8192,
+      "objective": "balanced",
+      "selectionBasis": null
+    },
+    "coordination": null,
+    "takeoverPolicy": {
+      "enabled": false,
+      "candidateId": null,
+      "allowCrossModel": false,
+      "allowFixedModel": false,
+      "maxTokens": 512,
+      "forecastTokens": 65536,
+      "objective": "balanced",
+      "fixedCandidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf"
+    },
+    "takeover": null,
+    "executionOwner": {
+      "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "main"
+      },
+      "callId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+      "turn": 2,
+      "step": 1,
+      "confidence": "response-observed"
+    },
+    "plannedSelection": null,
+    "activeSelection": {
+      "connectionId": "router-t18-controlled-fixture-connection",
+      "accountId": "router-t18-controlled-fixture-account",
+      "billingPath": "t18-controlled-fixture",
+      "provider": "router-t18-controlled-fixture",
+      "model": "main"
+    },
+    "configVersion": 375,
+    "assessmentRequested": false,
+    "requirements": {
+      "modalities": [
+        "text"
+      ],
+      "contextBytes": 115
+    },
+    "result": "",
+    "calls": [
+      {
+        "id": "aa43ef65-dab7-4982-841f-0076c2af825a",
+        "taskId": "f0f5d309-042b-4870-8d1f-983a9af66896",
+        "turn": 2,
+        "purpose": "execution",
+        "accountingEntry": "task-call-v1",
+        "dispatchProtocol": "durable-intent-v2",
+        "attempt": 1,
+        "step": 1,
+        "selection": {
+          "connectionId": "router-t18-controlled-fixture-connection",
+          "accountId": "router-t18-controlled-fixture-account",
+          "billingPath": "t18-controlled-fixture",
+          "provider": "router-t18-controlled-fixture",
+          "model": "main"
+        },
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "selectionSnapshot": {
+          "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+          "identity": {
+            "connectionId": "router-t18-controlled-fixture-connection",
+            "accountId": "router-t18-controlled-fixture-account",
+            "billingPath": "t18-controlled-fixture",
+            "provider": "router-t18-controlled-fixture",
+            "model": "main"
+          },
+          "registryEpoch": 36,
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            }
+          },
+          "handoff": {
+            "protocol": "dsh-canonical-v1",
+            "toolProtocol": "function-json-schema-v1",
+            "confidence": "declared",
+            "source": "T18-local-predetermined-canonical-contract"
+          },
+          "capabilities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "contextWindow": {
+              "value": 262144,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 262144,
+          "quote": null,
+          "quoteVersion": null,
+          "enabled": true
+        },
+        "quoteVersion": null,
+        "configVersion": 375,
+        "routerSnapshot": {
+          "automatic": true,
+          "version": 375,
+          "pool": [
+            {
+              "candidateId": "controlled",
+              "connectionId": "controlled-local",
+              "accountId": "local",
+              "billingPath": "controlled",
+              "provider": "router-controlled",
+              "model": "controlled",
+              "enabled": false
+            },
+            {
+              "candidateId": "controlled-tools",
+              "connectionId": "controlled-local",
+              "accountId": "local",
+              "billingPath": "controlled",
+              "provider": "router-controlled",
+              "model": "controlled-tools",
+              "enabled": false
+            },
+            {
+              "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "main",
+              "enabled": true
+            },
+            {
+              "candidateId": "bc7c1c81-137c-474f-83f7-223abeb83b2b",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "advisor",
+              "enabled": false
+            },
+            {
+              "candidateId": "2426befe-e417-4bdd-a433-aac36273e92b",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative",
+              "enabled": false
+            },
+            {
+              "candidateId": "b0089907-45ed-433c-9d83-8c006f1909a6",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-small",
+              "enabled": false
+            },
+            {
+              "candidateId": "4687737f-19b6-4ec3-b173-36d7503eddc3",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-text-only",
+              "enabled": false
+            },
+            {
+              "candidateId": "a2aa75e4-0223-497d-ae80-4ed31a143a28",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-format-unsupported",
+              "enabled": false
+            },
+            {
+              "candidateId": "32a42dc8-a97a-4b96-9557-779239769ceb",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-unknown",
+              "enabled": false
+            }
+          ],
+          "fixedModel": "main",
+          "fixedCandidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+          "prices": [],
+          "budget": {
+            "tokens": 262144,
+            "durationMs": 45000,
+            "money": []
+          },
+          "routingObjective": "balanced",
+          "semanticAssessment": false,
+          "acceptance": {
+            "enabled": false,
+            "review": {
+              "enabled": false,
+              "candidateId": null,
+              "allowCrossModel": false,
+              "maxTokens": 512,
+              "forecastTokens": 16384
+            }
+          },
+          "coordination": {
+            "enabled": false,
+            "candidateId": null,
+            "allowCrossModel": false,
+            "allowFixedModel": false,
+            "maxTokens": 256,
+            "maxAdviceChars": 1024,
+            "forecastTokens": 8192
+          },
+          "takeover": {
+            "enabled": false,
+            "candidateId": null,
+            "allowCrossModel": false,
+            "allowFixedModel": false,
+            "maxTokens": 512,
+            "forecastTokens": 65536
+          },
+          "recovery": {
+            "enabled": true,
+            "automatic": false,
+            "alternativeCandidateId": null,
+            "maxTokens": 512,
+            "forecastTokens": 65536
+          }
+        },
+        "status": "failed",
+        "dispatchState": "header-confirmed",
+        "dispatchStarted": true,
+        "usage": {
+          "inputTokens": 4,
+          "outputTokens": 4,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "reasoningTokens": 0,
+          "totalTokens": 8
+        },
+        "priceQuote": null,
+        "reservation": {
+          "state": "settled",
+          "tokens": {
+            "input": null,
+            "output": null,
+            "cacheRead": null,
+            "cacheWrite": null,
+            "reasoning": null,
+            "total": null
+          },
+          "money": {
+            "amount": null,
+            "knownSubtotal": null,
+            "reason": "PRICE_UNKNOWN",
+            "billingConfirmation": "unconfirmed"
+          },
+          "durationMs": null,
+          "source": "unknown",
+          "confidence": "unknown"
+        },
+        "preparedAt": "2026-10-10T21:32:10.181Z",
+        "hostAttemptId": "session-be959664-dd88-41c1-ae7a-a91438158f1f:2",
+        "hostConfig": {
+          "provider": "router-t18-controlled-fixture",
+          "model": "main",
+          "maxTokens": 128
+        },
+        "dispatchIntent": "possible",
+        "dispatchIntentAt": "2026-10-10T21:32:10.377Z",
+        "dispatchedAt": "2026-10-10T21:32:10.398Z",
+        "settlementSeq": 23,
+        "finishReason": "error",
+        "failureCode": "CONNECTION",
+        "failure": {
+          "code": "CONNECTION",
+          "status": 503,
+          "requestId": "t18-local-opaque-request-id"
+        },
+        "settledAt": "2026-10-10T21:32:10.486Z",
+        "elapsedMs": 88,
+        "cost": {
+          "amount": null,
+          "knownSubtotal": null,
+          "reason": "PRICE_UNKNOWN",
+          "billingConfirmation": "unconfirmed"
+        },
+        "overEstimate": []
+      }
+    ],
+    "inputs": [
+      {
+        "messageId": "ca64d63e-e5c2-46aa-99ae-5e65dc2246e4",
+        "requestId": "0c6fa6fa-2360-47ad-b9bc-bf1ab7b9939d",
+        "turn": 2,
+        "contentHash": "17321959b9fbdfe0b2a6fe57882539057f46b06b0d25a8ecb4bb0cd71a708b8b",
+        "claimedAt": "2026-10-10T21:32:10.079Z"
+      }
+    ],
+    "timeline": [
+      {
+        "kind": "input-claimed",
+        "messageId": "ca64d63e-e5c2-46aa-99ae-5e65dc2246e4",
+        "requestId": "0c6fa6fa-2360-47ad-b9bc-bf1ab7b9939d",
+        "turn": 2
+      },
+      {
+        "kind": "routing-decision",
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "reasons": [
+          "FIXED_CANDIDATE"
+        ],
+        "excluded": [
+          {
+            "candidateId": "controlled",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "controlled-tools",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "b8f2bac3-a0f1-46c3-a92d-2dfcfaaeb4a4",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL"
+            ]
+          },
+          {
+            "candidateId": "cc6c5e39-fdbc-44b2-88de-b9eb6fe8057c",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL"
+            ]
+          },
+          {
+            "candidateId": "6bd08b5f-917f-4348-90fe-f15bae52649d",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "5f687c51-e498-462b-8f6d-6cdd6f29501e",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "65a4b9a5-d19b-4008-a4b5-5481c2a13071",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "dda635b7-537f-4469-b976-c51cbd4c7683",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "3501cdd4-3649-4e46-8b50-8fb71e309f8a",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "26fa51b8-b21e-4cf9-8607-88eb8e98440f",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "73176b1a-0c96-4abd-a8a5-6e184e03f98b",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "bc7c1c81-137c-474f-83f7-223abeb83b2b",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "2426befe-e417-4bdd-a433-aac36273e92b",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "b0089907-45ed-433c-9d83-8c006f1909a6",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "4687737f-19b6-4ec3-b173-36d7503eddc3",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "a2aa75e4-0223-497d-ae80-4ed31a143a28",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "32a42dc8-a97a-4b96-9557-779239769ceb",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "selection",
+        "reason": "fixed-model",
+        "provider": "router-t18-controlled-fixture",
+        "model": "main",
+        "configVersion": 375
+      },
+      {
+        "kind": "call-settlement",
+        "callId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+        "hostAttemptId": "session-be959664-dd88-41c1-ae7a-a91438158f1f:2",
+        "status": "failed",
+        "reason": "error"
+      },
+      {
+        "kind": "recovery-grant",
+        "recoveryId": "5bca2199-f25a-45d7-a682-5413d1c231e7",
+        "sourceCallId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+        "phase": "execution",
+        "attempt": 1,
+        "category": "network"
+      }
+    ],
+    "startedAt": "2026-10-10T21:32:10.067Z",
+    "budget": {
+      "limits": {
+        "tokens": 262144,
+        "durationMs": 45000,
+        "money": []
+      },
+      "extensions": [],
+      "unenforceableLimits": [
+        {
+          "resource": "tokens",
+          "reason": "UNKNOWN_USAGE_OR_FORECAST"
+        },
+        {
+          "resource": "durationMs",
+          "reason": "UNKNOWN_NEXT_CALL_DURATION"
+        }
+      ]
+    },
+    "recoveryPolicy": {
+      "enabled": true,
+      "automatic": false,
+      "alternativeCandidateId": null,
+      "maxTokens": 512,
+      "forecastTokens": 65536
+    },
+    "recoveryOwned": true,
+    "recovery": {
+      "version": 1,
+      "id": "5bca2199-f25a-45d7-a682-5413d1c231e7",
+      "revision": 2,
+      "attempts": 1,
+      "waitMs": 0,
+      "actualWaitMs": 0,
+      "state": "waiting-user",
+      "phase": "execution",
+      "sourceCallId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+      "originatingPurpose": "execution",
+      "callId": null,
+      "category": "network",
+      "failure": {
+        "code": "CONNECTION",
+        "status": 503,
+        "requestId": "t18-local-opaque-request-id"
+      },
+      "target": {
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "identity": {
+          "connectionId": "router-t18-controlled-fixture-connection",
+          "accountId": "router-t18-controlled-fixture-account",
+          "billingPath": "t18-controlled-fixture",
+          "provider": "router-t18-controlled-fixture",
+          "model": "main"
+        },
+        "registryEpoch": 36,
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          }
+        },
+        "handoff": {
+          "protocol": "dsh-canonical-v1",
+          "toolProtocol": "function-json-schema-v1",
+          "confidence": "declared",
+          "source": "T18-local-predetermined-canonical-contract"
+        },
+        "capabilities": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "contextWindow": {
+            "value": 262144,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          }
+        },
+        "maxContextTokens": 262144,
+        "quote": null,
+        "quoteVersion": null,
+        "enabled": true
+      },
+      "reason": "RECOVERY_MANUAL_REQUIRED",
+      "inputHash": "99457f4736fac3f13481387dd239843621df39ec47d2d8589e1db318bb941e4a",
+      "fixedCandidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+      "acceptanceRevision": null,
+      "requirementHash": null,
+      "coordinationRevision": null,
+      "maxTokens": 128,
+      "forecastTokens": 65536,
+      "portableHistory": {
+        "version": 1,
+        "messages": [
+          {
+            "id": "ee18e1ce-d03b-4305-908f-a3ca50e5b7ba",
+            "role": "system",
+            "content": [
+              {
+                "type": "text",
+                "text": "You are an AI agent powered by DeepSeek Harness.\n\nYou are a coding agent powered by the main model.\n\nNon-zero exits are reported as `[exit code: N]` markers; investigate failures before moving on. On Windows a killed process settles as `[exit code: 1]` without a signal marker; treat a bare exit 1 after an interruption as a termination, not a command failure.\n\nTrack every background job id you start. You are notified in-session when a job finishes — do not busy-poll or sleep on one; keep working on independent steps and do not duplicate a running job's work. Before giving a final answer, collect every still-relevant job with job_output (set wait: true only when you are genuinely blocked on it), and job_kill jobs that stopped mattering.\n\ncreate_goal may infer goal intent from a direct human request in any language. After session resume or fork, an active goal is disarmed: when a human asks to continue or resume in any wording or language, use update_goal action resume to rearm it. Mark complete only when the objective is actually achieved. Mark blocked only after the same blocking condition persists for at least 3 consecutive goal rounds, and report that concrete condition in blocked_reason; difficulty, uncertainty, or useful remaining work is not blocked.\n\nUse the workflow tool ONLY when the user explicitly asks for a workflow or for large multi-agent orchestration: you write a JavaScript script (the tool description documents the exact format) that fans work out across many subagents with phases and structured results. For one or two delegations, prefer plain subagent calls.\n\nStart independent subagent delegations together in one assistant message and continue useful work while they run.\n\nPrefer showing the primary results within your final response alongside a brief explanation. Use ![Description](<path/to/image.png>) when an image supports an explanation or comparison. Use [Description](<path/to/image.png>) when referring to an image or listing files. Enclose Markdown file destinations in angle brackets, especially paths containing spaces. Do not call present just to list edited source files, or run commands to check whether a diff view will appear. Use present when a separate file card helps the user open the complete deliverable, including images, Office documents, spreadsheets, and slide decks. Each presented file adds a card below the reply, with preview and native-open actions. Avoid repeating results already shown inline unless the separate card adds useful access. Outside commands, configuration expressions, and code blocks, link every mention of an existing file, including repeats and tables, to its full path relative to the working directory or absolute; append #L24 or #L24-L30 to the target for known lines. Use the filename or a clear alias as the label, adding only enough parent directories to distinguish files; keep full paths out of labels. Default to the name alone; when precise locations matter, append :24 or :24–30, with no # or L in the line suffix.\n\nThe DeepSeek Harness implementation checkout is at E:\\Program Files\\DeepSeek Harness\\resources\\app.asar\\dsh\\. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend DSH itself.\n\nYou are interacting with the user through the DeepSeek Harness Web GUI at http://127.0.0.1:19387. When the user refers to \"this page\", \"this GUI\", or \"this app\" without naming another target, they mean this GUI. The browser provides no implicit DOM, route, or screenshot context. The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while `pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. Starting another server does not update this GUI. The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.\n\nYour working directory is C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home."
+              }
+            ],
+            "sourceKind": "system-prompt"
+          },
+          {
+            "id": "51ae4b5e-5b1a-415f-b5a8-474d8038dea4",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "T18_PRIME_ORIGINAL_MODEL_AND_HISTORY"
+              }
+            ],
+            "sourceKind": "user"
+          },
+          {
+            "id": "e664b901-4eb4-4724-a7fe-3365dde83d19",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: \"C:\\\\Users\\\\a1500\\\\AppData\\\\Local\\\\Temp\\\\router-implementation\\\\t18-v0170g-controlled-home\". Some platform temporary areas may also be writable.\n\nApproval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed."
+              }
+            ],
+            "sourceKind": "runtime-context"
+          },
+          {
+            "id": "19333ed9-aa02-4b1e-a933-c56ffabacaa3",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "T18 local fixture title or prime"
+              }
+            ],
+            "sourceKind": "model"
+          },
+          {
+            "id": "ca64d63e-e5c2-46aa-99ae-5e65dc2246e4",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "T18_CASE manual-stop\nRetain this complete original input, every system instruction and all previous completed work."
+              }
+            ],
+            "sourceKind": "user"
+          }
+        ],
+        "images": [],
+        "toolReceipts": [],
+        "toolHistory": {
+          "tools": [
+            {
+              "name": "subagent",
+              "description": "Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. It runs in the background by default and returns a subagent id you can continue with `send_message`; you are notified when the run settles.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "A short (3-5 word) description of the delegated task, for display."
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
+                  },
+                  "run_in_background": {
+                    "type": "boolean",
+                    "description": "Defaults to true. Set false only when your next action depends on the result."
+                  }
+                },
+                "required": [
+                  "description",
+                  "prompt"
+                ]
+              }
+            },
+            {
+              "name": "t18_local_read_receipt",
+              "description": "T18 local complete receipt",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "t18_local_unproved_receipt",
+              "description": "T18 local complete receipt",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "t18_local_write_receipt",
+              "description": "T18 local complete receipt",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          ],
+          "updates": []
+        },
+        "hash": "45de7316bcf7505f53d57c6bd5da4339c4f31c871f1cd1df37a2158f7a049870",
+        "contentGeneration": 0,
+        "inputHash": "99457f4736fac3f13481387dd239843621df39ec47d2d8589e1db318bb941e4a",
+        "sessionProof": {
+          "source": "live",
+          "mode": "none",
+          "sessionId": "session-be959664-dd88-41c1-ae7a-a91438158f1f",
+          "cursor": 23,
+          "inheritedEventCount": 0,
+          "projectionAsOfSeq": null,
+          "interpreterTypes": [
+            "image/offload"
+          ],
+          "contentGeneration": 0,
+          "messagesHash": "45de7316bcf7505f53d57c6bd5da4339c4f31c871f1cd1df37a2158f7a049870",
+          "toolRecords": []
+        }
+      },
+      "model": {
+        "provider": "router-t18-controlled-fixture",
+        "id": "main",
+        "name": "T18 local main",
+        "inputModalities": [
+          "text",
+          "image"
+        ],
+        "context": {
+          "contextWindow": 262144
+        },
+        "defaultMaxTokens": 128,
+        "systemPromptUpdate": "in-history",
+        "toolUpdate": "in-history"
+      },
+      "boundedHistory": null,
+      "requestHash": null,
+      "imageForecast": null
+    },
+    "assessmentHint": null,
+    "routing": {
+      "status": "selected",
+      "objective": "balanced",
+      "requirements": {
+        "modalities": [
+          "text"
+        ]
+      },
+      "comparisonKey": "sha256:6ad8d9ee808c4f4e9d6729c482bd782cbac127d1ac5df5568bc136ec4138f636",
+      "selected": {
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "identity": {
+          "connectionId": "router-t18-controlled-fixture-connection",
+          "accountId": "router-t18-controlled-fixture-account",
+          "billingPath": "t18-controlled-fixture",
+          "provider": "router-t18-controlled-fixture",
+          "model": "main"
+        },
+        "snapshotEpoch": 36,
+        "registryEpoch": 36,
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "contextWindow": {
+            "value": 262144,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 262144,
+          "confidence": "declared",
+          "source": "T18-local-fixture"
+        },
+        "quote": null,
+        "quoteVersion": null,
+        "enabled": true
+      },
+      "reasonCodes": [
+        "FIXED_CANDIDATE"
+      ],
+      "excluded": [
+        {
+          "candidateId": "controlled",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "controlled-tools",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "b8f2bac3-a0f1-46c3-a92d-2dfcfaaeb4a4",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL"
+          ]
+        },
+        {
+          "candidateId": "cc6c5e39-fdbc-44b2-88de-b9eb6fe8057c",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL"
+          ]
+        },
+        {
+          "candidateId": "6bd08b5f-917f-4348-90fe-f15bae52649d",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "5f687c51-e498-462b-8f6d-6cdd6f29501e",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "65a4b9a5-d19b-4008-a4b5-5481c2a13071",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "dda635b7-537f-4469-b976-c51cbd4c7683",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "3501cdd4-3649-4e46-8b50-8fb71e309f8a",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "26fa51b8-b21e-4cf9-8607-88eb8e98440f",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "73176b1a-0c96-4abd-a8a5-6e184e03f98b",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "bc7c1c81-137c-474f-83f7-223abeb83b2b",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "2426befe-e417-4bdd-a433-aac36273e92b",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "b0089907-45ed-433c-9d83-8c006f1909a6",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "4687737f-19b6-4ec3-b173-36d7503eddc3",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "a2aa75e4-0223-497d-ae80-4ed31a143a28",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "32a42dc8-a97a-4b96-9557-779239769ceb",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        }
+      ],
+      "comparison": {
+        "objective": "balanced",
+        "evidence": [],
+        "unknowns": []
+      }
+    },
+    "ledger": {
+      "tokens": {
+        "input": 4,
+        "output": 4,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "total": 8
+      },
+      "knownTokens": {
+        "input": 4,
+        "output": 4,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "total": 8
+      },
+      "unknownTokenCalls": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "total": 0
+      },
+      "money": [],
+      "unknownPriceCalls": 1,
+      "actualSpend": {
+        "status": "unknown",
+        "amount": null,
+        "currency": null,
+        "reason": "NO_CONFIRMED_PROVIDER_BILL"
+      },
+      "subscriptionQuota": [],
+      "elapsedMs": 2000,
+      "callCount": 1,
+      "uncertainDispatchCalls": 0
+    }
+  },
+  "afterTask": {
+    "id": "f0f5d309-042b-4870-8d1f-983a9af66896",
+    "sessionId": "session-be959664-dd88-41c1-ae7a-a91438158f1f",
+    "turn": 2,
+    "lifecycle": "paused",
+    "acceptance": {
+      "verdict": "unconfirmed",
+      "evidence": []
+    },
+    "acceptancePolicy": {
+      "enabled": false,
+      "review": {
+        "enabled": false,
+        "candidateId": null,
+        "allowCrossModel": false,
+        "maxTokens": 512,
+        "forecastTokens": 16384
+      }
+    },
+    "coordinationPolicy": {
+      "enabled": false,
+      "candidateId": null,
+      "allowCrossModel": false,
+      "allowFixedModel": false,
+      "maxTokens": 256,
+      "maxAdviceChars": 1024,
+      "forecastTokens": 8192,
+      "objective": "balanced",
+      "selectionBasis": null
+    },
+    "coordination": null,
+    "takeoverPolicy": {
+      "enabled": false,
+      "candidateId": null,
+      "allowCrossModel": false,
+      "allowFixedModel": false,
+      "maxTokens": 512,
+      "forecastTokens": 65536,
+      "objective": "balanced",
+      "fixedCandidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf"
+    },
+    "takeover": null,
+    "executionOwner": {
+      "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+      "identity": {
+        "connectionId": "router-t18-controlled-fixture-connection",
+        "accountId": "router-t18-controlled-fixture-account",
+        "billingPath": "t18-controlled-fixture",
+        "provider": "router-t18-controlled-fixture",
+        "model": "main"
+      },
+      "callId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+      "turn": 2,
+      "step": 1,
+      "confidence": "response-observed"
+    },
+    "plannedSelection": null,
+    "activeSelection": {
+      "connectionId": "router-t18-controlled-fixture-connection",
+      "accountId": "router-t18-controlled-fixture-account",
+      "billingPath": "t18-controlled-fixture",
+      "provider": "router-t18-controlled-fixture",
+      "model": "main"
+    },
+    "configVersion": 375,
+    "assessmentRequested": false,
+    "requirements": {
+      "modalities": [
+        "text"
+      ],
+      "contextBytes": 115
+    },
+    "result": "",
+    "calls": [
+      {
+        "id": "aa43ef65-dab7-4982-841f-0076c2af825a",
+        "taskId": "f0f5d309-042b-4870-8d1f-983a9af66896",
+        "turn": 2,
+        "purpose": "execution",
+        "accountingEntry": "task-call-v1",
+        "dispatchProtocol": "durable-intent-v2",
+        "attempt": 1,
+        "step": 1,
+        "selection": {
+          "connectionId": "router-t18-controlled-fixture-connection",
+          "accountId": "router-t18-controlled-fixture-account",
+          "billingPath": "t18-controlled-fixture",
+          "provider": "router-t18-controlled-fixture",
+          "model": "main"
+        },
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "selectionSnapshot": {
+          "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+          "identity": {
+            "connectionId": "router-t18-controlled-fixture-connection",
+            "accountId": "router-t18-controlled-fixture-account",
+            "billingPath": "t18-controlled-fixture",
+            "provider": "router-t18-controlled-fixture",
+            "model": "main"
+          },
+          "registryEpoch": 36,
+          "connectionConfigRevision": 1,
+          "authEpoch": 1,
+          "capability": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            }
+          },
+          "handoff": {
+            "protocol": "dsh-canonical-v1",
+            "toolProtocol": "function-json-schema-v1",
+            "confidence": "declared",
+            "source": "T18-local-predetermined-canonical-contract"
+          },
+          "capabilities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "tools": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "contextWindow": {
+              "value": 262144,
+              "confidence": "declared",
+              "source": "provider-model-metadata"
+            },
+            "inputLimit": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            },
+            "maxOutput": {
+              "value": null,
+              "confidence": "unknown",
+              "source": "host-public-contract"
+            }
+          },
+          "maxContextTokens": 262144,
+          "quote": null,
+          "quoteVersion": null,
+          "enabled": true
+        },
+        "quoteVersion": null,
+        "configVersion": 375,
+        "routerSnapshot": {
+          "automatic": true,
+          "version": 375,
+          "pool": [
+            {
+              "candidateId": "controlled",
+              "connectionId": "controlled-local",
+              "accountId": "local",
+              "billingPath": "controlled",
+              "provider": "router-controlled",
+              "model": "controlled",
+              "enabled": false
+            },
+            {
+              "candidateId": "controlled-tools",
+              "connectionId": "controlled-local",
+              "accountId": "local",
+              "billingPath": "controlled",
+              "provider": "router-controlled",
+              "model": "controlled-tools",
+              "enabled": false
+            },
+            {
+              "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "main",
+              "enabled": true
+            },
+            {
+              "candidateId": "bc7c1c81-137c-474f-83f7-223abeb83b2b",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "advisor",
+              "enabled": false
+            },
+            {
+              "candidateId": "2426befe-e417-4bdd-a433-aac36273e92b",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative",
+              "enabled": false
+            },
+            {
+              "candidateId": "b0089907-45ed-433c-9d83-8c006f1909a6",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-small",
+              "enabled": false
+            },
+            {
+              "candidateId": "4687737f-19b6-4ec3-b173-36d7503eddc3",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-text-only",
+              "enabled": false
+            },
+            {
+              "candidateId": "a2aa75e4-0223-497d-ae80-4ed31a143a28",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-format-unsupported",
+              "enabled": false
+            },
+            {
+              "candidateId": "32a42dc8-a97a-4b96-9557-779239769ceb",
+              "connectionId": "router-t18-controlled-fixture-connection",
+              "accountId": "router-t18-controlled-fixture-account",
+              "billingPath": "t18-controlled-fixture",
+              "provider": "router-t18-controlled-fixture",
+              "model": "alternative-unknown",
+              "enabled": false
+            }
+          ],
+          "fixedModel": "main",
+          "fixedCandidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+          "prices": [],
+          "budget": {
+            "tokens": 262144,
+            "durationMs": 45000,
+            "money": []
+          },
+          "routingObjective": "balanced",
+          "semanticAssessment": false,
+          "acceptance": {
+            "enabled": false,
+            "review": {
+              "enabled": false,
+              "candidateId": null,
+              "allowCrossModel": false,
+              "maxTokens": 512,
+              "forecastTokens": 16384
+            }
+          },
+          "coordination": {
+            "enabled": false,
+            "candidateId": null,
+            "allowCrossModel": false,
+            "allowFixedModel": false,
+            "maxTokens": 256,
+            "maxAdviceChars": 1024,
+            "forecastTokens": 8192
+          },
+          "takeover": {
+            "enabled": false,
+            "candidateId": null,
+            "allowCrossModel": false,
+            "allowFixedModel": false,
+            "maxTokens": 512,
+            "forecastTokens": 65536
+          },
+          "recovery": {
+            "enabled": true,
+            "automatic": false,
+            "alternativeCandidateId": null,
+            "maxTokens": 512,
+            "forecastTokens": 65536
+          }
+        },
+        "status": "failed",
+        "dispatchState": "header-confirmed",
+        "dispatchStarted": true,
+        "usage": {
+          "inputTokens": 4,
+          "outputTokens": 4,
+          "cacheReadTokens": 0,
+          "cacheWriteTokens": 0,
+          "reasoningTokens": 0,
+          "totalTokens": 8
+        },
+        "priceQuote": null,
+        "reservation": {
+          "state": "settled",
+          "tokens": {
+            "input": null,
+            "output": null,
+            "cacheRead": null,
+            "cacheWrite": null,
+            "reasoning": null,
+            "total": null
+          },
+          "money": {
+            "amount": null,
+            "knownSubtotal": null,
+            "reason": "PRICE_UNKNOWN",
+            "billingConfirmation": "unconfirmed"
+          },
+          "durationMs": null,
+          "source": "unknown",
+          "confidence": "unknown"
+        },
+        "preparedAt": "2026-10-10T21:32:10.181Z",
+        "hostAttemptId": "session-be959664-dd88-41c1-ae7a-a91438158f1f:2",
+        "hostConfig": {
+          "provider": "router-t18-controlled-fixture",
+          "model": "main",
+          "maxTokens": 128
+        },
+        "dispatchIntent": "possible",
+        "dispatchIntentAt": "2026-10-10T21:32:10.377Z",
+        "dispatchedAt": "2026-10-10T21:32:10.398Z",
+        "settlementSeq": 23,
+        "finishReason": "error",
+        "failureCode": "CONNECTION",
+        "failure": {
+          "code": "CONNECTION",
+          "status": 503,
+          "requestId": "t18-local-opaque-request-id"
+        },
+        "settledAt": "2026-10-10T21:32:10.486Z",
+        "elapsedMs": 88,
+        "cost": {
+          "amount": null,
+          "knownSubtotal": null,
+          "reason": "PRICE_UNKNOWN",
+          "billingConfirmation": "unconfirmed"
+        },
+        "overEstimate": []
+      }
+    ],
+    "inputs": [
+      {
+        "messageId": "ca64d63e-e5c2-46aa-99ae-5e65dc2246e4",
+        "requestId": "0c6fa6fa-2360-47ad-b9bc-bf1ab7b9939d",
+        "turn": 2,
+        "contentHash": "17321959b9fbdfe0b2a6fe57882539057f46b06b0d25a8ecb4bb0cd71a708b8b",
+        "claimedAt": "2026-10-10T21:32:10.079Z"
+      }
+    ],
+    "timeline": [
+      {
+        "kind": "input-claimed",
+        "messageId": "ca64d63e-e5c2-46aa-99ae-5e65dc2246e4",
+        "requestId": "0c6fa6fa-2360-47ad-b9bc-bf1ab7b9939d",
+        "turn": 2
+      },
+      {
+        "kind": "routing-decision",
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "reasons": [
+          "FIXED_CANDIDATE"
+        ],
+        "excluded": [
+          {
+            "candidateId": "controlled",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "controlled-tools",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "b8f2bac3-a0f1-46c3-a92d-2dfcfaaeb4a4",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL"
+            ]
+          },
+          {
+            "candidateId": "cc6c5e39-fdbc-44b2-88de-b9eb6fe8057c",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL"
+            ]
+          },
+          {
+            "candidateId": "6bd08b5f-917f-4348-90fe-f15bae52649d",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "5f687c51-e498-462b-8f6d-6cdd6f29501e",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "65a4b9a5-d19b-4008-a4b5-5481c2a13071",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "dda635b7-537f-4469-b976-c51cbd4c7683",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "3501cdd4-3649-4e46-8b50-8fb71e309f8a",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "26fa51b8-b21e-4cf9-8607-88eb8e98440f",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "73176b1a-0c96-4abd-a8a5-6e184e03f98b",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED",
+              "CANDIDATE_NOT_IN_POOL",
+              "CANDIDATE_UNAVAILABLE"
+            ]
+          },
+          {
+            "candidateId": "bc7c1c81-137c-474f-83f7-223abeb83b2b",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "2426befe-e417-4bdd-a433-aac36273e92b",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "b0089907-45ed-433c-9d83-8c006f1909a6",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "4687737f-19b6-4ec3-b173-36d7503eddc3",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "a2aa75e4-0223-497d-ae80-4ed31a143a28",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          },
+          {
+            "candidateId": "32a42dc8-a97a-4b96-9557-779239769ceb",
+            "reasons": [
+              "CANDIDATE_NOT_AUTHORIZED",
+              "CANDIDATE_DISABLED"
+            ]
+          }
+        ]
+      },
+      {
+        "kind": "selection",
+        "reason": "fixed-model",
+        "provider": "router-t18-controlled-fixture",
+        "model": "main",
+        "configVersion": 375
+      },
+      {
+        "kind": "call-settlement",
+        "callId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+        "hostAttemptId": "session-be959664-dd88-41c1-ae7a-a91438158f1f:2",
+        "status": "failed",
+        "reason": "error"
+      },
+      {
+        "kind": "recovery-grant",
+        "recoveryId": "5bca2199-f25a-45d7-a682-5413d1c231e7",
+        "sourceCallId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+        "phase": "execution",
+        "attempt": 1,
+        "category": "network"
+      },
+      {
+        "kind": "budget-stop",
+        "at": "2026-10-10T21:32:12.301Z"
+      },
+      {
+        "kind": "recovery-paused",
+        "recoveryId": "5bca2199-f25a-45d7-a682-5413d1c231e7",
+        "sourceCallId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+        "category": "network",
+        "reason": "RECOVERY_CANCELED"
+      },
+      {
+        "kind": "native-terminal",
+        "lifecycle": "paused",
+        "reason": "BUDGET_STOPPED"
+      },
+      {
+        "kind": "terminal",
+        "lifecycle": "paused",
+        "reason": "BUDGET_STOPPED",
+        "acceptance": "unconfirmed"
+      }
+    ],
+    "startedAt": "2026-10-10T21:32:10.067Z",
+    "budget": {
+      "limits": {
+        "tokens": 262144,
+        "durationMs": 45000,
+        "money": []
+      },
+      "extensions": [],
+      "unenforceableLimits": [
+        {
+          "resource": "tokens",
+          "reason": "UNKNOWN_USAGE_OR_FORECAST"
+        },
+        {
+          "resource": "durationMs",
+          "reason": "UNKNOWN_NEXT_CALL_DURATION"
+        }
+      ],
+      "stopRequested": true
+    },
+    "recoveryPolicy": {
+      "enabled": true,
+      "automatic": false,
+      "alternativeCandidateId": null,
+      "maxTokens": 512,
+      "forecastTokens": 65536
+    },
+    "recoveryOwned": true,
+    "recovery": {
+      "version": 1,
+      "id": "5bca2199-f25a-45d7-a682-5413d1c231e7",
+      "revision": 4,
+      "attempts": 1,
+      "waitMs": 0,
+      "actualWaitMs": 0,
+      "state": "paused",
+      "phase": "execution",
+      "sourceCallId": "aa43ef65-dab7-4982-841f-0076c2af825a",
+      "originatingPurpose": "execution",
+      "callId": null,
+      "category": "network",
+      "failure": {
+        "code": "CONNECTION",
+        "status": 503,
+        "requestId": "t18-local-opaque-request-id"
+      },
+      "target": {
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "identity": {
+          "connectionId": "router-t18-controlled-fixture-connection",
+          "accountId": "router-t18-controlled-fixture-account",
+          "billingPath": "t18-controlled-fixture",
+          "provider": "router-t18-controlled-fixture",
+          "model": "main"
+        },
+        "registryEpoch": 36,
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "capability": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          }
+        },
+        "handoff": {
+          "protocol": "dsh-canonical-v1",
+          "toolProtocol": "function-json-schema-v1",
+          "confidence": "declared",
+          "source": "T18-local-predetermined-canonical-contract"
+        },
+        "capabilities": {
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "contextWindow": {
+            "value": 262144,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          }
+        },
+        "maxContextTokens": 262144,
+        "quote": null,
+        "quoteVersion": null,
+        "enabled": true
+      },
+      "reason": "RECOVERY_CANCELED",
+      "inputHash": "99457f4736fac3f13481387dd239843621df39ec47d2d8589e1db318bb941e4a",
+      "fixedCandidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+      "acceptanceRevision": null,
+      "requirementHash": null,
+      "coordinationRevision": null,
+      "maxTokens": 128,
+      "forecastTokens": 65536,
+      "portableHistory": {
+        "version": 1,
+        "messages": [
+          {
+            "id": "ee18e1ce-d03b-4305-908f-a3ca50e5b7ba",
+            "role": "system",
+            "content": [
+              {
+                "type": "text",
+                "text": "You are an AI agent powered by DeepSeek Harness.\n\nYou are a coding agent powered by the main model.\n\nNon-zero exits are reported as `[exit code: N]` markers; investigate failures before moving on. On Windows a killed process settles as `[exit code: 1]` without a signal marker; treat a bare exit 1 after an interruption as a termination, not a command failure.\n\nTrack every background job id you start. You are notified in-session when a job finishes — do not busy-poll or sleep on one; keep working on independent steps and do not duplicate a running job's work. Before giving a final answer, collect every still-relevant job with job_output (set wait: true only when you are genuinely blocked on it), and job_kill jobs that stopped mattering.\n\ncreate_goal may infer goal intent from a direct human request in any language. After session resume or fork, an active goal is disarmed: when a human asks to continue or resume in any wording or language, use update_goal action resume to rearm it. Mark complete only when the objective is actually achieved. Mark blocked only after the same blocking condition persists for at least 3 consecutive goal rounds, and report that concrete condition in blocked_reason; difficulty, uncertainty, or useful remaining work is not blocked.\n\nUse the workflow tool ONLY when the user explicitly asks for a workflow or for large multi-agent orchestration: you write a JavaScript script (the tool description documents the exact format) that fans work out across many subagents with phases and structured results. For one or two delegations, prefer plain subagent calls.\n\nStart independent subagent delegations together in one assistant message and continue useful work while they run.\n\nPrefer showing the primary results within your final response alongside a brief explanation. Use ![Description](<path/to/image.png>) when an image supports an explanation or comparison. Use [Description](<path/to/image.png>) when referring to an image or listing files. Enclose Markdown file destinations in angle brackets, especially paths containing spaces. Do not call present just to list edited source files, or run commands to check whether a diff view will appear. Use present when a separate file card helps the user open the complete deliverable, including images, Office documents, spreadsheets, and slide decks. Each presented file adds a card below the reply, with preview and native-open actions. Avoid repeating results already shown inline unless the separate card adds useful access. Outside commands, configuration expressions, and code blocks, link every mention of an existing file, including repeats and tables, to its full path relative to the working directory or absolute; append #L24 or #L24-L30 to the target for known lines. Use the filename or a clear alias as the label, adding only enough parent directories to distinguish files; keep full paths out of labels. Default to the name alone; when precise locations matter, append :24 or :24–30, with no # or L in the line suffix.\n\nThe DeepSeek Harness implementation checkout is at E:\\Program Files\\DeepSeek Harness\\resources\\app.asar\\dsh\\. The checkout location and current working directory are separate values and may differ; never infer the working directory from this path. Use pwd to determine the current working directory. Use this checkout only to inspect or extend DSH itself.\n\nYou are interacting with the user through the DeepSeek Harness Web GUI at http://127.0.0.1:19387. When the user refers to \"this page\", \"this GUI\", or \"this app\" without naming another target, they mean this GUI. The browser provides no implicit DOM, route, or screenshot context. The client-plugin HMR receiver is active, but client-plugin changes reload without a refresh only while `pnpm run dev:web` is also running from this same checkout to rebuild their bundles; verify that watcher before promising automatic updates. Every other change — the apps/web shell and plain packages — requires rebuilding the affected Web artifacts and verifying this existing URL after a page refresh. Starting another server does not update this GUI. The apps/web Vite entry builds the shell but is not a standalone application because only dsh web injects window.__DSH_BOOT__. Do not start a replacement server unless the user asks; if one is needed, use a managed background job and verify its exact URL.\n\nYour working directory is C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home."
+              }
+            ],
+            "sourceKind": "system-prompt"
+          },
+          {
+            "id": "51ae4b5e-5b1a-415f-b5a8-474d8038dea4",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "T18_PRIME_ORIGINAL_MODEL_AND_HISTORY"
+              }
+            ],
+            "sourceKind": "user"
+          },
+          {
+            "id": "e664b901-4eb4-4724-a7fe-3365dde83d19",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "Current runtime context. This snapshot supersedes earlier runtime-context snapshots.\n\nCurrent DSH file policy: workspace-write. Any available operation enforced by the DSH file sandbox may modify files under the session workspace: \"C:\\\\Users\\\\a1500\\\\AppData\\\\Local\\\\Temp\\\\router-implementation\\\\t18-v0170g-controlled-home\". Some platform temporary areas may also be writable.\n\nApproval policy: ask. Operations that require approval may ask through the configured answerers; without an available answerer, the request fails closed."
+              }
+            ],
+            "sourceKind": "runtime-context"
+          },
+          {
+            "id": "19333ed9-aa02-4b1e-a933-c56ffabacaa3",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "T18 local fixture title or prime"
+              }
+            ],
+            "sourceKind": "model"
+          },
+          {
+            "id": "ca64d63e-e5c2-46aa-99ae-5e65dc2246e4",
+            "role": "user",
+            "content": [
+              {
+                "type": "text",
+                "text": "T18_CASE manual-stop\nRetain this complete original input, every system instruction and all previous completed work."
+              }
+            ],
+            "sourceKind": "user"
+          }
+        ],
+        "images": [],
+        "toolReceipts": [],
+        "toolHistory": {
+          "tools": [
+            {
+              "name": "subagent",
+              "description": "Delegate a self-contained task to a subagent (a separate agent that works in its own context) to offload focused, independent work — research, a scoped implementation, an analysis — so it does not consume this conversation's context. The subagent returns its result, not its intermediate steps. It runs in the background by default and returns a subagent id you can continue with `send_message`; you are notified when the run settles.",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "description": {
+                    "type": "string",
+                    "description": "A short (3-5 word) description of the delegated task, for display."
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "description": "The complete, self-contained task for the subagent. It does not share this conversation's context, so include everything it needs."
+                  },
+                  "run_in_background": {
+                    "type": "boolean",
+                    "description": "Defaults to true. Set false only when your next action depends on the result."
+                  }
+                },
+                "required": [
+                  "description",
+                  "prompt"
+                ]
+              }
+            },
+            {
+              "name": "t18_local_read_receipt",
+              "description": "T18 local complete receipt",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "t18_local_unproved_receipt",
+              "description": "T18 local complete receipt",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            {
+              "name": "t18_local_write_receipt",
+              "description": "T18 local complete receipt",
+              "parameters": {
+                "type": "object",
+                "properties": {
+                  "operationId": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          ],
+          "updates": []
+        },
+        "hash": "45de7316bcf7505f53d57c6bd5da4339c4f31c871f1cd1df37a2158f7a049870",
+        "contentGeneration": 0,
+        "inputHash": "99457f4736fac3f13481387dd239843621df39ec47d2d8589e1db318bb941e4a",
+        "sessionProof": {
+          "source": "live",
+          "mode": "none",
+          "sessionId": "session-be959664-dd88-41c1-ae7a-a91438158f1f",
+          "cursor": 23,
+          "inheritedEventCount": 0,
+          "projectionAsOfSeq": null,
+          "interpreterTypes": [
+            "image/offload"
+          ],
+          "contentGeneration": 0,
+          "messagesHash": "45de7316bcf7505f53d57c6bd5da4339c4f31c871f1cd1df37a2158f7a049870",
+          "toolRecords": []
+        }
+      },
+      "model": {
+        "provider": "router-t18-controlled-fixture",
+        "id": "main",
+        "name": "T18 local main",
+        "inputModalities": [
+          "text",
+          "image"
+        ],
+        "context": {
+          "contextWindow": 262144
+        },
+        "defaultMaxTokens": 128,
+        "systemPromptUpdate": "in-history",
+        "toolUpdate": "in-history"
+      },
+      "boundedHistory": null,
+      "requestHash": null,
+      "imageForecast": null,
+      "userAction": "stop"
+    },
+    "assessmentHint": null,
+    "routing": {
+      "status": "selected",
+      "objective": "balanced",
+      "requirements": {
+        "modalities": [
+          "text"
+        ]
+      },
+      "comparisonKey": "sha256:6ad8d9ee808c4f4e9d6729c482bd782cbac127d1ac5df5568bc136ec4138f636",
+      "selected": {
+        "candidateId": "87094971-0e8d-40ca-9af2-bf1ba56b6caf",
+        "identity": {
+          "connectionId": "router-t18-controlled-fixture-connection",
+          "accountId": "router-t18-controlled-fixture-account",
+          "billingPath": "t18-controlled-fixture",
+          "provider": "router-t18-controlled-fixture",
+          "model": "main"
+        },
+        "snapshotEpoch": 36,
+        "registryEpoch": 36,
+        "connectionConfigRevision": 1,
+        "authEpoch": 1,
+        "capabilities": {
+          "modalities": {
+            "text": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            },
+            "image": {
+              "supported": true,
+              "confidence": "declared",
+              "source": "T18-local-fixture"
+            }
+          },
+          "text": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "image": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "tools": {
+            "supported": true,
+            "confidence": "declared",
+            "source": "T18-local-fixture"
+          },
+          "contextWindow": {
+            "value": 262144,
+            "confidence": "declared",
+            "source": "provider-model-metadata"
+          },
+          "inputLimit": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxOutput": {
+            "value": null,
+            "confidence": "unknown",
+            "source": "host-public-contract"
+          },
+          "maxContextTokens": 262144,
+          "confidence": "declared",
+          "source": "T18-local-fixture"
+        },
+        "quote": null,
+        "quoteVersion": null,
+        "enabled": true
+      },
+      "reasonCodes": [
+        "FIXED_CANDIDATE"
+      ],
+      "excluded": [
+        {
+          "candidateId": "controlled",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "controlled-tools",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "b8f2bac3-a0f1-46c3-a92d-2dfcfaaeb4a4",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL"
+          ]
+        },
+        {
+          "candidateId": "cc6c5e39-fdbc-44b2-88de-b9eb6fe8057c",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL"
+          ]
+        },
+        {
+          "candidateId": "6bd08b5f-917f-4348-90fe-f15bae52649d",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "5f687c51-e498-462b-8f6d-6cdd6f29501e",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "65a4b9a5-d19b-4008-a4b5-5481c2a13071",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "dda635b7-537f-4469-b976-c51cbd4c7683",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "3501cdd4-3649-4e46-8b50-8fb71e309f8a",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "26fa51b8-b21e-4cf9-8607-88eb8e98440f",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "73176b1a-0c96-4abd-a8a5-6e184e03f98b",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED",
+            "CANDIDATE_NOT_IN_POOL",
+            "CANDIDATE_UNAVAILABLE"
+          ]
+        },
+        {
+          "candidateId": "bc7c1c81-137c-474f-83f7-223abeb83b2b",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "2426befe-e417-4bdd-a433-aac36273e92b",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "b0089907-45ed-433c-9d83-8c006f1909a6",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "4687737f-19b6-4ec3-b173-36d7503eddc3",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "a2aa75e4-0223-497d-ae80-4ed31a143a28",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        },
+        {
+          "candidateId": "32a42dc8-a97a-4b96-9557-779239769ceb",
+          "reasons": [
+            "CANDIDATE_NOT_AUTHORIZED",
+            "CANDIDATE_DISABLED"
+          ]
+        }
+      ],
+      "comparison": {
+        "objective": "balanced",
+        "evidence": [],
+        "unknowns": []
+      }
+    },
+    "routingPauseReason": "RECOVERY_CANCELED",
+    "nativeLifecycle": "paused",
+    "nativeEndedAt": "2026-10-10T21:32:12.377Z",
+    "nativePauseReason": "BUDGET_STOPPED",
+    "pauseReason": "BUDGET_STOPPED",
+    "fault": {
+      "kind": "connection",
+      "category": "network",
+      "code": "CONNECTION",
+      "reason": "BUDGET_STOPPED",
+      "retryable": false
+    },
+    "endedAt": "2026-10-10T21:32:12.377Z",
+    "ledger": {
+      "tokens": {
+        "input": 4,
+        "output": 4,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "total": 8
+      },
+      "knownTokens": {
+        "input": 4,
+        "output": 4,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "total": 8
+      },
+      "unknownTokenCalls": {
+        "input": 0,
+        "output": 0,
+        "cacheRead": 0,
+        "cacheWrite": 0,
+        "reasoning": 0,
+        "total": 0
+      },
+      "money": [],
+      "unknownPriceCalls": 1,
+      "actualSpend": {
+        "status": "unknown",
+        "amount": null,
+        "currency": null,
+        "reason": "NO_CONFIRMED_PROVIDER_BILL"
+      },
+      "subscriptionQuota": [],
+      "elapsedMs": 2310,
+      "callCount": 1,
+      "uncertainDispatchCalls": 0
+    }
+  },
+  "calls": [
+    {
+      "endpoint": "router/resolveTaskRecovery",
+      "payload": {
+        "args": {
+          "request": {
+            "taskId": "f0f5d309-042b-4870-8d1f-983a9af66896",
+            "recoveryId": "5bca2199-f25a-45d7-a682-5413d1c231e7",
+            "expectedRevision": 2,
+            "action": "stop"
+          }
+        }
+      }
+    }
+  ],
+  "liveRecoveryStopDisplayedAndExecuted": true,
+  "terminalTaskHasNoResumeControl": true,
+  "initialControlReadinessDeadlineMs": 10000,
+  "visualScreenshotVerified": false,
+  "realModelRequests": 0
+}

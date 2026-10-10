@@ -1,0 +1,24 @@
+✔ a public lifecycle plugin exception after a recovered response pauses the Task without erasing its output or usage (141.2779ms)
+✔ ambiguous late ancestry spanning two real native Tasks cannot run a child outside the recovery guard (160.5258ms)
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (74.4658ms)
+✔ real native retry before-router cannot expand the Task recovery cap (107.0044ms)
+✔ real native retry after-router cannot expand the Task recovery cap (113.6226ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (108.1054ms)
+✔ an owned recovery budget wait rechecks live disabled before any new adapter entry (76.8474ms)
+✔ an owned recovery budget wait rechecks live fixed before any new adapter entry (77.6035ms)
+✔ an owned recovery budget wait rechecks live policy before any new adapter entry (80.8011ms)
+✔ an owned recovery budget wait rechecks live human before any new adapter entry (76.3566ms)
+✔ an owned recovery budget wait rechecks live pending before any new adapter entry (72.6451ms)
+✔ an owned recovery budget wait rechecks live stopped before any new adapter entry (83.1493ms)
+✔ the raw native final request gate rechecks permission after its independent awaited observation (89.6006ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (67.8924ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (95.8472ms)
+ℹ tests 15
+ℹ suites 0
+ℹ pass 15
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2065.6999
+runExit=0 durationMs=2140

@@ -1,0 +1,284 @@
+{
+  "version": "0.17.0",
+  "reviewedSourceSha": "5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7",
+  "path": "E:\\GPT\\Router项目\\artifacts\\irishwei-dsh-router-0.17.0.tgz",
+  "bytes": 244754,
+  "sha256": "2DBE7055718996CF7479415EDAAC58B9A5E411863D5DBC672FAA06AAFD97F55F",
+  "reviewGate": {
+    "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-final-reviewed-source.json",
+    "bytes": 6028,
+    "sha256": "978305B120AF0DC22B8DB341E43BE54EA1EEE9DDBD89BB32604083B4122D22FE"
+  },
+  "reviewedContract": {
+    "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170c-reviewed-contract.md",
+    "bytes": 11283,
+    "sha256": "768D4FB1B501A23CCCB94781C0CEF898456801A72F1F8BE676738699B1656E8C",
+    "sourcePath": "docs/implementation/t18-failure-recovery-contract.md",
+    "sourceBytes": 10818,
+    "sourceSha256": "4D5147C0067E91BEA9312AA241A28A1D85A6A4C93BBB116F3DA457720CC9CFCB"
+  },
+  "files": [
+    {
+      "file": "LICENSE",
+      "bytes": 1086,
+      "sha256": "827FD39732D6951DFAFCB783320ED5CD19D3E9983168C279AF4AFC86EC888C58"
+    },
+    {
+      "file": "lib/acceptance.js",
+      "bytes": 54609,
+      "sha256": "C063DF7A2B6AE8C1D398B3367178BE5E3C6BA3BABC28008F6CE4D61986C129F5"
+    },
+    {
+      "file": "lib/chatgpt-host.js",
+      "bytes": 32170,
+      "sha256": "32858DFFB7A90D8FAD4F663092EF15B9BCBE73D5B8707D7A3FA300AE13AE1E99"
+    },
+    {
+      "file": "lib/chatgpt-oauth.js",
+      "bytes": 19132,
+      "sha256": "372789AF53F1A6282538B7DC198B4BE6A4FDE26415D74242B21F0FF65B745274"
+    },
+    {
+      "file": "lib/chatgpt-responses.js",
+      "bytes": 41528,
+      "sha256": "6D345C4B005D9A82FCBA11550219298C6EDE6B3F151D1FC939B598957B32B1C3"
+    },
+    {
+      "file": "lib/chatgpt-router.js",
+      "bytes": 3112,
+      "sha256": "6C76F788E27F22B3E4D3F9E8BEFC6C9D40F45A7674F0A0C6D4B541A361B7C0C5"
+    },
+    {
+      "file": "lib/chatgpt-sessions.js",
+      "bytes": 23981,
+      "sha256": "2D8285404887E11ACA5E3FA2A0B062FCD3437353565D6597B7FA22B93092174F"
+    },
+    {
+      "file": "lib/client.js",
+      "bytes": 394221,
+      "sha256": "1927FE229112EEBCC64EFB0C30FDDF82DF0571856FEAA751A3306A85020B7D53"
+    },
+    {
+      "file": "lib/compatible-host.js",
+      "bytes": 9437,
+      "sha256": "D6971B3B2741E0EB6EC05D4AEFBFB65541490DAE55EA64551C623B55B3241868"
+    },
+    {
+      "file": "lib/compatible-responses.js",
+      "bytes": 8856,
+      "sha256": "FAAD1B7CF63EB47FF2932526FD299F3415D5EB84647DC0F5C8ADDBDA5F449AF7"
+    },
+    {
+      "file": "lib/connections.js",
+      "bytes": 20476,
+      "sha256": "D0E737A11654D315C100571A7CB19873C5F9C14C425F87B21BDDFA24FCC001C1"
+    },
+    {
+      "file": "lib/coordination.js",
+      "bytes": 32853,
+      "sha256": "2766CC6C1071EA6188BCEE2A08C5CB965B82B6811A418D3368C1E63FE51619EE"
+    },
+    {
+      "file": "lib/deepseek-catalog.js",
+      "bytes": 4755,
+      "sha256": "001ACEE0E2F7BF6E8CADD6F3AEFF0FD07A9936D400A4D14C9EA9605A03A2D634"
+    },
+    {
+      "file": "lib/deepseek-connections.js",
+      "bytes": 10517,
+      "sha256": "A177318BBFC926753B6E46C84B13A71F622D2EC767E73E98672B8AADF376DC4D"
+    },
+    {
+      "file": "lib/deepseek-deadline.js",
+      "bytes": 255,
+      "sha256": "622C440A9F7BD28560B7445C1179257D8D68D4EA543FB9D32B56753D5405289F"
+    },
+    {
+      "file": "lib/deepseek-host.js",
+      "bytes": 8653,
+      "sha256": "A1C05CB5E3AEB13F3F6DB6F122A2313C6AF47E3B7918F900EE378929F26C3B36"
+    },
+    {
+      "file": "lib/deepseek-router.js",
+      "bytes": 3968,
+      "sha256": "9AE158757285F03B8469CEFB749DA1D490839E8083BDB541C363C57026CF40F3"
+    },
+    {
+      "file": "lib/image-acceptance.js",
+      "bytes": 12381,
+      "sha256": "200C547BE1B9AF3B9825D213A850F3A63F1A0FD19A65CFB33C940886939647E6"
+    },
+    {
+      "file": "lib/index.js",
+      "bytes": 156398,
+      "sha256": "32F7EF11A163A433F6C5353EAECA8390B438009BC5AD0E972ABFE24019AE7285"
+    },
+    {
+      "file": "lib/ledger.js",
+      "bytes": 10911,
+      "sha256": "A2F58F0F7F3CA926148CE5408BF7240DC57316816C6832254299ED437DA77E3A"
+    },
+    {
+      "file": "lib/native-connections.js",
+      "bytes": 3573,
+      "sha256": "68492A1E5A591AECE533A771D251E51CB80CE4A4015E9E51DF3AAB91365E3E4F"
+    },
+    {
+      "file": "lib/opencode-go-adapter.js",
+      "bytes": 6868,
+      "sha256": "F442B4825A1DC1511E73BFB47D26886752723E190025FE1E6FE1ADA711D122B4"
+    },
+    {
+      "file": "lib/opencode-go-host.js",
+      "bytes": 8277,
+      "sha256": "FF36EE9529292BAF815046942F0B1E0DDF017EDE0ADFCA28B0E08AE857040D81"
+    },
+    {
+      "file": "lib/program-checks.js",
+      "bytes": 11568,
+      "sha256": "1E713A38B13E6F39380723E655FE5DF2704C9B30BFAA1039344EBA0344096FFC"
+    },
+    {
+      "file": "lib/protocol.js",
+      "bytes": 10575,
+      "sha256": "36628437CDCD69A7EF9EE72BE0F8CA2397A6795F1A67F3723FA8269E6B59F301"
+    },
+    {
+      "file": "lib/recovery.js",
+      "bytes": 3798,
+      "sha256": "57F54B630F7BC67C5F19B5339CE8EC4131D57824B8632E87037CA24756F533FD"
+    },
+    {
+      "file": "lib/research-acceptance.js",
+      "bytes": 31125,
+      "sha256": "6507D07521A8FDE8B4F31872DD60ED7BE6240F608DA0BF0F1B95CC3BB0A4FAA3"
+    },
+    {
+      "file": "lib/research-artifact.js",
+      "bytes": 2478,
+      "sha256": "5C6F00DCA0CFDA1EF71069132F0902317C7BD346B426D07A4A2BBEBBFCE8BB21"
+    },
+    {
+      "file": "lib/research-contribution.js",
+      "bytes": 19909,
+      "sha256": "A6DDEBE858CA7635433E40EB408D833398E6140BB4FDB3B2E4D0ABBC49E76A01"
+    },
+    {
+      "file": "lib/routing.js",
+      "bytes": 17352,
+      "sha256": "4B8E7AD121DDBC6C1583C3C75F65653DC90DE8BEC3B599A3134A76C1A3A18C57"
+    },
+    {
+      "file": "lib/source-network.js",
+      "bytes": 21316,
+      "sha256": "B476E7648A3753649CFF37CF0AE1BD79631727639B3DF30E494438439D0A8B8B"
+    },
+    {
+      "file": "lib/subscription-reference.js",
+      "bytes": 2815,
+      "sha256": "3733A54AE2970FEC5900CAC8AA626E6EF221039B3818D34C93AECCC4FF658277"
+    },
+    {
+      "file": "lib/takeover.js",
+      "bytes": 48758,
+      "sha256": "59C0464CFCFCA9F664A9871593F2F47BCC17C6FBF1D9AE4D9978C879654CBE43"
+    },
+    {
+      "file": "lib/typert.host.js",
+      "bytes": 59,
+      "sha256": "BC86280BC50E60349EE89D7E23C018E6F2D199674AF7F14AC32482281D49DC06"
+    },
+    {
+      "file": "lib/typert.remote-client.js",
+      "bytes": 73,
+      "sha256": "1A8F43647DBB2341F80CCAE6A94472F8F57A40915440E0CC569EE80C7A7206F1"
+    },
+    {
+      "file": "package.json",
+      "bytes": 3558,
+      "sha256": "E694E56EE1EDAB075480D45F5EB6BD9C0A04D559738ABE5484C6135B2A5DA199"
+    },
+    {
+      "file": "README.md",
+      "bytes": 28847,
+      "sha256": "F9C53A9DCE890C27D319429FD2D0EF2B66B461D46EE2E74BE27A8BCAE4051683"
+    },
+    {
+      "file": "cordis.patch.yml",
+      "bytes": 74,
+      "sha256": "F40697CEF62FCC7D3D2F4316725A2ABD7865365D2EA0CD10D5D3EB16A0006E28"
+    }
+  ],
+  "extraction": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170c-reviewed-package",
+  "preservation": {
+    "passed": true,
+    "preservation": {
+      "passed": true,
+      "prior": {
+        "passed": true,
+        "prior": {
+          "passed": true,
+          "prior": {
+            "priorFrozenFilesVerified": 166,
+            "legacyStateBytes": 9114595,
+            "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+            "t07FrozenFilesVerified": 39,
+            "goAndCompatibleFrozenPackagesVerified": true,
+            "realModelRequests": 0
+          },
+          "records": [
+            {
+              "manifest": "t15-v0150a-failed-frozen.json",
+              "manifestSha256": "785d8ae8f3603d0927347e927c0ce4aa1149b476cf066a67bfe0545c6955115e",
+              "verified": 12,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150b-failed-frozen.json",
+              "manifestSha256": "1b349af29df7f4534c86f24948abf0ba43b21fd5c7f2043344c30e8018ff520e",
+              "verified": 19,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150c-partial-frozen.json",
+              "manifestSha256": "24b5a597f90bef9eda740179cff01a3a20714a08d8c87eccb94a988ab24f64d3",
+              "verified": 28,
+              "sealedLiveState": true
+            }
+          ],
+          "verifiedT15CapturedFiles": 59,
+          "sealedStateMatchesPreRestartManifest": true,
+          "liveControlledStateMatchesSealedBytes": true,
+          "liveStateScope": "isolated controlled profile intentionally reopened; full public Tasks/config/counts/default equality is separately required",
+          "realModelRequests": 0
+        },
+        "t15ValidationFiles": 59,
+        "t15InstalledFiles": 36,
+        "t15RepositoryCopies": 14,
+        "finalReviewReports": 2,
+        "realModelRequests": 0
+      },
+      "T17FrozenFileEntries": 495,
+      "T17ArchiveFiles": 50,
+      "T17PackageBytes": 233897,
+      "productionModelRequests": 0
+    },
+    "records": [
+      {
+        "manifest": "t18-v0170a-failed-frozen.json",
+        "manifestSha256": "2F3E6395CCF633382A9BA6BFF505DAF7D7EC83E115C8C7194F3125BFF3BA0F07",
+        "phase": "failed-controlled",
+        "filesVerified": 45
+      },
+      {
+        "manifest": "t18-v0170b-failed-frozen.json",
+        "manifestSha256": "D791CF1A194400ECF9AA59905250ED285347EC76C010A524DBBA297FD3F738DE",
+        "phase": "failed-controlled",
+        "filesVerified": 51
+      }
+    ],
+    "frozenT18FileEntries": 96,
+    "realModelRequests": 0
+  },
+  "realModelRequests": 0
+}

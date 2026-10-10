@@ -1,0 +1,24 @@
+✔ a persisted pool cannot grant a different connection or provider through state edits (40.7286ms)
+✔ a paused 0.1.2 profile migrates without resetting its version or task history (89.4167ms)
+✔ an enabled pool member serves a native task with coherent prompt, header and selection (55.9534ms)
+✔ an image task cannot dispatch to a candidate whose image capability is unknown (94.5701ms)
+✔ a prepared native request cannot dispatch a model disabled during middleware waiting (46.3619ms)
+✔ a prepared native request cannot dispatch a model removed during middleware waiting (38.8258ms)
+✔ a prepared native request cannot dispatch a model removed after stream creation but before consumption during middleware waiting (41.7067ms)
+✔ revocation during a prepared native retry preserves its first usage and prevents another dispatch (64.6399ms)
+✔ paused routing with an empty Router pool still permits a real native manual route (48.518ms)
+✔ removing a model during its real native stream preserves that request and blocks its following fixed request (61.0126ms)
+✔ a native retry keeps its assembled snapshot after matching pending selection was consumed (87.0497ms)
+✔ a native manual choice arriving during assembly is retained without a mismatched prompt or switch notice (71.5011ms)
+✔ a native choice arriving while pre-step waits cannot persist a switch notice for an unsent route (61.9478ms)
+✔ configuration changed during a native tool stays pending until the next coherent request (68.9685ms)
+✔ disabled and removed models cannot dispatch even with native pending or routing paused, and settings survive restart (104.8792ms)
+✔ fixed routing preserves conflicting and same-route native pending intent without duplicate notices (122.7336ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 16
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1687.8813

@@ -73,6 +73,8 @@ ChatGPT 有界验收最多创建一个 Task，并在统一派发入口限制最�
 
 公开调用为 `setRecoveryPolicy({enabled, automatic, alternativeCandidateId, maxTokens, forecastTokens})` 和 `resolveTaskRecovery({taskId, recoveryId, expectedRevision, action:'retry-current'|'stop'})`。Snapshot 的 `config.recovery` 与 `task.recovery` 可查看恢复状态及次数；live 人工等待按钮绑定精确 Task/recovery/revision。已结束或重启的旧 Task 无公开 resume，修复后发送新任务，不会复活旧任务。完整接口与受控范围见 [T18 合同](docs/implementation/t18-failure-recovery-contract.md) 和 [T18 源码证据](docs/implementation/t18-failure-recovery-source-evidence.md)。
 
+0.17.0 已通过588项完整原生测试、独立源码与安装双轴复审，以及目标 Desktop 的29个受控场景、实际界面停止操作和零新增请求的只读重启。验收含58个Task、134个Call、132次本地预设流；1次未知用量保留未知。当前任务列表仍为最近20条，完整历史由T19继续处理；生产恢复、第二账号、实际费用与模型效果保留最终交付门槛。见 [T18 安装证据](docs/implementation/t18-installed-host-evidence.md) 和 [原始归档](VERIFY/t18-final-review-archive.json)。
+
 ## 复用宿主连接
 
 **连接与模型 → 刷新宿主连接**只调用 DSH 的公开 provider、可配置目录和模型元数据契约。原生引用显示来源、可用状态、配置/授权未知项、能力置信度和精确候选身份；发现不会自动加入模型池。账号或计费来源无法由公开元数据证明时保持“未知”，目录可见也不表示推理、工具或图像请求已经验证。

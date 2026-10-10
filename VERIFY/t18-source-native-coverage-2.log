@@ -1,0 +1,85 @@
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (159.8663ms)
+✔ real native retry before-router cannot expand the Task recovery cap (111.2429ms)
+✔ real native retry after-router cannot expand the Task recovery cap (106.5963ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (108.6769ms)
+✖ an owned recovery budget wait rechecks live disabled before any new adapter entry (3056.9288ms)
+✖ an owned recovery budget wait rechecks live fixed before any new adapter entry (3037.057ms)
+✖ an owned recovery budget wait rechecks live policy before any new adapter entry (3045.5401ms)
+✖ an owned recovery budget wait rechecks live human before any new adapter entry (3053.6347ms)
+✖ an owned recovery budget wait rechecks live pending before any new adapter entry (3046.6129ms)
+✖ an owned recovery budget wait rechecks live stopped before any new adapter entry (3046.0109ms)
+✔ the raw native final request gate rechecks permission after its independent awaited observation (77.3456ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (61.2579ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (94.3111ms)
+✔ known consultation failure cannot bypass earlier unknown Task usage through manual recovery (183.5948ms)
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (91.1662ms)
+✔ recovery with an unknown configured money budget stops before another model entry (73.0861ms)
+✔ a takeover response with known usage and no partial content can recover without repeating the notice (283.2156ms)
+✔ consultation recovery keeps one intent and one advice while every attempt uses the same Task ledger (167.4408ms)
+✔ a live manual recovery has one CAS winner and a terminal Task cannot be revived (84.6346ms)
+✔ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (124.8561ms)
+✔ a completed tool with unproved operation semantics prevents ordinary recovery before a new model entry (78.1488ms)
+✔ ordinary recovery cannot repeat a completed side effect using a new native tool call id (115.017ms)
+✔ authorization, quota, partial and unknown failures retain their facts and cannot become difficulty or success (222.8294ms)
+✔ disabling routing during rate-limit backoff stops the owned Task rather than delegating native retry (71.3569ms)
+✔ credible rate-limit retry-after above the wait allowance pauses without sending early (52.6081ms)
+✔ Task recovery cap defeats a later outer always retry listener without a fourth dispatch (91.4994ms)
+✔ actual controlled OAuth refresh rejection records authorization recovery and cannot revive the ended Task (204.1156ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 21
+ℹ fail 6
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 22637.2481
+
+✖ failing tests:
+
+test at test\t18.controls.test.mjs:48:86
+✖ an owned recovery budget wait rechecks live disabled before any new adapter entry (3056.9288ms)
+  Error: The public Router state did not reach the expected live seam
+      at waitForSnapshot (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:75:9)
+      at async TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:56:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at test\t18.controls.test.mjs:48:86
+✖ an owned recovery budget wait rechecks live fixed before any new adapter entry (3037.057ms)
+  Error: The public Router state did not reach the expected live seam
+      at waitForSnapshot (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:75:9)
+      at async TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:56:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at test\t18.controls.test.mjs:48:86
+✖ an owned recovery budget wait rechecks live policy before any new adapter entry (3045.5401ms)
+  Error: The public Router state did not reach the expected live seam
+      at waitForSnapshot (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:75:9)
+      at async TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:56:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at test\t18.controls.test.mjs:48:86
+✖ an owned recovery budget wait rechecks live human before any new adapter entry (3053.6347ms)
+  Error: The public Router state did not reach the expected live seam
+      at waitForSnapshot (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:75:9)
+      at async TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:56:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at test\t18.controls.test.mjs:48:86
+✖ an owned recovery budget wait rechecks live pending before any new adapter entry (3046.6129ms)
+  Error: The public Router state did not reach the expected live seam
+      at waitForSnapshot (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:75:9)
+      at async TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:56:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)
+
+test at test\t18.controls.test.mjs:48:86
+✖ an owned recovery budget wait rechecks live stopped before any new adapter entry (3046.0109ms)
+  Error: The public Router state did not reach the expected live seam
+      at waitForSnapshot (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:75:9)
+      at async TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:56:21)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

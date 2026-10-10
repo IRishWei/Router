@@ -1,0 +1,9 @@
+# T18 local filesystem adjustment after immutable installed round e
+
+Round t18-v0170e completed nine scenario assertions. During the next independent prime Task, a fixture-side failure produced an UNKNOWN execution failure and an EPERM auxiliary failure before the intended operation-unproved scenario. The failed round remains failed-controlled; its 58-entry frozen manifest SHA256 is 5D06B5A24029FA46E6A393DF7B8EBAB9C086596F0C51124127CFA5DBCF43050C.
+
+Read-only diagnosis found both counter JSON files valid: current requests=39, pending requests=40, and both nativeSeams=50. The complete pending title record was written but had not replaced the current counter. This supports a rename failure rather than malformed JSON. The exact original recorder source was then extracted into a fresh no-Host/no-model harness. An owned Windows FileStream opened the destination without delete-sharing for 40ms. Both red1 and red2 failed deterministically with EPERM syscall=rename and zero committed events. Raw receipts are t18-counter-lock-red1.json and red2.json; no previous profile was reopened.
+
+The next fixture retains serialized atomic counter writes. Only an EPERM during the final local-file rename may wait 20ms up to four times (80ms total). Each such wait is recorded in recorderIoRetries. Pending data is complete and retained throughout; other errors and exhaustion still fail. This does not repeat an Adapter/model stream or tool action and does not expand any recovery/budget/deadline limit. Green harness receipts must commit exactly one event before a fresh desktop launch is permitted. The identity of the transient file-lock holder in round e is not proven.
+
+Earlier failed profiles, original fixture sources and execution captures remain unchanged. Router source and the reviewed 0.17.0 package remain unchanged. Preset model responses, known usage, explicit unknown usage and all model-call bounds remain unchanged. Production model requests remain zero.

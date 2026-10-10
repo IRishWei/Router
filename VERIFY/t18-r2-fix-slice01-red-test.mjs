@@ -1,0 +1,52 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
+import { prepareCoordination, submitTask, assertAccounted, coordinationPrompt } from './t18-harness.mjs';
+
+test('a real consultation recovery obeys the smaller recovery cap with one owned intent and one advice', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t18-consult-recovery-cap-'));
+  let ctx;
+  try {
+    const fixture = await prepareCoordination(home, { policy: { maxTokens: 64, forecastTokens: 4096 } }); ctx = fixture.ctx;
+    await ctx.router.setCoordinationPolicy({ ...(await ctx.router.snapshot()).config.coordination, maxTokens: 128, forecastTokens: 8192 });
+    fixture.advisor.failures = [{ code: 'CONNECTION' }];
+    const task = await submitTask(ctx, fixture.sessionId, coordinationPrompt);
+    assert.equal(task.lifecycle, 'completed', task.recovery?.reason);
+    assert.equal(task.acceptance.verdict, 'passed');
+    assert.deepEqual(fixture.advisor.requests.map(request => request.maxTokens), [128, 64]);
+    assert.equal(task.recovery.maxTokens, 64);
+    assert.equal(task.recovery.forecastTokens, 4096);
+    assert.equal(task.recovery.phase, 'consultation');
+    assert.equal(task.recovery.attempts, 1);
+    const [original, retry] = task.calls.filter(call => call.purpose === 'consultation');
+    assert.equal(original.reservation.tokens.output, 128);
+    assert.ok(original.reservation.tokens.total <= 8192);
+    assert.equal(original.snapshot.maxTokens, 128);
+    assert.equal(retry.reservation.tokens.output, 64);
+    assert.equal(retry.reservation.tokens.input, 4032);
+    assert.equal(retry.reservation.tokens.total, 4096);
+    assert.equal(retry.snapshot.maxTokens, 64);
+    assert.equal(task.recovery.finalRequest.maxTokens, 64);
+    assert.equal(task.recovery.finalRequest.prepared.config.maxTokens, 64);
+    assert.equal(task.recovery.finalRequest.callId, retry.id);
+    assert.equal(task.recovery.finalRequest.ownedRequest, true);
+    assert.equal(task.recovery.finalRequest.nativeRequest, false);
+    assert.equal(isAgentLoopRequest(fixture.advisor.requests[1]), false);
+    assert.ok(Object.isFrozen(fixture.advisor.requests[1]));
+    assert.deepEqual(fixture.advisor.requests[1].messages, fixture.advisor.requests[0].messages);
+    assert.equal(task.coordination.consultationAttempts, 1);
+    const consultation = task.coordination.episodes[0].consultation;
+    assert.equal(consultation.state, 'advice-delivered');
+    assert.deepEqual(consultation.callIds, [original.id, retry.id]);
+    assert.equal(consultation.callId, retry.id);
+    assert.ok([original, retry].every(call => call.consultationIntentCallId === original.id));
+    assert.equal(ctx.agents.get(fixture.sessionId).session.deriveMessages().filter(message => message.source?.kind === 'router-consultation').length, 1);
+    assert.equal(task.calls.length, 5);
+    assert.equal(task.ledger.tokens.total, 60);
+    assert.equal(fixture.nativeRequests.length, 3);
+    assertAccounted(task, [fixture.main, fixture.advisor]);
+  } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
+});

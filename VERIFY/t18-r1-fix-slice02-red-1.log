@@ -1,0 +1,32 @@
+✔ takeover recovery honors the smaller takeover output allowance throughout the real Native Task (360.1375ms)
+✖ takeover recovery honors the smaller recovery output and forecast allowances without changing the original takeover (228.1254ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1127.1705
+
+✖ failing tests:
+
+test at test\t18.caps.test.mjs:43:1
+✖ takeover recovery honors the smaller recovery output and forecast allowances without changing the original takeover (228.1254ms)
+  AssertionError [ERR_ASSERTION]: {"reason":"RECOVERY_PREPARED_MODEL_CHANGED","entries":1}
+  + actual - expected
+  
+  + 'paused'
+  - 'completed'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.caps.test.mjs:58:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'paused',
+    expected: 'completed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+runExit=1 durationMs=1215

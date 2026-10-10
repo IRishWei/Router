@@ -1,0 +1,5 @@
+warning: in the working copy of 'docs/implementation/t18-failure-recovery-contract.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'docs/implementation/t18-failure-recovery-source-evidence.md', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/index.mjs', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'test/t18.controls.test.mjs', LF will be replaced by CRLF the next time Git touches it
+runExit=0 durationMs=103

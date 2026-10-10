@@ -1,0 +1,52 @@
+{
+  "source": "5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7",
+  "base": "547b8b188036a43f4f5627f4cb103598c0c9d3f0",
+  "version": "0.17.0",
+  "label": "t18-v0170g",
+  "phase": "installed-independent-review-complete",
+  "standards": {
+    "passed": true,
+    "documentedViolations": 0,
+    "possibleSmells": 0,
+    "report": {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-installed-standards-r1.md",
+      "bytes": 2409,
+      "sha256": "4F6B0BB1AEFD1CA4909FB36A9BE2276F486FB8FA1085FF650D10CD990E82431D"
+    }
+  },
+  "spec": {
+    "passed": true,
+    "missingOrPartial": 0,
+    "scopeCreep": 0,
+    "wrongImplementation": 0,
+    "report": {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-installed-spec-r1.md",
+      "bytes": 2232,
+      "sha256": "FE53845DE577037161006E1BE81A82CECF06E79D7632272050FB9D2DB117C5C2"
+    }
+  },
+  "receipts": [
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-final-reviewed-source.json",
+      "bytes": 6028,
+      "sha256": "978305B120AF0DC22B8DB341E43BE54EA1EEE9DDBD89BB32604083B4122D22FE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-installed-review-r1-packet.json",
+      "bytes": 30830,
+      "sha256": "B0C11901419F474AD8A197CE732D8895BE3334982B6C25AA9EF164C4482BB14D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-desktop-summary.json",
+      "bytes": 112580,
+      "sha256": "41ED67143C3CE1AE1D67F259E62B9218A0B0EA038824223D230EA984BF67114A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-validation-frozen.json",
+      "bytes": 94692,
+      "sha256": "306C5B526250407920384068CDF310D268AD7E4AF209CDE8162B3224777E0D48"
+    }
+  ],
+  "productionModelRequests": 0,
+  "note": "Root read both final independent reports and verified exact bytes and SHA256. Original frozen phases are not rewritten. Controlled development boundary only; real-provider final gates remain open."
+}

@@ -1,0 +1,54 @@
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (136.5523ms)
+✔ real native retry before-router cannot expand the Task recovery cap (108.5477ms)
+✔ real native retry after-router cannot expand the Task recovery cap (98.1055ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (104.9395ms)
+✔ an owned recovery budget wait rechecks live disabled before any new adapter entry (85.5946ms)
+✔ an owned recovery budget wait rechecks live fixed before any new adapter entry (67.4506ms)
+✔ an owned recovery budget wait rechecks live policy before any new adapter entry (70.7836ms)
+✔ an owned recovery budget wait rechecks live human before any new adapter entry (76.0689ms)
+✔ an owned recovery budget wait rechecks live pending before any new adapter entry (70.513ms)
+✔ an owned recovery budget wait rechecks live stopped before any new adapter entry (76.9931ms)
+✔ the raw native final request gate rechecks permission after its independent awaited observation (73.2307ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (63.567ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (110.0573ms)
+✔ known consultation failure cannot bypass earlier unknown Task usage through manual recovery (175.1448ms)
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (86.8474ms)
+✔ recovery with an unknown configured money budget stops before another model entry (62.9657ms)
+✔ a takeover response with known usage and no partial content can recover without repeating the notice (280.431ms)
+✔ consultation recovery keeps one intent and one advice while every attempt uses the same Task ledger (157.9908ms)
+✔ a live manual recovery has one CAS winner and a terminal Task cannot be revived (78.8739ms)
+✖ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (75.982ms)
+✔ a completed tool with unproved operation semantics prevents ordinary recovery before a new model entry (75.5129ms)
+✔ ordinary recovery cannot repeat a completed side effect using a new native tool call id (109.8865ms)
+✔ authorization, quota, partial and unknown failures retain their facts and cannot become difficulty or success (228.2822ms)
+✔ disabling routing during rate-limit backoff stops the owned Task rather than delegating native retry (71.3924ms)
+✔ credible rate-limit retry-after above the wait allowance pauses without sending early (60.428ms)
+✔ Task recovery cap defeats a later outer always retry listener without a fourth dispatch (97.5405ms)
+✔ actual controlled OAuth refresh rejection records authorization recovery and cannot revive the ended Task (183.1135ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 26
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4635.9424
+
+✖ failing tests:
+
+test at test\t18.integration.test.mjs:148:1
+✖ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (75.982ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  0 !== 2
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.integration.test.mjs:161:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 2,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

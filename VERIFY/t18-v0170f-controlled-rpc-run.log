@@ -1,0 +1,101 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert(retry && stop && !retry.props.disabled && !stop.props.disabled)
+
+    at file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170f-controlled-executed-renderer.mjs:45:5 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.19.0
+node:internal/errors:985
+  const err = new Error(message);
+              ^
+
+Error: Command failed: C:\Program Files\nodejs\node.exe C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170f-controlled-executed-renderer.mjs controlled t18-v0170f --live
+node:internal/modules/run_main:107
+
+    triggerUncaughtException(
+
+    ^
+
+
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+
+
+  assert(retry && stop && !retry.props.disabled && !stop.props.disabled)
+
+
+
+    at file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170f-controlled-executed-renderer.mjs:45:5 {
+
+  generatedMessage: true,
+
+  code: 'ERR_ASSERTION',
+
+  actual: undefined,
+
+  expected: true,
+
+  operator: '==',
+
+  diff: 'simple'
+
+}
+
+
+
+Node.js v24.19.0
+
+
+    at genericNodeError (node:internal/errors:985:15)
+    at wrappedFn (node:internal/errors:539:14)
+    at checkExecSyncError (node:child_process:942:11)
+    at execFileSync (node:child_process:978:15)
+    at run (file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170f-controlled-executed-rpc.mjs:132:22)
+    at async file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170f-controlled-executed-rpc.mjs:243:37 {
+  status: 1,
+  signal: null,
+  output: [
+    null,
+    Buffer(0) [Uint8Array] [],
+    Buffer(534) [Uint8Array] [
+      110, 111, 100, 101,  58, 105, 110, 116, 101, 114, 110,  97,
+      108,  47, 109, 111, 100, 117, 108, 101, 115,  47, 114, 117,
+      110,  95, 109,  97, 105, 110,  58,  49,  48,  55,  13,  10,
+       32,  32,  32,  32, 116, 114, 105, 103, 103, 101, 114,  85,
+      110,  99,  97, 117, 103, 104, 116,  69, 120,  99, 101, 112,
+      116, 105, 111, 110,  40,  13,  10,  32,  32,  32,  32,  94,
+       13,  10,  13,  10,  65, 115, 115, 101, 114, 116, 105, 111,
+      110,  69, 114, 114, 111, 114,  32,  91,  69,  82,  82,  95,
+       65,  83,  83,  69,
+      ... 434 more items
+    ]
+  ],
+  pid: 20320,
+  stdout: Buffer(0) [Uint8Array] [],
+  stderr: Buffer(534) [Uint8Array] [
+    110, 111, 100, 101,  58, 105, 110, 116, 101, 114, 110,  97,
+    108,  47, 109, 111, 100, 117, 108, 101, 115,  47, 114, 117,
+    110,  95, 109,  97, 105, 110,  58,  49,  48,  55,  13,  10,
+     32,  32,  32,  32, 116, 114, 105, 103, 103, 101, 114,  85,
+    110,  99,  97, 117, 103, 104, 116,  69, 120,  99, 101, 112,
+    116, 105, 111, 110,  40,  13,  10,  32,  32,  32,  32,  94,
+     13,  10,  13,  10,  65, 115, 115, 101, 114, 116, 105, 111,
+    110,  69, 114, 114, 111, 114,  32,  91,  69,  82,  82,  95,
+     65,  83,  83,  69,
+    ... 434 more items
+  ]
+}
+
+Node.js v24.19.0

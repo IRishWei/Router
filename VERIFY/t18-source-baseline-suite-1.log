@@ -1,0 +1,25 @@
+
+> @irishwei/dsh-router@0.16.0 pretest
+> npm run build
+
+
+> @irishwei/dsh-router@0.16.0 build
+> node scripts/build.mjs
+
+
+> @irishwei/dsh-router@0.16.0 test
+> node --test --test-concurrency=4 test/*.test.mjs --test-concurrency=1
+
+✔ the native Cordis and rc.2 renderer mount the Router settings and RPC task records (85.1009ms)
+✔ Go sends its exact endpoint, stable session and output cap without OAuth or Zen fallback (3.8241ms)
+✔ Go rejects missing sessions, excessive output, sampling overrides and unknown models before dispatch (1.7372ms)
+✔ Go preserves errors/partial usage, never retries, and removes upstream secrets from errors (2.5235ms)
+✔ Go revalidates prepared identity and handles function-call history without truncation (7.8978ms)
+✔ installed Go settings use native RPC codecs, clear key input and show only sanitized errors (76.5374ms)
+✔ Go waiting detection offers stop without a generic budget extension entry (19.8919ms)
+✔ Go full native detection accounts execution/title, stable sessions, unknown money, restart and permanent claim (282.77ms)
+✔ Go runs native tools in one Task and each continuation carries its conversation ID (118.6371ms)
+✔ Go failed/partial requests preserve unknowns, do not retry and reject credential changes (380.1784ms)
+✔ Go requires balance attestation and finite budgets and reserves full input before sending (87.0458ms)
+✔ Go detection permanently stops after two dispatched calls even if the model keeps requesting tools (120.6788ms)
+✔ the native settings mount manages pool and fixed routing, executes a task and refreshes the same record (294.6119ms)

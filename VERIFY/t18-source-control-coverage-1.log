@@ -1,0 +1,42 @@
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (138.32ms)
+✔ real native retry before-router cannot expand the Task recovery cap (111.929ms)
+✔ real native retry after-router cannot expand the Task recovery cap (102.8594ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (100.174ms)
+✔ an owned recovery budget wait rechecks live disabled before any new adapter entry (85.5627ms)
+✔ an owned recovery budget wait rechecks live fixed before any new adapter entry (70.8415ms)
+✔ an owned recovery budget wait rechecks live policy before any new adapter entry (71.1675ms)
+✔ an owned recovery budget wait rechecks live human before any new adapter entry (74.9528ms)
+✔ an owned recovery budget wait rechecks live pending before any new adapter entry (71.4982ms)
+✔ an owned recovery budget wait rechecks live stopped before any new adapter entry (78.688ms)
+✖ the raw native final request gate rejects an outer middleware history loss before dispatch (65.9657ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (68.0748ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (101.46ms)
+ℹ tests 13
+ℹ suites 0
+ℹ pass 12
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1780.0783
+
+✖ failing tests:
+
+test at test\t18.controls.test.mjs:75:1
+✖ the raw native final request gate rejects an outer middleware history loss before dispatch (65.9657ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'UNKNOWN'
+  - 'RECOVERY_FINAL_REQUEST_CHANGED'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.controls.test.mjs:88:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'UNKNOWN',
+    expected: 'RECOVERY_FINAL_REQUEST_CHANGED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

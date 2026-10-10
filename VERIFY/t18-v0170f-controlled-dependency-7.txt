@@ -1,0 +1,34 @@
+$ErrorActionPreference='Stop'
+$routerRoot='E:/GPT/Router项目'
+$routerNotes='C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009'
+$routerGate=Get-Content -LiteralPath (Join-Path $routerNotes 't18-final-reviewed-source.json') -Raw | ConvertFrom-Json
+if (-not ($routerGate.standards.passed -and $routerGate.spec.passed -and $routerGate.merger.passed)) { throw 'Independent review and merger gates are required' }
+if ($routerGate.source -notmatch '^[a-f0-9]{40}$' -or $routerGate.version -notmatch '^0\.17\.\d$') { throw 'Invalid reviewed source identity' }
+$routerVersion=$routerGate.version
+$routerPackage=Join-Path $routerRoot ('artifacts/irishwei-dsh-router-'+$routerVersion+'.tgz')
+$routerPackLog=Join-Path $routerNotes ('t18-pack-reviewed-'+$routerVersion+'.log')
+$routerPackErrorLog=Join-Path $routerNotes ('t18-pack-reviewed-'+$routerVersion+'-stderr.log')
+foreach($routerPath in @($routerPackage,$routerPackLog,$routerPackErrorLog)) {
+ if (Test-Path -LiteralPath $routerPath) { throw 'Package and receipt must be fresh' }
+}
+Push-Location -LiteralPath $routerRoot
+try {
+ if ((& git rev-parse HEAD).Trim() -ne $routerGate.source) { throw 'Reviewed integration source changed' }
+ if ($LASTEXITCODE -ne 0) { throw 'Git source verification failed' }
+ if (& git status --short) { throw 'Integration source must be clean' }
+ if ($LASTEXITCODE -ne 0) { throw 'Git cleanliness verification failed' }
+ foreach($routerReceipt in @($routerGate.standards.report,$routerGate.spec.report)+@($routerGate.merger.receipts)) {
+  if (-not (Test-Path -LiteralPath $routerReceipt.path)) { throw 'Independent receipt missing' }
+  if ((Get-FileHash -LiteralPath $routerReceipt.path -Algorithm SHA256).Hash -ne $routerReceipt.sha256) { throw 'Independent receipt changed' }
+ }
+ $routerSuite=[IO.File]::ReadAllText($routerGate.merger.suitePath)
+ $routerCount=[int]$routerGate.merger.tests
+ if ($routerCount -le 535 -or $routerSuite -notmatch ('tests '+$routerCount+'(?:\s|$)') -or $routerSuite -notmatch ('pass '+$routerCount+'(?:\s|$)') -or $routerSuite -notmatch 'fail 0(?:\s|$)') { throw 'Independent merged full suite did not pass' }
+ & node.exe (Join-Path $routerNotes 't18-label-preservation.mjs')
+ if ($LASTEXITCODE -ne 0) { throw 'Prior evidence preservation failed' }
+ & npm.cmd pack --offline --ignore-scripts --json --pack-destination artifacts 1> $routerPackLog 2> $routerPackErrorLog
+ if ($LASTEXITCODE -ne 0) { throw ('Reviewed package failed; receipt retained at '+$routerPackLog) }
+ $routerPack=[IO.File]::ReadAllText($routerPackLog) | ConvertFrom-Json
+ if ($routerPack[0].filename -ne ('irishwei-dsh-router-'+$routerVersion+'.tgz') -or $routerPack[0].version -ne $routerVersion) { throw 'Unexpected package identity' }
+ [ordered]@{packed=$true;version=$routerVersion;source=$routerGate.source;realModelRequests=0} | ConvertTo-Json -Compress
+} finally { Pop-Location }

@@ -1,0 +1,11 @@
+✔ stopping a real recovery budget wait closes the recovery before terminal history is reopened (152.1925ms)
+ℹ {"before":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"after":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"requests":0,"tools":0}
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 686.1869
+COMMAND_EXIT=0 DURATION_SECONDS=0.762108

@@ -1,0 +1,38 @@
+✔ compatible native allocation retains its initial ceiling and uses the smaller recovery allowance for the new Call (134.7577ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"maxTokens":64,"actualMaxTokens":[1024,64],"calls":2}
+✔ compatible owned consultation allocation preserves the consultation cap before recovery and the smaller frozen cap afterward (198.2802ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"recoveryMaxTokens":64,"actualMaxTokens":[128,64]}
+✔ execution recovery cannot enlarge the original native request allowance even when its recovery policy is larger (84.4962ms)
+ℹ {"lifecycle":"completed","recoveryMaxTokens":1024,"actualMaxTokens":[1024,1024]}
+✖ consultation recovery freezes the actual prepared source ceiling when both logical policies allow more (138.6521ms)
+ℹ {"lifecycle":"paused","recoveryReason":"RECOVERY_FAILURE_UNSAFE","recoveryMaxTokens":2048,"actualMaxTokens":[1024]}
+ℹ tests 4
+ℹ suites 0
+ℹ pass 3
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1078.1255
+
+✖ failing tests:
+
+test at test\t18.allocation-caps.test.mjs:104:1
+✖ consultation recovery freezes the actual prepared source ceiling when both logical policies allow more (138.6521ms)
+  AssertionError [ERR_ASSERTION]: RECOVERY_FAILURE_UNSAFE
+  + actual - expected
+  
+  + 'paused'
+  - 'completed'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.allocation-caps.test.mjs:115:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 'paused',
+    expected: 'completed',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+COMMAND_EXIT=1 DURATION_SECONDS=1.1523807

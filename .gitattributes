@@ -4,3 +4,6 @@
 
 # Preserve T17 raw receipt bytes, including their original line endings and whitespace.
 /VERIFY/t17-* -text -whitespace
+
+# Preserve T18 raw receipt bytes, including their original line endings and whitespace.
+/VERIFY/t18-* -text -whitespace

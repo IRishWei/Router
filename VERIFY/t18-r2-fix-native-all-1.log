@@ -1,0 +1,69 @@
+✔ compatible native allocation retains its initial ceiling and uses the smaller recovery allowance for the new Call (159.7211ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"maxTokens":64,"actualMaxTokens":[1024,64],"calls":2}
+✔ compatible owned consultation allocation preserves the consultation cap before recovery and the smaller frozen cap afterward (205.358ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"recoveryMaxTokens":64,"actualMaxTokens":[128,64]}
+✔ execution recovery cannot enlarge the original native request allowance even when its recovery policy is larger (92.0168ms)
+ℹ {"lifecycle":"completed","recoveryMaxTokens":1024,"actualMaxTokens":[1024,1024]}
+✔ consultation recovery freezes the actual prepared source ceiling when both logical policies allow more (188.1514ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"recoveryMaxTokens":1024,"actualMaxTokens":[1024,1024]}
+✔ takeover recovery honors the smaller takeover output allowance throughout the real Native Task (399.3565ms)
+✔ the smaller takeover forecast reserves only its allowance and retains the original native image within the Task budget (421.3381ms)
+✔ takeover recovery honors the smaller recovery output and forecast allowances without changing the original takeover (264.2596ms)
+✔ real Renderer and strict public RPC opt into recovery, resolve one live Task and stop another without a terminal resume button (368.4684ms)
+✔ a real consultation recovery obeys the smaller recovery cap with one owned intent and one advice (276.725ms)
+✔ a copied consultation recovery request cannot inherit the original owned request identity (154.1034ms)
+ℹ {"pauseReason":"RECOVERY_FAILURE_UNSAFE","recoveryState":"paused","recoveryReason":"RECOVERY_FAILURE_UNSAFE","calls":[{"purpose":"execution","status":"completed","dispatched":true},{"purpose":"execution","status":"completed","dispatched":true},{"purpose":"consultation","status":"failed","dispatched":true,"failureCode":"CONNECTION"},{"purpose":"consultation","status":"failed","dispatched":false,"failureCode":"MODEL_NOT_FOUND"}]}
+✔ a real consultation recovery keeps the smaller consultation cap and forecast within the finite Task budget (178.7347ms)
+✔ a public lifecycle plugin exception after a recovered response pauses the Task without erasing its output or usage (131.6879ms)
+✔ ambiguous late ancestry spanning two real native Tasks cannot run a child outside the recovery guard (152.9203ms)
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (77.1542ms)
+✔ real native retry before-router cannot expand the Task recovery cap (105.3163ms)
+✔ real native retry after-router cannot expand the Task recovery cap (107.9388ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (97.4482ms)
+✔ an owned recovery budget wait rechecks live disabled before any new adapter entry (70.5043ms)
+✔ an owned recovery budget wait rechecks live fixed before any new adapter entry (77.7807ms)
+✔ an owned recovery budget wait rechecks live policy before any new adapter entry (75.6512ms)
+✔ an owned recovery budget wait rechecks live human before any new adapter entry (71.6287ms)
+✔ an owned recovery budget wait rechecks live pending before any new adapter entry (81.3932ms)
+✔ an owned recovery budget wait rechecks live stopped before any new adapter entry (75.4172ms)
+✔ the raw native final request gate rechecks permission after its independent awaited observation (84.3435ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (61.7996ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (97.0564ms)
+✔ execution, consultation and takeover share one recovery allowance instead of resetting it per phase (372.2535ms)
+✔ a real native title is accounted alongside all recovery Calls without changing its purpose or execution owner (104.1803ms)
+✔ known consultation failure cannot bypass earlier unknown Task usage through manual recovery (118.2218ms)
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (84.7996ms)
+✔ recovery with an unknown configured money budget stops before another model entry (64.8543ms)
+✔ a takeover response with known usage and no partial content can recover without repeating the notice (248.6343ms)
+✔ consultation recovery keeps one intent and one advice while every attempt uses the same Task ledger (149.7233ms)
+✔ a live manual recovery has one CAS winner and a terminal Task cannot be revived (84.775ms)
+✔ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (139.3292ms)
+✔ a completed tool with unproved operation semantics prevents ordinary recovery before a new model entry (75.7955ms)
+✔ ordinary recovery cannot repeat a completed side effect using a new native tool call id (111.3929ms)
+✔ authorization, quota, partial and unknown failures retain their facts and cannot become difficulty or success (265.2772ms)
+✔ disabling routing during rate-limit backoff stops the owned Task rather than delegating native retry (56.6181ms)
+✔ credible rate-limit retry-after above the wait allowance pauses without sending early (52.2955ms)
+✔ Task recovery cap defeats a later outer always retry listener without a fourth dispatch (119.9415ms)
+✔ actual controlled OAuth refresh rejection records authorization recovery and cannot revive the ended Task (183.2765ms)
+✔ a full native recovery refuses unsafe alternative billing without a target model entry (185.6048ms)
+✔ a full native recovery refuses unsafe alternative unknown-account without a target model entry (120.2451ms)
+✔ a full native recovery refuses unsafe alternative protocol without a target model entry (115.5614ms)
+✔ a full native recovery refuses unsafe alternative capacity without a target model entry (111.9248ms)
+✔ a full native recovery refuses unsafe alternative fixed without a target model entry (140.2293ms)
+✔ ordinary recovery retains the exact image attachment and proves declared image pricing (162.0404ms)
+✔ ordinary recovery retains the exact image attachment and refuses unknown image pricing (85.4621ms)
+✔ two explicit manual retry-current actions cannot silently dispatch the configured alternative (157.604ms)
+✔ a real recovery state write failure stops dispatch and releases reservations while retaining known usage (50.5168ms)
+✔ stopping a real recovery budget wait closes the recovery before terminal history is reopened (153.3883ms)
+ℹ {"before":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"after":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"requests":0,"tools":0}
+✔ a live manual stop ends its awaited recovery with the actual canceled reason and no retry (83.6049ms)
+ℹ {"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_CANCELED","requests":1,"calls":1}
+ℹ tests 53
+ℹ suites 0
+ℹ pass 53
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 12927.613
+COMMAND_EXIT=0 DURATION_SECONDS=13.0293597

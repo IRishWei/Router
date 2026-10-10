@@ -1,0 +1,21 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
++ actual - expected
+
++ 'C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-build-r3.log'
+- 'C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-build-r3.log'
+
+    at select (file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-review-archive-driver-before-path-normalization.mjs:44:36)
+    at file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-review-archive-driver-before-path-normalization.mjs:90:5 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 'C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-build-r3.log',
+  expected: 'C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-build-r3.log',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

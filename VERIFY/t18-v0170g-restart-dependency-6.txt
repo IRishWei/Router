@@ -1,0 +1,64 @@
+import assert from 'node:assert/strict';
+import { readFile, writeFile, mkdir, access } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { join, resolve, relative } from 'node:path';
+import { verifyFrozenT18Labels } from './t18-label-preservation.mjs';
+
+const root = 'E:/GPT/Router项目';
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const notes = join(directory, 'implement-spec-go-20261009');
+const label = process.argv[2], version = process.argv[3], source = process.argv[4], sourceContractPath = process.argv[5];
+assert(/^t18-v017\d[a-z]$/.test(label));
+assert(/^0\.17\.\d$/.test(version));
+assert(/^[a-f0-9]{40}$/.test(source));
+assert(/^docs\/implementation\/t18-[a-z-]+\.md$/.test(sourceContractPath));
+const gatePath = join(notes, 't18-final-reviewed-source.json');
+const gateBytes = await readFile(gatePath);
+const gate = JSON.parse(gateBytes);
+assert(gate.standards.passed && gate.spec.passed && gate.merger.passed);
+assert.equal(gate.source, source);
+assert.equal(gate.version, version);
+assert.equal(execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8', windowsHide: true }).trim(), source);
+const hash = bytes => createHash('sha256').update(bytes).digest('hex').toUpperCase();
+for (const receipt of [gate.standards.report, gate.spec.report, ...gate.merger.receipts]) {
+  const bytes = await readFile(receipt.path);
+  assert.equal(hash(bytes), receipt.sha256);
+  assert.equal(bytes.length, receipt.bytes);
+}
+const preservation = await verifyFrozenT18Labels();
+const packagePath = join(root, 'artifacts', `irishwei-dsh-router-${version}.tgz`);
+const packageBytes = await readFile(packagePath);
+const contractPath = join(directory, label + '-reviewed-contract.md');
+const extract = join(directory, label + '-reviewed-package');
+const manifestPath = join(directory, label + '-package-identity.json');
+for (const path of [contractPath, extract, manifestPath]) {
+  try { await access(path); throw new Error('Reviewed capture already exists: ' + path); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+}
+const entries = execFileSync('tar.exe', ['-tzf', packagePath], { encoding: 'utf8', windowsHide: true }).trim().split(/\r?\n/);
+assert(entries.length > 0 && entries.length < 100);
+assert.equal(new Set(entries).size, entries.length);
+for (const entry of entries) assert(/^package\/[A-Za-z0-9._/-]+$/.test(entry) && !entry.split('/').includes('..'));
+await mkdir(extract);
+execFileSync('tar.exe', ['-xzf', packagePath, '-C', extract], { windowsHide: true });
+const metadata = JSON.parse(await readFile(join(extract, 'package/package.json'), 'utf8'));
+assert.equal(metadata.name, '@irishwei/dsh-router');
+assert.equal(metadata.version, version);
+const files = [];
+for (const entry of entries.filter(value => !value.endsWith('/'))) {
+  const file = entry.slice('package/'.length), path = resolve(extract, entry);
+  assert(!relative(resolve(extract), path).startsWith('..'));
+  const bytes = await readFile(path);
+  files.push({ file, bytes: bytes.length, sha256: hash(bytes) });
+  assert.deepEqual(bytes, await readFile(join(root, file)), 'Packed file differs from the reviewed integration build');
+}
+const sourceContract = execFileSync('git', ['show', source + ':' + sourceContractPath], { cwd: root, windowsHide: true });
+const contractBytes = Buffer.concat([Buffer.from(`# Controlled validation source contract\n\nReviewed source: ${source}. Version: ${version}. Label: ${label}.\nPublic RPC uses setRecoveryPolicy({policy:{...}}) and resolveTaskRecovery({request:{...}}); the Host service accepts the inner value.\nSource fixtures and the Desktop fixture retain their own separately declared preset usage/counts.\nThis capture does not certify Desktop execution, production recovery, billing or model quality.\n\n`), sourceContract]);
+await writeFile(contractPath, contractBytes, { flag: 'wx' });
+const manifest = { version, reviewedSourceSha: source, path: packagePath, bytes: packageBytes.length, sha256: hash(packageBytes),
+  reviewGate: { path: gatePath, bytes: gateBytes.length, sha256: hash(gateBytes) },
+  reviewedContract: { path: contractPath, bytes: contractBytes.length, sha256: hash(contractBytes), sourcePath: sourceContractPath, sourceBytes: sourceContract.length, sourceSha256: hash(sourceContract) },
+  files, extraction: extract, preservation, realModelRequests: 0 };
+await writeFile(manifestPath, JSON.stringify(manifest, null, 2), { flag: 'wx' });
+console.log(JSON.stringify({ version, reviewedSourceSha: source, bytes: manifest.bytes, sha256: manifest.sha256, files: files.length, realModelRequests: 0 }));

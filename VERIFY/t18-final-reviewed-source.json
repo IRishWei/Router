@@ -1,0 +1,147 @@
+{
+  "source": "5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7",
+  "version": "0.17.0",
+  "base": "547b8b188036a43f4f5627f4cb103598c0c9d3f0",
+  "standards": {
+    "passed": true,
+    "documentedViolations": 0,
+    "possibleSmells": 0,
+    "report": {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-standards-r3.md",
+      "bytes": 2193,
+      "sha256": "C300F2886CC31B5299F2A112BC377795250C3E57D332D6468FFC26189FDF2DD5"
+    }
+  },
+  "spec": {
+    "passed": true,
+    "missingOrPartial": 0,
+    "scopeCreep": 0,
+    "wrongImplementation": 0,
+    "report": {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-spec-r3.md",
+      "bytes": 1892,
+      "sha256": "36F0977EEA097FF24F90D25363347BE60AA8F606EAF68CA3E8B804615DF443DF"
+    }
+  },
+  "merger": {
+    "passed": true,
+    "tests": 588,
+    "suitePath": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-suite-r3.log",
+    "receipts": [
+      {
+        "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merger-r3.json",
+        "bytes": 5407,
+        "sha256": "4F3162BB73A03E65892CD80A2D9DAB3065C5EFF04FCF212DA75AC722151962E6"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-suite-r3.log",
+        "bytes": 64701,
+        "sha256": "2713B85933BEBD68AA11FE7AC556F1D6FBF9A8034E1553D34C362DD8ABA8D9E8"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-guard-before-r3.log",
+        "bytes": 1732,
+        "sha256": "5998D3287B43C86283E6B815E034AD77A3AEA112728968958BA9FAB6CE3BA231"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-preflight-r3.log",
+        "bytes": 1159,
+        "sha256": "F4E1DF32E51887E959A5B074726CAF8B8767F13646E7D5E441A9F6122549F601"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-ff-r3.log",
+        "bytes": 2426,
+        "sha256": "0406D0D3B82FF2D5F4206609D2E2D857A833AEE91C8F53DDEA7D298EA7083CA3"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-head-version-r3.log",
+        "bytes": 710,
+        "sha256": "F8F24CD28B6DE7320027E5EFCDFCEE468492926A624E629249321CE00EBEC26A"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-build-r3.log",
+        "bytes": 208,
+        "sha256": "3B6CDE6F37033F1CB6D86199BD14E508D002723FB85EA70EFAA3F459B7EDC7B3"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-check-r3.log",
+        "bytes": 209,
+        "sha256": "D667E1259571EBFD7B73BA3C58DB19A415F77435A701DAC7CAD91A1AFBAF8C62"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-diff-r3.log",
+        "bytes": 201,
+        "sha256": "800FE722610351904F7E8D31E8189E2AF19A48AD0BE688863F5AACE3C36A54C4"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-guard-after-r3.log",
+        "bytes": 1731,
+        "sha256": "3DC271835C0A204041139E0F51224B5C2E59CA56240562D8E2B102C8823A3814"
+      },
+      {
+        "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-merged-cleanliness-r3.log",
+        "bytes": 707,
+        "sha256": "08BEA4DCC44B783E99816831FAA26A526B571D51F6EC3EDFBB67413EBDA84D48"
+      }
+    ]
+  },
+  "preservation": {
+    "passed": true,
+    "preservation": {
+      "passed": true,
+      "prior": {
+        "passed": true,
+        "prior": {
+          "passed": true,
+          "prior": {
+            "priorFrozenFilesVerified": 166,
+            "legacyStateBytes": 9114595,
+            "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+            "t07FrozenFilesVerified": 39,
+            "goAndCompatibleFrozenPackagesVerified": true,
+            "realModelRequests": 0
+          },
+          "records": [
+            {
+              "manifest": "t15-v0150a-failed-frozen.json",
+              "manifestSha256": "785d8ae8f3603d0927347e927c0ce4aa1149b476cf066a67bfe0545c6955115e",
+              "verified": 12,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150b-failed-frozen.json",
+              "manifestSha256": "1b349af29df7f4534c86f24948abf0ba43b21fd5c7f2043344c30e8018ff520e",
+              "verified": 19,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150c-partial-frozen.json",
+              "manifestSha256": "24b5a597f90bef9eda740179cff01a3a20714a08d8c87eccb94a988ab24f64d3",
+              "verified": 28,
+              "sealedLiveState": true
+            }
+          ],
+          "verifiedT15CapturedFiles": 59,
+          "sealedStateMatchesPreRestartManifest": true,
+          "liveControlledStateMatchesSealedBytes": true,
+          "liveStateScope": "isolated controlled profile intentionally reopened; full public Tasks/config/counts/default equality is separately required",
+          "realModelRequests": 0
+        },
+        "t15ValidationFiles": 59,
+        "t15InstalledFiles": 36,
+        "t15RepositoryCopies": 14,
+        "finalReviewReports": 2,
+        "realModelRequests": 0
+      },
+      "T17FrozenFileEntries": 495,
+      "T17ArchiveFiles": 50,
+      "T17PackageBytes": 233897,
+      "productionModelRequests": 0
+    },
+    "records": [],
+    "frozenT18FileEntries": 0,
+    "realModelRequests": 0
+  },
+  "productionModelRequests": 0,
+  "phase": "source-reviewed-and-merged-not-installed"
+}

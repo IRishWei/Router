@@ -1,0 +1,53 @@
+✔ takeover recovery honors the smaller takeover output allowance throughout the real Native Task (351.8837ms)
+✔ the smaller takeover forecast reserves only its allowance and retains the original native image within the Task budget (432.5046ms)
+✔ takeover recovery honors the smaller recovery output and forecast allowances without changing the original takeover (261.078ms)
+✔ real Renderer and strict public RPC opt into recovery, resolve one live Task and stop another without a terminal resume button (344.5526ms)
+✔ a public lifecycle plugin exception after a recovered response pauses the Task without erasing its output or usage (152.1634ms)
+✔ ambiguous late ancestry spanning two real native Tasks cannot run a child outside the recovery guard (156.1899ms)
+✔ native errors retain their message while new recovery snapshot and disk DTOs only retain allowlisted facts (79.432ms)
+✔ real native retry before-router cannot expand the Task recovery cap (102.5322ms)
+✔ real native retry after-router cannot expand the Task recovery cap (107.8007ms)
+✔ real native retry outer-ignore-decision cannot expand the Task recovery cap (108.4184ms)
+✔ an owned recovery budget wait rechecks live disabled before any new adapter entry (69.6136ms)
+✔ an owned recovery budget wait rechecks live fixed before any new adapter entry (86.776ms)
+✔ an owned recovery budget wait rechecks live policy before any new adapter entry (75.7472ms)
+✔ an owned recovery budget wait rechecks live human before any new adapter entry (76.1538ms)
+✔ an owned recovery budget wait rechecks live pending before any new adapter entry (71.6603ms)
+✔ an owned recovery budget wait rechecks live stopped before any new adapter entry (79.809ms)
+✔ the raw native final request gate rechecks permission after its independent awaited observation (80.9462ms)
+✔ the actual prepared recovery handle is an independent hard gate and retains the source error (68.619ms)
+✔ restart preserves the actual persisted live recovery allowance but creates no timer, Call or old-Task resume (87.8525ms)
+✔ execution, consultation and takeover share one recovery allowance instead of resetting it per phase (386.4693ms)
+✔ a real native title is accounted alongside all recovery Calls without changing its purpose or execution owner (101.4031ms)
+✔ known consultation failure cannot bypass earlier unknown Task usage through manual recovery (117.7487ms)
+✔ known network failure recovers in the same Native Task and step with distinct accounted Calls (82.1626ms)
+✔ recovery with an unknown configured money budget stops before another model entry (73.6008ms)
+✔ a takeover response with known usage and no partial content can recover without repeating the notice (264.9468ms)
+✔ consultation recovery keeps one intent and one advice while every attempt uses the same Task ledger (163.3015ms)
+✔ a live manual recovery has one CAS winner and a terminal Task cannot be revived (98.6581ms)
+✔ an explicitly enabled same-account alternative receives complete native history after bounded current-model recovery (144.94ms)
+✔ a completed tool with unproved operation semantics prevents ordinary recovery before a new model entry (72.6795ms)
+✔ ordinary recovery cannot repeat a completed side effect using a new native tool call id (124.559ms)
+✔ authorization, quota, partial and unknown failures retain their facts and cannot become difficulty or success (269.0675ms)
+✔ disabling routing during rate-limit backoff stops the owned Task rather than delegating native retry (59.8696ms)
+✔ credible rate-limit retry-after above the wait allowance pauses without sending early (48.534ms)
+✔ Task recovery cap defeats a later outer always retry listener without a fourth dispatch (109.9149ms)
+✔ actual controlled OAuth refresh rejection records authorization recovery and cannot revive the ended Task (180.5355ms)
+✔ a full native recovery refuses unsafe alternative billing without a target model entry (191.0939ms)
+✔ a full native recovery refuses unsafe alternative unknown-account without a target model entry (123.9392ms)
+✔ a full native recovery refuses unsafe alternative protocol without a target model entry (119.5688ms)
+✔ a full native recovery refuses unsafe alternative capacity without a target model entry (122.6633ms)
+✔ a full native recovery refuses unsafe alternative fixed without a target model entry (159.1236ms)
+✔ ordinary recovery retains the exact image attachment and proves declared image pricing (169.234ms)
+✔ ordinary recovery retains the exact image attachment and refuses unknown image pricing (85.7598ms)
+✔ two explicit manual retry-current actions cannot silently dispatch the configured alternative (156.7721ms)
+✔ a real recovery state write failure stops dispatch and releases reservations while retaining known usage (51.6976ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 44
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 9710.0569
+runExit=0 durationMs=9783

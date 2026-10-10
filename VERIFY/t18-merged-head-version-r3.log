@@ -1,0 +1,4 @@
+{"name":"head-version","command":"node \"C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-independent-merger-state-r3.mjs\" merged","workingDirectory":"E:/GPT/Router项目","startedAtUtc":"2026-10-10T21:02:30.9931261Z"}
+{"mode":"merged","passed":true,"branch":"codex/dsh-router-v1","head":"5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7","source":"5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7","base":"547b8b188036a43f4f5627f4cb103598c0c9d3f0","version":"0.17.0","clean":true,"authorHead":"5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7","authorClean":true,"containsBase":true,"reviewReports":[],"realModelRequests":0}
+
+[merger-receipt] {"exitCode":0,"durationMs":332.7611,"signal":null}

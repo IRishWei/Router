@@ -1,0 +1,70 @@
+// Creates a fresh prelaunch contract only after source review, merger and package gates.
+import assert from 'node:assert/strict';
+import { readFile, writeFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
+import { verifyFrozenT18Labels } from './t18-label-preservation.mjs';
+
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const notes = join(directory, 'implement-spec-go-20261009');
+const label = process.argv[2];
+assert(/^t18-v017\d[a-z]$/.test(label));
+const identity = JSON.parse(await readFile(join(directory, label + '-package-identity.json'), 'utf8'));
+const gate = JSON.parse(await readFile(join(notes, 't18-final-reviewed-source.json'), 'utf8'));
+assert(gate.standards.passed && gate.spec.passed && gate.merger.passed);
+assert.equal(gate.source, identity.reviewedSourceSha);
+const fixturePath = join(notes, 't18-fixture-final.mjs');
+const bytes = await readFile(fixturePath);
+const scenarios = [
+  { name: 'network-recovered', entries: 2, completed: true, category: 'network' },
+  { name: 'alternative-complete', alternative: 'alternative', entries: 3, targetEntries: 1, completed: true, category: 'network' },
+  { name: 'fixed-no-alternative', alternative: 'alternative', fixed: true, entries: 3, completed: true, category: 'network' },
+  { name: 'capacity-refused', alternative: 'alternative-small', entries: 2, category: 'network', reasonPattern: 'CONTEXT_CAPACITY_EXCEEDED' },
+  { name: 'protocol-refused', alternative: 'alternative-unknown', entries: 2, category: 'network', reasonPattern: 'MODEL_FORMAT_UNSUPPORTED' },
+  { name: 'tool-format-refused', alternative: 'alternative-format-unsupported', entries: 2, category: 'network', reasonPattern: '^RECOVERY_TOOL_PROTOCOL_UNSUPPORTED$' },
+  { name: 'image-refused', alternative: 'alternative-text-only', image: true, entries: 2, category: 'network', reasonPattern: '^RECOVERY_IMAGE_CAPABILITY_UNSUPPORTED$' },
+  { name: 'image-complete', image: true, entries: 2, completed: true, category: 'network' },
+  { name: 'duplicate-operation', entries: 3, category: 'network', reasonPattern: 'RECOVERY_DUPLICATE_OPERATION' },
+  { name: 'operation-unproved', entries: 2, category: 'network', reasonPattern: 'RECOVERY_TOOL_OPERATION_UNKNOWN' },
+  { name: 'consultation-recovery', coordination: true, entries: 3, completed: true, category: 'network' },
+  { name: 'consultation-cap256-recovery64', mode: 'consultation-recovery', coordination: true, coordinationMaxTokens: 256, recoveryMaxTokens: 64, coordinationForecastTokens: 8192, recoveryForecastTokens: 8191, entries: 3, completed: true, category: 'network', effectiveMaxTokens: 64, effectiveForecastTokens: 8191 },
+  { name: 'consultation-cap128-recovery512', mode: 'consultation-recovery', coordination: true, coordinationMaxTokens: 128, recoveryMaxTokens: 512, coordinationForecastTokens: 8191, recoveryForecastTokens: 8192, entries: 3, completed: true, category: 'network', effectiveMaxTokens: 128, effectiveForecastTokens: 8191 },
+  { name: 'takeover-recovery', coordination: true, takeover: true, entries: 5, completed: true, category: 'network' },
+  { name: 'takeover-cap128-recovery512', mode: 'takeover-recovery', coordination: true, takeover: true, takeoverMaxTokens: 128, recoveryMaxTokens: 512, takeoverForecastTokens: 65535, recoveryForecastTokens: 65536, entries: 5, completed: true, category: 'network', effectiveMaxTokens: 128, effectiveForecastTokens: 65535 },
+  { name: 'takeover-cap512-recovery128', mode: 'takeover-recovery', coordination: true, takeover: true, takeoverMaxTokens: 512, recoveryMaxTokens: 128, takeoverForecastTokens: 65536, recoveryForecastTokens: 65535, entries: 5, completed: true, category: 'network', effectiveMaxTokens: 128, effectiveForecastTokens: 65535 },
+  { name: 'network-exhausted', entries: 3, category: 'network', reasonPattern: 'RECOVERY_ATTEMPT_LIMIT' },
+  { name: 'rate-limit-too-long', entries: 1, category: 'rate-limit', reasonPattern: 'RECOVERY_WAIT_LIMIT' },
+  { name: 'unknown-usage', entries: 1, category: 'network', reasonPattern: 'RECOVERY_USAGE_UNKNOWN' },
+  { name: 'partial-response', entries: 1, category: 'network', reasonPattern: 'RECOVERY_RESPONSE_PARTIAL' },
+  { name: 'opaque-failure', entries: 1, category: 'unknown', reasonPattern: 'RECOVERY_FAILURE_UNSAFE' },
+  { name: 'authorization', entries: 1, category: 'authorization', reasonPattern: 'RECOVERY_REAUTHORIZE_REQUIRED' },
+  { name: 'quota', entries: 1, category: 'quota', reasonPattern: 'RECOVERY_QUOTA_REQUIRED' },
+  { name: 'manual-retry', manual: true, entries: 2, completed: true, category: 'network' },
+  { name: 'manual-current-only', manual: true, alternative: 'alternative', entries: 3, completed: true, category: 'network' },
+  { name: 'manual-stop', manual: true, entries: 1, category: 'network', reasonPattern: '^RECOVERY_CANCELED$' },
+  { name: 'budget-stop', budgetTokens: 20, entries: 1, category: 'network', reasonPattern: '^RECOVERY_STOPPED$' },
+  { name: 'budget-unknown-money', money: true, entries: 1, category: 'network', reasonPattern: 'RECOVERY_BUDGET_UNPROVEN' },
+  { name: 'permit-revoked', entries: 1, category: 'rate-limit', reasonPattern: 'RECOVERY_POLICY_CHANGED' },
+].map(row => ({ ...row, setupPrime: true }));
+assert.equal(new Set(scenarios.map(row => row.name)).size, scenarios.length);
+const plan = {
+  label, version: identity.version, source: gate.source, package: { bytes: identity.bytes, sha256: identity.sha256 },
+  fixture: { path: fixturePath, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex').toUpperCase(),
+    provider: 'router-t18-controlled-fixture', ownedModels: 7, maxLocalStreams: 160, presetTokensPerKnownStream: 8,
+    preparation: 'Each fresh Session first completes one separate Native prime Task and all its auxiliary/title Calls. The recovery Task retains that full prior history; setup Call costs stay in the setup Task ledger.' },
+  localRecorder: { atomicJsonRename: true, transientEpermRetries: 4, retryDelayMs: 20,
+    scope: 'Only a complete pending local counter-file rename can wait. Every retry is recorded. No model stream is retried or hidden; other IO errors and exhausted rename waits fail the fixture.' },
+  registryRefresh: { protocol: 't18-current-registry-refresh-v1', provider: 'router-t18-controlled-fixture', entries: 14, generationDelta: 2, revisionDelta: 28 },
+  controlledRunDeadlineMs: 240000, perExactTaskDeadlineMs: 45000,
+  scenarios, productionModelRequests: 0,
+  scope: {
+    source: 'Full rc.2 Task fixtures include actual local fake-credential refresh invalid_grant, live pending restart, Native retry plugins and cross-Task operations.',
+    installed: 'Fresh official offline CLI package, isolated Desktop, full public native prompts, exact Task/all auxiliary Call settlement, actual installed Renderer live stop, predetermined external Adapter responses and native WeakSet observations.',
+    restart: 'This profile reopens only terminal Tasks. All stored non-connections fields and complete counter bytes remain exact. Only fourteen current fixture registry rows refresh the predeclared auth/config generations, registry revision and timestamps; identities/order/status/capability/handoff remain exact. Report raw whole-state equality honestly.',
+    image: 'Retain the actual SDK-admitted attachment bytes and hash; the separate source PNG hash does not forbid legitimate ingress conversion.',
+    limits: 'No Go/official production recovery, second account, actual billing, model quality or screenshot claim. Preset known usage is eight tokens per local stream; absent usage remains unknown. Only scheduled delays have the 500ms/1000ms contract, not OS wall time.',
+  },
+  phase: 'prelaunch-plan-created-not-executed', priorLabels: await verifyFrozenT18Labels(),
+};
+await writeFile(join(notes, label + '-validation-plan.json'), JSON.stringify(plan, null, 2), { flag: 'wx' });
+console.log(JSON.stringify({ label, planCreatedBeforeLaunch: true, scenarios: scenarios.length, productionModelRequests: 0 }));

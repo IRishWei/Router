@@ -1,0 +1,11 @@
+[codex/t18-failure-recovery 33116cd] fix: align takeover recovery token limits (#19)
+ 6 files changed, 208 insertions(+), 18 deletions(-)
+ create mode 100644 test/t18.caps.test.mjs
+33116cd196c29c59324466df2e0a15622ef5c7bb
+fix: align takeover recovery token limits (#19)
+docs/implementation/t18-failure-recovery-contract.md
+docs/implementation/t18-failure-recovery-source-evidence.md
+src/index.mjs
+src/takeover.mjs
+test/t18.caps.test.mjs
+test/t18.controls.test.mjs

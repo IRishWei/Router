@@ -1,0 +1,81 @@
+param([ValidateSet('launch','stop')][string]$Action,[ValidateSet('controlled','restart')][string]$Stage='controlled')
+$ErrorActionPreference='Stop'
+$routerRoot='C:\Users\a1500\AppData\Local\Temp\router-implementation'
+$routerHome=[IO.Path]::GetFullPath((Join-Path $routerRoot 't18-v0170e-controlled-home'))
+$routerExe=[IO.Path]::GetFullPath('E:\Program Files\DeepSeek Harness\DeepSeek Harness.exe')
+$routerOwnerPath=Join-Path $routerRoot ('t18-v0170e-'+$Stage+'-owner.json')
+function Write-Exclusive([string]$Path,[string]$Text) {
+ $stream=[IO.File]::Open($Path,[IO.FileMode]::CreateNew,[IO.FileAccess]::Write,[IO.FileShare]::None)
+ try { $data=[Text.UTF8Encoding]::new($false).GetBytes($Text); $stream.Write($data,0,$data.Length) } finally { $stream.Dispose() }
+}
+function Exact-Process([int]$ProcessId,[datetime]$Started,[string]$Exe) {
+ $probe=Get-Process -Id $ProcessId -ErrorAction SilentlyContinue
+ if (-not $probe) { return $null }
+ if ($probe.StartTime.ToUniversalTime() -ne $Started.ToUniversalTime() -or [IO.Path]::GetFullPath($probe.Path) -ne $Exe) { throw 'PID identity mismatch; no process will be stopped' }
+ return $probe
+}
+if ($Action -eq 'launch') {
+ if (Test-Path -LiteralPath $routerOwnerPath) { throw 'Stage already launched; use a new label' }
+ if ($Stage -eq 'restart') {
+  $prior=Get-Content -LiteralPath (Join-Path $routerRoot 't18-v0170e-controlled-stopped.json') -Raw | ConvertFrom-Json
+  if (-not $prior.stopped -or $prior.home -ne $routerHome -or $prior.executable -ne $routerExe) { throw 'Controlled stage final stop missing' }
+ }
+ $manifest=Get-Content -LiteralPath (Join-Path $routerRoot 't18-v0170e-package-identity.json') -Raw | ConvertFrom-Json
+ if ($manifest.version -ne '0.17.0' -or -not $manifest.reviewedSourceSha) { throw 'Reviewed package manifest required' }
+ $bundle=Get-Item -LiteralPath $manifest.path
+ if ($bundle.Length -ne $manifest.bytes -or (Get-FileHash -LiteralPath $bundle.FullName -Algorithm SHA256).Hash -ne $manifest.sha256) { throw 'Package identity mismatch' }
+ $installed=[IO.Path]::GetFullPath((Join-Path $routerHome 'profiles\desktop\node_modules\@irishwei\dsh-router'))
+ foreach($entry in $manifest.files) {
+  $path=[IO.Path]::GetFullPath((Join-Path $installed $entry.file))
+  if (-not $path.StartsWith($installed+[IO.Path]::DirectorySeparatorChar,[StringComparison]::OrdinalIgnoreCase)) { throw 'Manifest path escape' }
+  if ((Get-Item -LiteralPath $path).Length -ne $entry.bytes -or (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash -ne $entry.sha256) { throw 'Installed bytes differ from reviewed package' }
+ }
+ if (@(Get-CimInstance Win32_Process -Filter "Name='DeepSeek Harness.exe'").Count) { throw 'A Desktop process exists; launch refuses to stop it' }
+ $outLog=Join-Path $routerRoot ('t18-v0170e-'+$Stage+'.private.out.log')
+ $errLog=Join-Path $routerRoot ('t18-v0170e-'+$Stage+'.private.err.log')
+ foreach($path in @($outLog,$errLog)) { if (Test-Path -LiteralPath $path) { throw 'Log label already exists' } }
+ $priorHome=$env:DSH_HOME
+ try {
+  $env:DSH_HOME=$routerHome
+  $started=Start-Process -FilePath $routerExe -WindowStyle Hidden -RedirectStandardOutput $outLog -RedirectStandardError $errLog -PassThru
+  $startedAt=$started.StartTime.ToUniversalTime()
+  Write-Exclusive $routerOwnerPath ([ordered]@{purpose='T18 controlled Desktop validation';stage=$Stage;pid=$started.Id;startedAt=$startedAt.ToString('o');home=$routerHome;executable=$routerExe;outLog=$outLog;errLog=$errLog;packageVersion='0.17.0';realModelRequests=0} | ConvertTo-Json)
+  [ordered]@{stage=$Stage;pid=$started.Id;home=$routerHome;version='0.17.0';existingProcessesStopped=0} | ConvertTo-Json -Compress
+ } finally { $env:DSH_HOME=$priorHome }
+ exit
+}
+$owner=Get-Content -LiteralPath $routerOwnerPath -Raw | ConvertFrom-Json
+if ($owner.purpose -ne 'T18 controlled Desktop validation' -or $owner.stage -ne $Stage -or $owner.home -ne $routerHome -or $owner.executable -ne $routerExe) { throw 'Exact owned controlled process required' }
+$stoppedPath=Join-Path $routerRoot ('t18-v0170e-'+$Stage+'-stopped.json')
+if (Test-Path -LiteralPath $stoppedPath) { throw 'Stop receipt already exists' }
+$started=[datetime]$owner.startedAt
+$process=Exact-Process $owner.pid $started $routerExe
+$tree=@()
+if ($process) {
+ $all=@(Get-CimInstance Win32_Process)
+ $ids=[Collections.Generic.HashSet[int]]::new()
+ [void]$ids.Add([int]$owner.pid)
+ do {
+  $added=$false
+  foreach($item in $all) {
+   if ($ids.Contains([int]$item.ParentProcessId) -and -not $ids.Contains([int]$item.ProcessId) -and $item.CreationDate.ToUniversalTime() -ge $started.ToUniversalTime()) {
+    $candidate=Get-Process -Id $item.ProcessId -ErrorAction SilentlyContinue
+    if (-not $candidate -or -not $item.ExecutablePath) { continue }
+    if ([Math]::Abs(($candidate.StartTime.ToUniversalTime()-$item.CreationDate.ToUniversalTime()).TotalMilliseconds) -gt 5 -or [IO.Path]::GetFullPath($candidate.Path) -ne [IO.Path]::GetFullPath($item.ExecutablePath)) { throw 'Child PID changed during tree capture' }
+    [void]$ids.Add([int]$item.ProcessId); $tree+=@{pid=[int]$item.ProcessId;started=$candidate.StartTime.ToUniversalTime();exe=$item.ExecutablePath}; $added=$true
+   }
+  }
+ } while($added)
+ [array]::Reverse($tree)
+ foreach($item in $tree) {
+  if (-not $item.exe) { throw 'Owned child executable unavailable; no blind tree stop' }
+  $child=Exact-Process $item.pid $item.started ([IO.Path]::GetFullPath($item.exe))
+  if ($child) { Stop-Process -Id $child.Id; if (-not $child.WaitForExit(5000)) { throw 'Owned child did not exit; no successful receipt' } }
+ }
+ $process=Exact-Process $owner.pid $started $routerExe
+ if ($process) { Stop-Process -Id $process.Id; if (-not $process.WaitForExit(5000)) { throw 'Owned Desktop did not exit; no successful receipt' } }
+}
+if (Exact-Process $owner.pid $started $routerExe) { throw 'Owned Desktop still alive; no successful receipt' }
+foreach ($item in $tree) { if (Exact-Process $item.pid $item.started ([IO.Path]::GetFullPath($item.exe))) { throw 'Owned child still alive; no successful receipt' } }
+Write-Exclusive $stoppedPath ([ordered]@{purpose=$owner.purpose;stage=$Stage;pid=$owner.pid;startedAt=$owner.startedAt;home=$routerHome;executable=$routerExe;stopped=$true;stoppedAt=[datetime]::UtcNow.ToString('o');ownedChildren=$tree.Count} | ConvertTo-Json)
+[ordered]@{stage=$Stage;stopped=$true;ownedChildren=$tree.Count} | ConvertTo-Json -Compress

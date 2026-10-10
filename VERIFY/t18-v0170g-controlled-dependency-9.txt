@@ -1,0 +1,56 @@
+import assert from 'node:assert/strict';
+import { readFile, writeFile, access } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
+import { verifyFrozenT18Labels } from './t18-label-preservation.mjs';
+
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const notes = join(directory, 'implement-spec-go-20261009');
+const label = process.argv[2], mode = process.argv[3] ?? 'seal';
+assert(/^t18-v017\d[a-z]$/.test(label));
+assert(['seal', 'verify-pre-restart'].includes(mode));
+const home = join(directory, label + '-controlled-home');
+const originalStatePath = join(home, 'router/desktop/state.json');
+const sealedStatePath = join(directory, label + '-state-sealed.json');
+const sealPath = join(directory, label + '-state-pre-restart.json');
+const hash = bytes => createHash('sha256').update(bytes).digest('hex').toUpperCase();
+const load = async suffix => JSON.parse(await readFile(join(directory, label + '-' + suffix), 'utf8'));
+await verifyFrozenT18Labels();
+const validationPlan = JSON.parse(await readFile(join(notes, label + '-validation-plan.json'), 'utf8'));
+const evidence = await load('desktop-evidence.json'), stop = await load('controlled-stopped.json');
+assert(evidence.passed && stop.stopped && stop.stage === 'controlled');
+assert.equal(stop.purpose, 'T18 controlled Desktop validation');
+assert.equal(stop.home.replaceAll('\\', '/'), home.replaceAll('\\', '/'));
+const counterBytes = await readFile(join(home, 't18-controlled-counts.json'));
+assert.deepEqual(counterBytes, Buffer.from(JSON.stringify(evidence.counts, null, 2)));
+const bytes = await readFile(originalStatePath);
+const state = JSON.parse(bytes);
+const expected = validationPlan.registryRefresh;
+assert.equal(expected.protocol, 't18-current-registry-refresh-v1');
+const controlled = state.connections.candidates.filter(row => row.provider === expected.provider);
+assert.equal(controlled.length, expected.entries);
+assert.equal(expected.revisionDelta, expected.entries * expected.generationDelta);
+if (mode === 'seal') {
+  for (const path of [sealedStatePath, sealPath, join(directory, label + '-restart-owner.json')]) {
+    try { await access(path); throw new Error('State must be sealed before a fresh restart'); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
+  await writeFile(sealedStatePath, bytes, { flag: 'wx' });
+  await writeFile(sealPath, JSON.stringify({ label, originalStatePath, sealedStatePath, bytes: bytes.length,
+    sha256: hash(bytes), counterBytes: counterBytes.length, counterSha256: hash(counterBytes),
+    controlledStop: label + '-controlled-stopped.json', stateScopeProtocol: expected.protocol,
+    registryRefresh: expected,
+    predeclaredScope: 'Only reopen this isolated controlled profile for read-only public snapshot/modelCatalog. No prompt, policy mutation, model request or tool execution. All full Tasks, Calls, ledgers, config, default, counter and stored non-connections fields must remain exact. Only the explicitly bound current fixture registry identities may refresh the bound generations/revision and timestamps; all identity/order/status/capability/handoff fields remain exact. Report both raw hashes and the actual whole-state byte equality result.',
+    realModelRequests: 0 }, null, 2), { flag: 'wx' });
+} else {
+  const seal = JSON.parse(await readFile(sealPath, 'utf8'));
+  assert.equal(seal.originalStatePath, originalStatePath);
+  assert.equal(seal.sealedStatePath, sealedStatePath);
+  assert.equal(seal.bytes, bytes.length);
+  assert.equal(seal.sha256, hash(bytes));
+  assert.equal(seal.counterBytes, counterBytes.length);
+  assert.equal(seal.counterSha256, hash(counterBytes));
+  assert.deepEqual(seal.registryRefresh, expected);
+  assert.deepEqual(bytes, await readFile(sealedStatePath));
+}
+console.log(JSON.stringify({ label, mode, stateBytes: bytes.length, stateSha256: hash(bytes), realModelRequests: 0 }));

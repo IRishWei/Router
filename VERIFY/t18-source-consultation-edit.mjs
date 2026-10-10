@@ -1,0 +1,18 @@
+import { readFile, writeFile } from 'node:fs/promises';
+const path = 'C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router项目/src/index.mjs';
+let source = (await readFile(path, 'utf8')).replace(/\r\n/g, '\n');
+const start = source.indexOf('      const facts = failureFacts(failure), category = classifyFailure(facts);');
+const end = source.indexOf('\n    }, { prepend: true });\n    const service = this;', start);
+if (start < 0 || end < 0) throw new Error('Recovery handler owner not found');
+let body = source.slice(start, end);
+body = body.replace(/task\.recoveryPolicy\.maxTokens/g, 'recovery.maxTokens').replace(/task\.recoveryPolicy\.forecastTokens/g, 'recovery.forecastTokens');
+body = body.replace("originatingPurpose: 'execution'", "originatingPurpose: call.purpose === 'consultation' ? 'consultation' : 'execution'");
+body = body.replace("phase: call.takeoverPlanId ? 'takeover' : 'execution'", "phase: call.purpose === 'consultation' ? 'consultation' : call.takeoverPlanId ? 'takeover' : 'execution'");
+body = body.replace('const assembled = this.#steps.get(agent).assembled;', "const assembled = this.#steps.get(agent).assembled;\n        const proofRequest = boundedRequest ?? { messages: agent.session.deriveMessages(), tools: assembled.tools, toolHistory: agent.session.toolHistory(), system: renderPrompt(assembled) };\n        recovery.boundedHistory = boundedRequest ? this.#takeover.boundedHandoffHistory(boundedRequest.messages) : null;\n        recovery.requestHash = boundedRequest ? jsonHash({ messages: boundedRequest.messages, maxTokens: boundedRequest.maxTokens, tools: boundedRequest.tools ?? [], system: boundedRequest.system ?? null }) : null;");
+body = body.replace("request: { messages: agent.session.deriveMessages(), tools: assembled.tools, toolHistory: agent.session.toolHistory(), system: renderPrompt(assembled) }", 'request: proofRequest');
+body = body.replace('history: recovery.portableHistory', 'history: recovery.boundedHistory ?? recovery.portableHistory');
+body = body.replace("coordinationRevision: task.coordination?.revision ?? null }", "coordinationRevision: task.coordination?.revision ?? null, maxTokens: boundedRequest?.maxTokens ?? task.recoveryPolicy.maxTokens, forecastTokens: task.recoveryPolicy.forecastTokens }");
+source = source.slice(0, start) + '      return this.#recoverFailure(agent, task, call, failure, signal);' + source.slice(end);
+const marker = '  async setRecoveryPolicy(policy) {';
+source = source.replace(marker, '  async #recoverFailure(agent, task, call, failure, signal, boundedRequest = null) {\n' + body + '\n  }\n' + marker);
+await writeFile(path, source);

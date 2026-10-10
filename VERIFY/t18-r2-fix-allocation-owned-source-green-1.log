@@ -1,0 +1,17 @@
+✔ compatible native allocation retains its initial ceiling and uses the smaller recovery allowance for the new Call (138.8565ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"maxTokens":64,"actualMaxTokens":[1024,64],"calls":2}
+✔ compatible owned consultation allocation preserves the consultation cap before recovery and the smaller frozen cap afterward (191.1984ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"recoveryMaxTokens":64,"actualMaxTokens":[128,64]}
+✔ execution recovery cannot enlarge the original native request allowance even when its recovery policy is larger (90.5558ms)
+ℹ {"lifecycle":"completed","recoveryMaxTokens":1024,"actualMaxTokens":[1024,1024]}
+✔ consultation recovery freezes the actual prepared source ceiling when both logical policies allow more (180.3066ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"recoveryMaxTokens":1024,"actualMaxTokens":[1024,1024]}
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1137.7044
+COMMAND_EXIT=0 DURATION_SECONDS=1.2097868

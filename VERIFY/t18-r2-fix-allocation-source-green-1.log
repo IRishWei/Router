@@ -1,0 +1,13 @@
+✔ compatible native allocation retains its initial ceiling and uses the smaller recovery allowance for the new Call (136.1574ms)
+ℹ {"lifecycle":"completed","recoveryReason":null,"maxTokens":64,"actualMaxTokens":[1024,64],"calls":2}
+✔ execution recovery cannot enlarge the original native request allowance even when its recovery policy is larger (81.5384ms)
+ℹ {"lifecycle":"completed","recoveryMaxTokens":1024,"actualMaxTokens":[1024,1024]}
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 752.5444
+COMMAND_EXIT=0 DURATION_SECONDS=0.8276237

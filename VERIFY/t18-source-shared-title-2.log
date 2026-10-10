@@ -1,0 +1,10 @@
+✔ execution, consultation and takeover share one recovery allowance instead of resetting it per phase (369.6405ms)
+✔ a real native title is accounted alongside all recovery Calls without changing its purpose or execution owner (105.6584ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1094.7277

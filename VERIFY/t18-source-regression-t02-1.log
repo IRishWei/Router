@@ -1,0 +1,123 @@
+✔ a persisted pool cannot grant a different connection or provider through state edits (39.8694ms)
+✔ a paused 0.1.2 profile migrates without resetting its version or task history (93.593ms)
+✔ an enabled pool member serves a native task with coherent prompt, header and selection (57.0337ms)
+✔ an image task cannot dispatch to a candidate whose image capability is unknown (93.2071ms)
+✖ a prepared native request cannot dispatch a model disabled during middleware waiting (48.6026ms)
+✖ a prepared native request cannot dispatch a model removed during middleware waiting (49.5723ms)
+✖ a prepared native request cannot dispatch a model removed after stream creation but before consumption during middleware waiting (54.1366ms)
+✖ revocation during a prepared native retry preserves its first usage and prevents another dispatch (10005.2372ms)
+✔ paused routing with an empty Router pool still permits a real native manual route (57.444ms)
+✔ removing a model during its real native stream preserves that request and blocks its following fixed request (59.4228ms)
+✖ a native retry keeps its assembled snapshot after matching pending selection was consumed (52.0906ms)
+✔ a native manual choice arriving during assembly is retained without a mismatched prompt or switch notice (75.6198ms)
+✖ a native choice arriving while pre-step waits cannot persist a switch notice for an unsent route (57.0371ms)
+✔ configuration changed during a native tool stays pending until the next coherent request (83.778ms)
+✔ disabled and removed models cannot dispatch even with native pending or routing paused, and settings survive restart (86.135ms)
+✔ fixed routing preserves conflicting and same-route native pending intent without duplicate notices (135.7669ms)
+ℹ tests 16
+ℹ suites 0
+ℹ pass 10
+ℹ fail 5
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11592.8369
+
+✖ failing tests:
+
+test at test\t02.task.test.mjs:106:4
+✖ a prepared native request cannot dispatch a model disabled during middleware waiting (48.6026ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'RECOVERY_PLUGIN_EXCEPTION'
+  - 'MODEL_DISABLED'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t02.task.test.mjs:128:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'RECOVERY_PLUGIN_EXCEPTION',
+    expected: 'MODEL_DISABLED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\t02.task.test.mjs:106:4
+✖ a prepared native request cannot dispatch a model removed during middleware waiting (49.5723ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'RECOVERY_PLUGIN_EXCEPTION'
+  - 'MODEL_REMOVED'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t02.task.test.mjs:128:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'RECOVERY_PLUGIN_EXCEPTION',
+    expected: 'MODEL_REMOVED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\t02.task.test.mjs:106:4
+✖ a prepared native request cannot dispatch a model removed after stream creation but before consumption during middleware waiting (54.1366ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'RECOVERY_PLUGIN_EXCEPTION'
+  - 'MODEL_REMOVED'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t02.task.test.mjs:128:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'RECOVERY_PLUGIN_EXCEPTION',
+    expected: 'MODEL_REMOVED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\t02.task.test.mjs:140:1
+✖ revocation during a prepared native retry preserves its first usage and prevents another dispatch (10005.2372ms)
+  'test timed out after 10000ms'
+
+test at test\t02.task.test.mjs:247:1
+✖ a native retry keeps its assembled snapshot after matching pending selection was consumed (52.0906ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  
+  '' !== 'RETRY_DONE'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t02.task.test.mjs:265:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: '',
+    expected: 'RETRY_DONE',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\t02.task.test.mjs:316:1
+✖ a native choice arriving while pre-step waits cannot persist a switch notice for an unsent route (57.0371ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + 'RECOVERY_PLUGIN_EXCEPTION'
+  - 'NATIVE_SELECTION_CHANGED'
+  
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t02.task.test.mjs:336:12)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'RECOVERY_PLUGIN_EXCEPTION',
+    expected: 'NATIVE_SELECTION_CHANGED',
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

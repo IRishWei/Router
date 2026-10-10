@@ -1,0 +1,13 @@
+✔ stopping a real recovery budget wait closes the recovery before terminal history is reopened (159.0325ms)
+ℹ {"before":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"after":{"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_STOPPED"},"requests":0,"tools":0}
+✔ a live manual stop ends its awaited recovery with the actual canceled reason and no retry (74.7705ms)
+ℹ {"lifecycle":"paused","pauseReason":"BUDGET_STOPPED","recoveryState":"paused","recoveryReason":"RECOVERY_CANCELED","requests":1,"calls":1}
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 777.4191
+COMMAND_EXIT=0 DURATION_SECONDS=0.8504173

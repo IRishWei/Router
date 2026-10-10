@@ -1,0 +1,76 @@
+{
+  "label": "t18-v0170e",
+  "scope": "Read-only diagnosis after immutable failed-controlled capture; no Host or model.",
+  "files": {
+    "state": {
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t18-v0170e-controlled-home/router/desktop/state.json",
+      "bytes": 997201,
+      "sha256": "A5750AEDCD328873D68E199FF2F133D6A12737E16042488C3DF1F5B0D6C3D80C"
+    },
+    "counter": {
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t18-v0170e-controlled-home/t18-controlled-counts.json",
+      "bytes": 812694,
+      "sha256": "6BCE146EF9DA100967E6BF79B39C5D4BD6BBC51B2EBAAF3340EA8992FAE2EA4E"
+    },
+    "pending": {
+      "path": "C:/Users/a1500/AppData/Local/Temp/router-implementation/t18-v0170e-controlled-home/t18-controlled-counts.pending.json",
+      "bytes": 823021,
+      "sha256": "C6666D5D4A35480743C210F7B90633DF5CE290BAD07AFECF3C3D2C3113685128"
+    }
+  },
+  "task": {
+    "id": "0361bd51-5a7c-447e-823b-f073a0a97d8a",
+    "sessionId": "session-cd067d1a-7548-4c88-8c76-d93485feb268",
+    "lifecycle": "paused",
+    "pauseReason": "RECOVERY_FAILURE_UNSAFE",
+    "recovery": {
+      "version": 1,
+      "id": "9d5be3de-3b21-4841-8517-ab14bbc90cf8",
+      "revision": 1,
+      "attempts": 0,
+      "waitMs": 0,
+      "actualWaitMs": 0,
+      "phase": "execution",
+      "sourceCallId": "8115879e-655c-40b2-b17e-a089bac5fd10",
+      "originatingPurpose": "execution",
+      "callId": null,
+      "category": "unknown",
+      "failure": {
+        "code": "UNKNOWN"
+      },
+      "state": "paused",
+      "reason": "RECOVERY_FAILURE_UNSAFE"
+    },
+    "calls": [
+      {
+        "id": "8115879e-655c-40b2-b17e-a089bac5fd10",
+        "purpose": "execution",
+        "status": "failed",
+        "failureCode": "UNKNOWN",
+        "usage": null,
+        "dispatchStarted": true
+      },
+      {
+        "id": "4c44b4c2-e7d5-49ec-a395-9a2136a0c1b5",
+        "purpose": "auxiliary",
+        "status": "failed",
+        "failureCode": "EPERM",
+        "usage": null,
+        "dispatchStarted": false
+      }
+    ]
+  },
+  "currentRequests": 39,
+  "pendingRequests": 40,
+  "currentSeams": 50,
+  "pendingSeams": 50,
+  "uncommittedPendingRequest": {
+    "model": "main",
+    "purpose": null,
+    "mode": null,
+    "sessionId": "session-cd067d1a-7548-4c88-8c76-d93485feb268"
+  },
+  "interpretation": "Complete pending JSON with one uncommitted request and an EPERM in the same recorder queue supports a final rename failure. Separate deterministic filesystem repro identifies the failing syscall; the original transient lock holder is unknown.",
+  "productionModelRequests": 0,
+  "originalBytesUnchanged": true
+}

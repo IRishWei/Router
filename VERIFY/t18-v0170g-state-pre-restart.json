@@ -1,0 +1,20 @@
+{
+  "label": "t18-v0170g",
+  "originalStatePath": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\router\\desktop\\state.json",
+  "sealedStatePath": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-state-sealed.json",
+  "bytes": 3239976,
+  "sha256": "6C00F3E5E13EEE9A907F94869D7FFB99B5FC713BC9665680A6C6790AD2A02188",
+  "counterBytes": 2695101,
+  "counterSha256": "3EEE8E99A82D3BE0A45F047328A73FD7E8484FE3135FE94A97597511AB054F29",
+  "controlledStop": "t18-v0170g-controlled-stopped.json",
+  "stateScopeProtocol": "t18-current-registry-refresh-v1",
+  "registryRefresh": {
+    "protocol": "t18-current-registry-refresh-v1",
+    "provider": "router-t18-controlled-fixture",
+    "entries": 14,
+    "generationDelta": 2,
+    "revisionDelta": 28
+  },
+  "predeclaredScope": "Only reopen this isolated controlled profile for read-only public snapshot/modelCatalog. No prompt, policy mutation, model request or tool execution. All full Tasks, Calls, ledgers, config, default, counter and stored non-connections fields must remain exact. Only the explicitly bound current fixture registry identities may refresh the bound generations/revision and timestamps; all identity/order/status/capability/handoff fields remain exact. Report both raw hashes and the actual whole-state byte equality result.",
+  "realModelRequests": 0
+}

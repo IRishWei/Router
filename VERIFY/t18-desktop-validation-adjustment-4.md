@@ -1,0 +1,7 @@
+# T18 prelaunch adjustment after immutable installed round d
+
+Round t18-v0170d completed 23 scenario assertions, including both consultation cap directions and both takeover cap directions. The concurrent manual-retry action had exactly one fulfilled response and one rejection. The driver stopped because it expected the direct service's RECOVERY_STALE/RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED code in the public desktop gateway response. The actual rc.2 gateway returned gateway/internal. The failed round remains failed-controlled; its 71-entry frozen manifest SHA256 is 12EBF9B3B5E0B5E97C288F32CCDE6307E32E3F0504F46E778999DCFBA4668653.
+
+The next fresh helper captures only safe public RPC envelope fields: method, RPC id, HTTP status and code. The concurrent action must have one accepted response and one rejected router/resolveTaskRecovery response with HTTP 200 and the observed rc.2 gateway/internal code. The full request-bound Task still must settle, perform exactly the declared two execution streams, release all reservations and stay within one shared recovery allowance. A public generic rejection is not presented as proof of the direct service's exact internal rejection cause; the separate reviewed full Native Task source tests retain that CAS proof.
+
+No Router source/package/fixture behavior, policy, budgets, ceiling, deadline or retry bounds change. This is a transport-observation correction with preserved original failed receipts. No existing isolated profile is relaunched. Production model requests remain zero.

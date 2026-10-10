@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import { readFile, writeFile } from 'node:fs/promises';
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const label = process.argv[2];
+assert(/^t18-v017\d[a-z]$/.test(label));
+const evidence = JSON.parse(await readFile(directory + '/' + label + '-desktop-evidence.json', 'utf8'));
+assert(evidence.passed && evidence.realModelRequests === 0);
+const scenarios = [];
+for (const row of evidence.observations) {
+  const item = JSON.parse(await readFile(directory + '/' + label + '-scenario-' + row.name + '.json', 'utf8'));
+  assert.deepEqual(item.task, evidence.final.tasks.find(task => task.id === item.task.id));
+  const setupTasks = (item.setupTaskIds ?? []).map(id => {
+    const task = evidence.final.tasks.find(task => task.id === id);
+    assert(task && task.sessionId === item.sessionId); return task;
+  });
+  scenarios.push({ ...item, setupTasks });
+}
+const proof = { source: 'Public Desktop RPC, original native AgentLoop request seam and actual local predetermined Adapter streams',
+  version: evidence.version, realModelRequests: 0, scenarios,
+  allActualControlledRequests: evidence.counts.requests, allNativeSeams: evidence.counts.nativeSeams,
+  allToolExecutions: evidence.counts.toolExecutions, nativeDefault: evidence.nativeDefault,
+  configRestored: true, finalConfig: evidence.final.config,
+  limitations: ['Preset responses, usage and declared fixture metadata do not certify model quality, production vision, fees or quota.',
+    'Native WeakSet membership is observed separately from the legitimate Adapter request projection.',
+    'Generic AUTH fixture failures do not certify OAuth refresh; the separate full Native Task source fixture covers the actual owned refresh chain.',
+    'This run does not certify real Go, official API or second-account recovery.',
+    'Installed read-only restart preserves terminal Task history; live pending recovery restart is covered by the separate source fixture.',
+    'The installed Renderer proof uses the native module, RPC codec and public service; it does not represent screenshots.'] };
+await writeFile(directory + '/' + label + '-public-proof.json', JSON.stringify(proof, null, 2), { flag: 'wx' });
+console.log(JSON.stringify({ exportedScenarios: scenarios.length, localStreams: proof.allActualControlledRequests.length, realModelRequests: 0 }));

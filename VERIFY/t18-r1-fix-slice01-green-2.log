@@ -1,0 +1,10 @@
+✔ takeover recovery honors the smaller takeover output allowance throughout the real Native Task (384.6968ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 940.9316
+runExit=0 durationMs=1008

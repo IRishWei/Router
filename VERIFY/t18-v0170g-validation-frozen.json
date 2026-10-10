@@ -1,0 +1,1872 @@
+{
+  "label": "t18-v0170g",
+  "phase": "validation-complete-pending-independent-final-review",
+  "files": [
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-final-reviewed-source.json",
+      "bytes": 6028,
+      "sha256": "978305B120AF0DC22B8DB341E43BE54EA1EEE9DDBD89BB32604083B4122D22FE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-build-r3.log",
+      "bytes": 208,
+      "sha256": "3B6CDE6F37033F1CB6D86199BD14E508D002723FB85EA70EFAA3F459B7EDC7B3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-check-r3.log",
+      "bytes": 209,
+      "sha256": "D667E1259571EBFD7B73BA3C58DB19A415F77435A701DAC7CAD91A1AFBAF8C62"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-cleanliness-r3.log",
+      "bytes": 707,
+      "sha256": "08BEA4DCC44B783E99816831FAA26A526B571D51F6EC3EDFBB67413EBDA84D48"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-diff-r3.log",
+      "bytes": 201,
+      "sha256": "800FE722610351904F7E8D31E8189E2AF19A48AD0BE688863F5AACE3C36A54C4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-ff-r3.log",
+      "bytes": 2426,
+      "sha256": "0406D0D3B82FF2D5F4206609D2E2D857A833AEE91C8F53DDEA7D298EA7083CA3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-guard-after-r3.log",
+      "bytes": 1731,
+      "sha256": "3DC271835C0A204041139E0F51224B5C2E59CA56240562D8E2B102C8823A3814"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-guard-before-r3.log",
+      "bytes": 1732,
+      "sha256": "5998D3287B43C86283E6B815E034AD77A3AEA112728968958BA9FAB6CE3BA231"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-head-version-r3.log",
+      "bytes": 710,
+      "sha256": "F8F24CD28B6DE7320027E5EFCDFCEE468492926A624E629249321CE00EBEC26A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-preflight-r3.log",
+      "bytes": 1159,
+      "sha256": "F4E1DF32E51887E959A5B074726CAF8B8767F13646E7D5E441A9F6122549F601"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merged-suite-r3.log",
+      "bytes": 64701,
+      "sha256": "2713B85933BEBD68AA11FE7AC556F1D6FBF9A8034E1553D34C362DD8ABA8D9E8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merger-mission.md",
+      "bytes": 2011,
+      "sha256": "516ED4E6E2955D5675974D04450EB5DAAC659D0BBB7426702DAA5FC3CABC65DB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-merger-r3.json",
+      "bytes": 5407,
+      "sha256": "4F3162BB73A03E65892CD80A2D9DAB3065C5EFF04FCF212DA75AC722151962E6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-pack-reviewed-0.17.0-stderr.log",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-pack-reviewed-0.17.0.log",
+      "bytes": 4223,
+      "sha256": "77738336DC7456F8CDFF8D8D683669166FDBCB04B507AB624685F7BFB241815E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-pack-reviewed.ps1",
+      "bytes": 2897,
+      "sha256": "116EE624F0DD436300605EFBDFDD46401AE40C33E5E9984A79A92C69424C242B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-author-commit-1.log",
+      "bytes": 475,
+      "sha256": "7AF9B081C581DB57B839D6986C44F354A476A674D8848684B8E1FF7585522E50"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-build-1.log",
+      "bytes": 94,
+      "sha256": "CE5D147F72DCD1E21D35E5E8786787D00700176BB959C9660BAD3AE412301670"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-cached-diff-check-1.log",
+      "bytes": 25,
+      "sha256": "EFBBA582FB0AD9396FCD5787F40B03501309CB29FDA490FA2CD9C4B49A96E6BA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-check-1.log",
+      "bytes": 94,
+      "sha256": "32401114B4142F5789346A134CA1489A04F2086F8E28DE32713504BEA8616589"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-diff-check-1.log",
+      "bytes": 552,
+      "sha256": "F92E45DA6355FFF91DE957716BFA71CBB3270F40BC2426C6EE5A98A8F5F4AE1A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-final-source.diff",
+      "bytes": 39979,
+      "sha256": "FA446BBA33A6D27C8E0A8C59E9DD921758DF7A26F87F4EDC26F6A1E2736AB05B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-full-serial-1.log",
+      "bytes": 62750,
+      "sha256": "183C2B1C752FF86F76310CAE1C164356B3349DBA5A6F4D0A06A80233389401EC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-native-all-1.log",
+      "bytes": 5060,
+      "sha256": "765CD20D1DDCC1DFE850215DC7CB3BF2363A977445B7B195993ACD6CBCFCED98"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-pause-after-1.log",
+      "bytes": 2107,
+      "sha256": "F1ADE1802059D8DCD2D931F7809F7FB762F86DC07AC97BE1ACC7EE12528CF2A5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-pause-before-1.log",
+      "bytes": 1725,
+      "sha256": "C8B29B3A1E01D34EBA3CABE670C54E5BF9E031AD646AD3619BE8F33E45101A33"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-pause-source.diff",
+      "bytes": 19754,
+      "sha256": "09BDBACB9B5ACC2FA643BFAA5BA7BB48456108CE3A5211AECE7A3D0F2303C176"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice01-green-1.log",
+      "bytes": 807,
+      "sha256": "45FC794E36288E0AE899380590F2665F7468073E88E15DD1B982247C48998D94"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice01-green-2.log",
+      "bytes": 261,
+      "sha256": "D1373FAD6F188D132D7D39ACEDDF3E7833B0A1D3C341127C7FC1597B88B42950"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice01-green-source.diff",
+      "bytes": 7163,
+      "sha256": "18F1C7C90BDEC59062D0B19AD34F416291848318E61577833CC436734D8B475B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice01-red-1.log",
+      "bytes": 1032,
+      "sha256": "D6A4534591994C7CC55015BB13FB9A3B712AF1463DC40F3C182C7E850E29C129"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice01-red-2.log",
+      "bytes": 6854,
+      "sha256": "AD7ECC553B4188A5AEDF3CE4D7943E9B3F28D2C542C159E2AA4794018811E5B5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice01-red-test.mjs",
+      "bytes": 2831,
+      "sha256": "DF8874F7DF1FE9BD7CAD5ACFB874583F9E4F089ECCDA303C8D470D62FCBFD4BD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice02-green-1.log",
+      "bytes": 396,
+      "sha256": "8A98E818BB2A118F26E92C7BFDD140FA0246910F8575468FA817E9551A3CA601"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice02-green-source.diff",
+      "bytes": 14553,
+      "sha256": "C7C3AD752D99A373751AB418C0026DC0B52DE53148A12535C906225ABF3ED489"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice02-red-1.log",
+      "bytes": 1210,
+      "sha256": "61C0649A051F41362CBB3E516ADDC9F4B5D54442ACFED7E556C10D0546904B31"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice02-red-test.mjs",
+      "bytes": 5462,
+      "sha256": "FE7005FF830E11F9F856E62A060E6AE3AB3942E1F6B9B8D24B62518675A954FB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice03-green-1.log",
+      "bytes": 532,
+      "sha256": "D111004F6D6E9A6204412A8033FFD682A16E0F7250BC0F31307F83A185496371"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice03-green-source.diff",
+      "bytes": 14695,
+      "sha256": "942D1447FBFF62BCE21BC7BDEC7A8CFE51135A289FD946E07A3A3C691443815B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice03-red-1.log",
+      "bytes": 1662,
+      "sha256": "5448C0DC3BE6B9EAB20573DE1086236CD533DE8E7BE5013D869D195C582956A8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r1-fix-slice03-red-test.mjs",
+      "bytes": 9515,
+      "sha256": "B3FD0D8B5FF23B858386F873D10F6ADA9E6C31CCB7FABA242CCFE2DC126B3444"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-native-green-1.log",
+      "bytes": 1213,
+      "sha256": "829ABF8FF314CC9425F3D39475D5D8E451E1C0E1B24819F58D657CB758157D6A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-native-green-2.log",
+      "bytes": 402,
+      "sha256": "90B8819A7E0617C72D2BC4FBB40229499B5FF1A8EF8D4AD9A0E993F99139F42D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-native-green-source.diff",
+      "bytes": 10389,
+      "sha256": "983D9FFB2554EC36DDF052E88E6DBCCA6141E420EDF04DD79D1A72E59D206FDF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-native-red-1.log",
+      "bytes": 1233,
+      "sha256": "5A75FF21F54FA0E5951F16CFCDFC9F707ABBD7938DD3E60E45804FF57BD36A0F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-native-red-test.mjs",
+      "bytes": 2272,
+      "sha256": "714A4F52516B34ED410C7B4C7BCEF41A1D983DDBEE951B84F5BFB24798AA7E43"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-green-1.log",
+      "bytes": 863,
+      "sha256": "0F1CA13A55102DA120DF2696B00008D98A605DF87A926644D352D5630FABC90E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-green-source.diff",
+      "bytes": 11432,
+      "sha256": "C711D86FF53EFF0191FD66837FB0913930BEED4965DE2238610158C2FA3A62B0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-red-1.log",
+      "bytes": 1691,
+      "sha256": "B2719FA562C2B9FB996E7F0102BAAB39C55392683615C7B0A075DAFA6F5334A4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-red-test.mjs",
+      "bytes": 6927,
+      "sha256": "1BDB1643B81D727595ABE9A7842E227EE686F82CB44063881338AF5F611D748B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-source-green-1.log",
+      "bytes": 1093,
+      "sha256": "15BD8EE9F8B4817770CDD285786080D037B47FE5F88D5A98BA751C6F2AB9F44A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-source-green-source.diff",
+      "bytes": 11520,
+      "sha256": "8E4668BDAA2A6AB1C5CFA0277C257342E8A9E5C2A53D33809944C2923018A3D5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-source-red-1.log",
+      "bytes": 1898,
+      "sha256": "07A413136BC817B9F729CBB10D8F51EBB253A4AE0D2B8C56FD60782C6470193C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-owned-source-red-test.mjs",
+      "bytes": 9578,
+      "sha256": "9DC6B71484114BCB4E4933ADCCB8DE2B403C4F1BDE9DD20B40A1C08DF8197E2C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-source-green-1.log",
+      "bytes": 617,
+      "sha256": "789B9B31AE01ED6CB855267E45511368A8F1CA250096C51B391BF77ACF7BDF01"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-source-green-source.diff",
+      "bytes": 10419,
+      "sha256": "87FFA356E0DD88F11BDA61C6DFAD8CFA4FEE15FB5D43ADB2C782C168CAC39C85"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-source-red-1.log",
+      "bytes": 1466,
+      "sha256": "7434FDA5C321F5A354FD59D920F873D381868D757236983BD8126182E03BA85C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-allocation-source-red-test.mjs",
+      "bytes": 4152,
+      "sha256": "E95799E7F7B23BA16BFD984A53C7A5A9D7869FC9229BD329290F30A8598F2D6A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-build-1.log",
+      "bytes": 110,
+      "sha256": "ED6009FD9104EA01FAD861A6A706F81C241EFFA15DB4F9A06286CE22CAC0C703"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-cached-diff-check-1.log",
+      "bytes": 42,
+      "sha256": "924DBB645E30B26FCE2A6568C4B957ACB2A8DD26AC8CE91AA2FAE9C4C1C540EA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-check-1.log",
+      "bytes": 110,
+      "sha256": "37A4AB08EA256A845AF140CC9538338590B470D9C0F365E62EA88554CE1DDEFB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-commit-1.log",
+      "bytes": 412,
+      "sha256": "96850257C429AAB526EFD161D0BFC6F11AA973C24706B01EF378648D11DA2275"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-diff-check-1.log",
+      "bytes": 449,
+      "sha256": "DEF2477661C93025A025F941268AAFEADA1115E6E368C0DD4BC68DAE8D526B3A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-final-source.diff",
+      "bytes": 49350,
+      "sha256": "24E836E3DBD767CDFFC1A2A31908FEC112BEE8E2965A9E60BF6F6D3D61B92722"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-full-serial-1.log",
+      "bytes": 65101,
+      "sha256": "E9785D7FAFEC837598933AF3AEF0F7DF5DAEB1B0D1789652A88AA95B266B2A10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-integration-sync-1.log",
+      "bytes": 79,
+      "sha256": "60D978A22E973BFED5BE6383D6F9E64C46CE1D19F63EFE8BC43A9F8DE0A711F6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-native-all-1.log",
+      "bytes": 7434,
+      "sha256": "F09F15F35D6A62474F9E43196B2222207C58ADD8417FFD4005D15DD8F93F3A0C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-owned-identity-coverage-1.log",
+      "bytes": 934,
+      "sha256": "D5FB0012E66455DE69A439E0D3C76022929FB3D8DB437310CAC3E00391F41372"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-request-hash-coverage-1.log",
+      "bytes": 2042,
+      "sha256": "4C23B4C5A4D88FAF78199572400F75D2B144C4D97D701C6B2947D583D172DC0D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice01-green-1.log",
+      "bytes": 261,
+      "sha256": "809133924EB26920EA5B76D1A65E038A358246616251FD6C15BD1BC16907B043"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice01-green-source.diff",
+      "bytes": 7491,
+      "sha256": "547ECA0EAF3FC9A7892D2A80667632AEE1C73E859DE9CD971CD237CB47E1A201"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice01-red-1.log",
+      "bytes": 1093,
+      "sha256": "3B31B75AF8B8E896B287AF1B32A16173870D0077CE7186C2CA560A75D03AC6FD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice01-red-test.mjs",
+      "bytes": 3313,
+      "sha256": "5A51EB375EDE8185FDB15F90E5441F6D39B059E88FC725D258E0B90A7FC418E4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice02-green-1.log",
+      "bytes": 389,
+      "sha256": "0BF5BF89747CEE0515DF0DEE249E1194DD98092E1AB502B47FFBA2135FEB19F4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice02-green-source.diff",
+      "bytes": 7641,
+      "sha256": "2CD950349062F31BC7803D1CBF19B093E1EBC46F04ECDDF7372790494A048490"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice02-red-1.log",
+      "bytes": 1528,
+      "sha256": "58421143A1432C4FECF6FCA7A0FD4B45943ABD13F516ED9D0263283B4FDC4F4C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-slice02-red-test.mjs",
+      "bytes": 6624,
+      "sha256": "84E60C7F72A2AEC9D3B32869216FF4A6228A8CE21B10734FD7408F5C5FE9C622"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-terminal-budget-green-1.log",
+      "bytes": 4575,
+      "sha256": "73974B27CCBC64D3FC68D76E1502B1E5FA37E89886F5BC0042B48895B74CC7C0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-terminal-budget-green-2.log",
+      "bytes": 551,
+      "sha256": "E08DB8B373C474EA407395FE25BAD6CDAE39C521746A68D47E2BCFDE8D36BF04"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-terminal-budget-green-source.diff",
+      "bytes": 9116,
+      "sha256": "E4DB1D137593CA63BC11C84FBBF928C894917E651F5139874801791094FA1494"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-terminal-budget-red-1.log",
+      "bytes": 1343,
+      "sha256": "7B7E0C52840F3B959758773C8787FD99A26B24269F26F5E6D6701DBFC889F77E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-terminal-budget-red-test.mjs",
+      "bytes": 3833,
+      "sha256": "B247A228A28AFA5C8A483622C5FA7C5A812E48CB2F02AA469817669F4E6FD89D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-r2-fix-terminal-manual-coverage-1.log",
+      "bytes": 803,
+      "sha256": "1E3DAE46FC59B3CC6C50E64A8ADF0225E5034374EEDA6A9C32DCD82EAC4C82FB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r1-diff.patch",
+      "bytes": 180480,
+      "sha256": "D6080DD73D110E1ACCB19CA128816533D0DCF39CD256C5601F370946D55E4EDD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r1-packet.json",
+      "bytes": 3602,
+      "sha256": "093E31FFF05F55932E034E3AD5AE63F159FA4BAA6629BD6E8353FBA4EE4857E9"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r1-source.tar",
+      "bytes": 11632640,
+      "sha256": "9581FFDFC90DA3C5439F45484D8055B989C3C92B08204A8626E1B595231AB702"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r2-diff.patch",
+      "bytes": 202840,
+      "sha256": "542040B08FD80195D15CEC8EDD4BBD0482E9B34A2DFC6BD4088B777259F10447"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r2-packet.json",
+      "bytes": 3698,
+      "sha256": "C869D5D2EDC1FB27AEC3BCD99E69074AA77AE5CFF271FD7DC2220363EB596843"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r2-source.tar",
+      "bytes": 11642880,
+      "sha256": "BCF7E9E5CDCE1289842EC70C88D1CA19E26F721455C8D85E1D3513C1061B1024"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r3-diff.patch",
+      "bytes": 237199,
+      "sha256": "45CE48C65A8C3D52E43B62720B22540AA7D474567E4E31D26F34438DB21CDD99"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r3-packet.json",
+      "bytes": 3808,
+      "sha256": "34F79A64AD16DEC23673DD28C41005D41474F9ADF0716B554E161A5A4581306C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-review-r3-source.tar",
+      "bytes": 11683840,
+      "sha256": "64952C5AD26F3C29F6B117B4A7981849A4F94C2C0DB90F86E24DE35E4DA13694"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-01-green-source.diff",
+      "bytes": 19531,
+      "sha256": "97F3C79BD2D7D226988248661483C6797CD5EA26BC1FB33B500EE8BE8276D05E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-01-green.log",
+      "bytes": 233,
+      "sha256": "9D6E23D65D8684722210FF600077341ACC77B23F174B331D00CFB6741E5DB407"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-01-red.log",
+      "bytes": 918,
+      "sha256": "7C26EFB5060A934281C4A25D761EF26B63E772460C0E68E4495DA3E3479BFCA6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-02-green.log",
+      "bytes": 339,
+      "sha256": "2DC7E758D11F4145F34EC37104313E36D433973D240AAB04CC8F59EDFC26EFFD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-02-red.log",
+      "bytes": 1043,
+      "sha256": "F4438B0294865D0E046BB53B73C5807A258DA2A57AD84DE218B4B33FE9CAA4CB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-03-green.log",
+      "bytes": 225,
+      "sha256": "29D95283EFB328C92CAD9E7AFF82D783C088D99B8F3200F1D8919C9109134058"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-03-red.log",
+      "bytes": 1009,
+      "sha256": "81139C08A6D755D9500DC61B4906FD145C6697B2A23847D776A6E116541064CB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-04-green-source.diff",
+      "bytes": 30320,
+      "sha256": "15CBD22FB51629C7309E29E1FAB28378A9BE164B8ACA515B032A31D7F316CFDC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-04-green.log",
+      "bytes": 559,
+      "sha256": "3B5BB53E0574B5B20F0FF80A15ECEBED5615FDDDF211D6D82A646361A5C60D99"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-04-red-source.diff",
+      "bytes": 21881,
+      "sha256": "AC46BF90432E4C6423EA0E4A65BBE23FC09EF981577B24D74DA62E6DE33E56C6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-04-red.log",
+      "bytes": 955,
+      "sha256": "CACC474799BF8A861754EF6DC31BE559BA090B89CC4C0D84EBCCE8E88783F8A0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-05-green.log",
+      "bytes": 249,
+      "sha256": "6C268B4EB0AD8766A588C891E10409B0F38313D133A3BF09455237F14E2644BE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-05-red.log",
+      "bytes": 1063,
+      "sha256": "A87F0853FEC282EB0FE599967649004CED3AC9BA97CEBCA1AC41C3FE79050B4B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-06-green.log",
+      "bytes": 227,
+      "sha256": "C219B17C358DE62B75B42EF3196DCDFC196E25CE457E9DFA26E5DFD769CA2304"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-06-red.log",
+      "bytes": 968,
+      "sha256": "8B3E7EEA20DE2A1AA49297C58F5FFBAD56329CE8F1BBA51BE523732FB2DF2F89"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-07-green.log",
+      "bytes": 913,
+      "sha256": "2909B24729A6A20547CB5E386B272E685481D6CE6823FCCBEFF1DAED63A937D0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-07-red.log",
+      "bytes": 979,
+      "sha256": "3C3693CF85F8337B449DD069010E35814728CA174EBD772BA6D3F324456DD4D4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-08-green-source.diff",
+      "bytes": 50501,
+      "sha256": "88224FC24ECC7706E89CFCE2C31ABE96C118275467C34D8C6C3A5716B7F0F458"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-08-green.log",
+      "bytes": 1050,
+      "sha256": "D3705A3F07CEBAC9D6FD759F2BB67507C0EE6047BB388BD5EB79E7F0BD3FB6BD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-08-red-source.diff",
+      "bytes": 42031,
+      "sha256": "EF86F676835139728DACF2F7DFBB114D58DCD286E5994D1CC3AF284A83202421"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-08-red.log",
+      "bytes": 1007,
+      "sha256": "67409DA43FD2854E39ED8E94A6858B3E9CD0A06E58C4E565D31015DCDDB8EA06"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-09-green-1.log",
+      "bytes": 219,
+      "sha256": "83CE16193C2C06A2760B0F0582FA3EBD0C27D44A08A9CB109692544BCA14B10F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-09-red.log",
+      "bytes": 913,
+      "sha256": "169E1FC64F8770E81384A5D66F2F81F98EAC9D11F37BFCD2D2D8FF57C9B578B7"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-10-green-1.log",
+      "bytes": 239,
+      "sha256": "20F120825F947EE61D3DF082900EF3F9626B4EB4BCE8336B47CAECE980B4A02E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-10-red.log",
+      "bytes": 1033,
+      "sha256": "FB698EA8870BB4F25CCC08984CDB4617C8AC01F7E3E4FD89ED32B5703E0AC1D6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-11-green-1.log",
+      "bytes": 697,
+      "sha256": "4121F157F666C8E132A9312F2A993B16F196FE611B42067E208261391578C902"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-11-green-2.log",
+      "bytes": 241,
+      "sha256": "6A2E18C50368AD774AF662EBBFB26611D55906AA40D34832B204A7C409F952AE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-11-red-2.log",
+      "bytes": 1036,
+      "sha256": "F1BA9447F16F37CBA48586644FB1965CF719C53CCB4AE7D02E4036A50B058C03"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-11-red.log",
+      "bytes": 695,
+      "sha256": "B76A299739A345B1E9E2F2F51C75212EF95E79EF7C438309965E601D34D7A7BC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-12-green-1.log",
+      "bytes": 245,
+      "sha256": "B7EFC5F50BAB11D0570BD47B21D164DB8FD9125791672CA3647306EB8979FA88"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-12-red-1.log",
+      "bytes": 10681,
+      "sha256": "4D6E4D953AF88BFA0F31E48CA28FFF1BCAA4F42836B5670FC6747A7C5BA1630F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-13-green-1.log",
+      "bytes": 231,
+      "sha256": "7A7A1638A8413B71D12238AF3B84601FF09E9FD46D95783806C6836218A737DC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-13-red-1.log",
+      "bytes": 1082,
+      "sha256": "39ED74A6B785584EA054ADC49ED2CFC3FBA706D0A4A9D485E2145E130E82327F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-14-green-1.log",
+      "bytes": 1018,
+      "sha256": "1AFD116CF0D8FE3915911B1518C338DF1A85150297FEF6526567F33A0E954945"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-14-green-2.log",
+      "bytes": 221,
+      "sha256": "0C23FC07BD3F21910D2782D4A98E9AEFBD589BDDD75A5279DB2014442FB00B89"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-14-red-1.log",
+      "bytes": 937,
+      "sha256": "FC2EC35AA204764D69EAABAB64AA71CC98BAC347B3BBA2F31DACA703AEE39443"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-15-green-1.log",
+      "bytes": 248,
+      "sha256": "531DEF51CB466DA54FDD3F6CFEE526A17E993C757FD703450EC97ACC8E0356BA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-15-red-1.log",
+      "bytes": 646,
+      "sha256": "D7868470B8DF15BF81F3A8CC3A4D4AF96571494F5E3C4B75B5F26E7D4C900DE0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-15-red-2.log",
+      "bytes": 1058,
+      "sha256": "50991575F4D81B5EA643537FCD8A1AE1E32112E847F7A7448BDF2924FA0E4B0D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-16-green-1.log",
+      "bytes": 232,
+      "sha256": "66A5323828C6755C1777662273355832372F00D2655181AE0133E73F4224C768"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-16-red-1.log",
+      "bytes": 1107,
+      "sha256": "4DF2CA6C0912207E38018C753734D9B7DF4F83DB8704CCF042D9D32E23F47DBC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-17-green-1.log",
+      "bytes": 996,
+      "sha256": "E794A4C01296C1CF2B9458EF167477FE3C3EB272324D0051E830F54344D3CB74"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-17-green-2.log",
+      "bytes": 1251,
+      "sha256": "DED98F8A71A0CB9EE34B097028DCD7B4F7BCD75F17733ED4C030104316426898"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-17-green-3.log",
+      "bytes": 266,
+      "sha256": "97E0190347A7412C081888B318BA59FA61BB4E4593E7B5BEAE8BEB53CD428373"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-17-red-1.log",
+      "bytes": 845,
+      "sha256": "8B698104C2DBCAB70DDBBB08BF27AE22463A7FB050E1536C3889A422E4541411"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-18-green-1.log",
+      "bytes": 249,
+      "sha256": "1AA2DDA091A1A698120F848A445CEE5D47CC51F0509CB26480C46A8B1037B9FC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-18-red-1.log",
+      "bytes": 995,
+      "sha256": "CD42ADB0907534174D5EE8867EB14BDB74C6766DE2628227ADADC532E5E73817"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-19-green-1.log",
+      "bytes": 239,
+      "sha256": "ACBAA3C2753A4B9305D7B93BB16FDA654F3B511AD6053530C4C645634232DE88"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-19-red-1.log",
+      "bytes": 969,
+      "sha256": "59E9338EEE04B6C1D6BB1E2917F08B42239394B306E877F74A80CA5EE50750B1"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-20-green-1.log",
+      "bytes": 232,
+      "sha256": "F7FEAB0A0F66EA1B5BBA792878DC157CB875F4FB4482D3164355D2DE2A92D4AB"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-20-red-1.log",
+      "bytes": 949,
+      "sha256": "09AA15CE3A84CA07A69EFA51DDFB00C8E11940857F080AFD8F618C86DB7D49D0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-21-green-1.log",
+      "bytes": 254,
+      "sha256": "2A90F2220BEA02C39AAE7F6AF33BCE6DA6CDFF6CCBFB5761C837F1D3AA4690A5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-21-red-1.log",
+      "bytes": 1081,
+      "sha256": "83F32155327EEF840B70DBAC7B79B372BB095A891449873345E7FB4FB41199FD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-22-green-1.log",
+      "bytes": 233,
+      "sha256": "25EB1793607407EA5AA7FE81CD1B25B3DE6D3BCDCE29D6162F4518F627C0D1D5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-22-green-source.diff",
+      "bytes": 74700,
+      "sha256": "CC38786A95B6DE6FE4445D137DDB1BC3138310E5AAAA938247A119EEA1326911"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-22-red-1.log",
+      "bytes": 951,
+      "sha256": "0E4393CD48F09E4801D9440B3A5EA8AF604C7B73BBBD3CEF9D90A4D6C623D081"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-slice-22-red-source.diff",
+      "bytes": 74655,
+      "sha256": "ADF5671B359BC578AFFEA064B0E5FCB10F8C52C6EEF1A38AAE6559BE54438D6C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-alternative-stable-1.log",
+      "bytes": 1263,
+      "sha256": "C50C8AF7FD02E5C21281226F8AAF5CA2C366A61DC96AD1FA1BC2E8112A728AB9"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-alternative-stable-2.log",
+      "bytes": 1009,
+      "sha256": "590C655FFDCD6E87BC326C4CC11899F9F80C593A5059A988559FE055B0D71A0C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-alternative-stable-3.log",
+      "bytes": 256,
+      "sha256": "93E1BCCBE7131AECD390EC33C9B3B85F801A64E92AD404625887A51CC0E6BC32"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-author-final-2.diff",
+      "bytes": 180480,
+      "sha256": "D6080DD73D110E1ACCB19CA128816533D0DCF39CD256C5601F370946D55E4EDD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-author-final.diff",
+      "bytes": 180275,
+      "sha256": "17931491F30E0284B65A83691C846D7E3F8ADA85445AE06317686E71BA1B86BD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-baseline-suite-1.log",
+      "bytes": 1652,
+      "sha256": "86BDA049B4E6A23B4E85C06F6B043CFE0D7987CC47E9CC862C6BED4B6AA2F0DE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-build-client-1.log",
+      "bytes": 67,
+      "sha256": "48A59165373FD076885186801890802B3192ECD030C9EEE27CCD1F0D914B0409"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-build-client-2.log",
+      "bytes": 67,
+      "sha256": "48A59165373FD076885186801890802B3192ECD030C9EEE27CCD1F0D914B0409"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-build-final-1.log",
+      "bytes": 67,
+      "sha256": "54C7CE7CBF8C25F4B2C001E146B3741866F9D7787356DA48F30DF05F8DA7459B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-build-final-2.log",
+      "bytes": 67,
+      "sha256": "54C7CE7CBF8C25F4B2C001E146B3741866F9D7787356DA48F30DF05F8DA7459B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-cached-diff-check-final-2.log",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-cached-diff-check-final.log",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-check-final-1.log",
+      "bytes": 67,
+      "sha256": "ED761FA9145CC009BBB26C488028C6ABE384DC99BB9A23B29A41EEB71E08D042"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-check-final-2.log",
+      "bytes": 67,
+      "sha256": "ED761FA9145CC009BBB26C488028C6ABE384DC99BB9A23B29A41EEB71E08D042"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-consultation-edit.mjs",
+      "bytes": 2644,
+      "sha256": "B0B5D88D5379275A7FC316059D28AF1E01641A0BD34D273EAE6D8D49E7445AAE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-control-coverage-1.log",
+      "bytes": 2256,
+      "sha256": "4131B62DC02CFCC229EE79D756EA6DE28678FA0CDDC93C7F9987C0C45BA73DD5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-diff-check-1.log",
+      "bytes": 0,
+      "sha256": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-fixture-cleanup.mjs",
+      "bytes": 392,
+      "sha256": "8A603CB7798CBAD78BCB0654FD55DE7726387CE9F1BBD8141D7169E3238C77B7"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-full-serial-2.log",
+      "bytes": 67110,
+      "sha256": "59415BA66ED54DEED8D9F1571090CB265A95070FAF5483A0F23793B16FF9DEBA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-full-serial-3.log",
+      "bytes": 63359,
+      "sha256": "A2C0D9C178F7BB70BF947A859B43AECD9606EA8869A4C18E6D2D96A211C9190C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-full-serial-4.log",
+      "bytes": 62320,
+      "sha256": "A0D692D63E4B2B271F13C24D990EDF56340A98A7C994F5B59EC76CF3DEED1B0D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-native-all-4.log",
+      "bytes": 3546,
+      "sha256": "FFFCEB74FDF0DFFF9122EEF435104E049745D7CAE6FE06580C116E7D7CA81402"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-native-all-5.log",
+      "bytes": 4654,
+      "sha256": "C70C41F05168B84A307492B0797E15BCADE67D64F88C76A02840AF08C3598657"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-native-coverage-2.log",
+      "bytes": 7052,
+      "sha256": "5E32EFC0F87FF5B0289B36C1EA8E0F34FC0EDFC8B8C64EDB0E614618AD887B8F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-native-coverage-3.log",
+      "bytes": 3783,
+      "sha256": "7E3E97C10D919B7D104ADF417E2191BFC0D56DDB5FC5BF06791868DFE198A302"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-proof-coverage-1.log",
+      "bytes": 2757,
+      "sha256": "4A0AE19029555FEB9A27BD09DCA689F8F62AABEFB27DB9D2EC887FB06C16661B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-proof-coverage-2.log",
+      "bytes": 1392,
+      "sha256": "B92E2A17220870083AC864F264E8EE282522753FF81169D2EE9A5B9B3B58B9A4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-regression-t02-1.log",
+      "bytes": 6066,
+      "sha256": "42493CBDC8B8587C0213A4DD948B7C1769533BF85838052254EC29F6DB281A05"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-regression-t02-2.log",
+      "bytes": 1910,
+      "sha256": "780A6174520A369542A693BDA1E033B47D8B0E1AFA3FA47D6CA41E3BF5966855"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-review-issue-1.json",
+      "bytes": 29231,
+      "sha256": "5993C8FDD2D76DB8298E80B8C1173BA05F9F1639C1D262EF3E7C5A09D6B0DABC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-review-issue-19.json",
+      "bytes": 1915,
+      "sha256": "28FBE55985556DD8A6AC5290CEA3118C13775DE81EA045CFCAA829811A2FAA7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-shared-title-1.log",
+      "bytes": 1165,
+      "sha256": "FAC9098987B417F517E9BA3AFB34AF3AB8BBA777CE4743F9ABB2047C5ECD4711"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-shared-title-2.log",
+      "bytes": 368,
+      "sha256": "91F2AC8DCB90035B845E0C02A9FC5BD9B43BAC558EDAC63960C3D22A82C1BC4E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-spec-r1.md",
+      "bytes": 1706,
+      "sha256": "0E53F4F9C54CB81731405555B631F5DD20E1E5190237EDD03D04F3EE40261CD4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-spec-r2.md",
+      "bytes": 1902,
+      "sha256": "73E291B6C3808F38C3AD1DAE36790C21ED883A8993665F137F5789078BC94D34"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-spec-r3.md",
+      "bytes": 1892,
+      "sha256": "36F0977EEA097FF24F90D25363347BE60AA8F606EAF68CA3E8B804615DF443DF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-standards-r1.md",
+      "bytes": 1756,
+      "sha256": "7BED3BE35FFD1EC1A7C083C164F2C6E5EFE26D808A3378F23A3EEA6CEBD3C0BD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-standards-r2.md",
+      "bytes": 2110,
+      "sha256": "9C83C552788549678657CF6995F5482CF1658DBC6EB5E28D6FEE43B5EAD21122"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-standards-r3.md",
+      "bytes": 2193,
+      "sha256": "C300F2886CC31B5299F2A112BC377795250C3E57D332D6468FFC26189FDF2DD5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-source-t17-regression-1.log",
+      "bytes": 313,
+      "sha256": "8AA2E3D4D17F0F4460DABBF4FAF2B254B209E1423B0B6239D482C31070BDFDF8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-0.txt",
+      "bytes": 2759,
+      "sha256": "11FC30174AD90B6E8B2890C87986F64DB19793C9CD5E46A5E4C14B3726BB36E8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-1.txt",
+      "bytes": 8047,
+      "sha256": "5C3A74BA19E29E2FCCF421BA610592272E0625BB88FFA68C2C3AA8B8F3618C10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-10.txt",
+      "bytes": 5136,
+      "sha256": "D89B1BB5AE0381ED15D88DD2FFB26B499B61919F35B83B8DA5A59C5AC191D479"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-11.txt",
+      "bytes": 2381,
+      "sha256": "2742906692B608EC77CB87F1170297647F119BE69414F5BB713E3C670DAD1EE8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-12.txt",
+      "bytes": 5004,
+      "sha256": "7680DD3C144929DA7B47ECBE0E2B89606189B18FEA4DC30022988532707EDC7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-13.txt",
+      "bytes": 4261,
+      "sha256": "2829BC5F3475F847FDF0683FD298D8C741772E84AFD840C14E26EBBEFB192B57"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-14.txt",
+      "bytes": 29231,
+      "sha256": "5993C8FDD2D76DB8298E80B8C1173BA05F9F1639C1D262EF3E7C5A09D6B0DABC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-15.txt",
+      "bytes": 1915,
+      "sha256": "28FBE55985556DD8A6AC5290CEA3118C13775DE81EA045CFCAA829811A2FAA7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-16.txt",
+      "bytes": 855,
+      "sha256": "7D10B08A6968490E6025068E0978A323489E56B9EC8E50EB7ABED59BB779C783"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-17.txt",
+      "bytes": 6028,
+      "sha256": "978305B120AF0DC22B8DB341E43BE54EA1EEE9DDBD89BB32604083B4122D22FE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-18.txt",
+      "bytes": 12721,
+      "sha256": "4A5C8188FB9BF0F682F3A68A5710DCF1FC29B686C26B889499806CE96589570B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-19.txt",
+      "bytes": 4913,
+      "sha256": "E66FD5E1BFB04AD23149F176D20A811DCEC80059B49A427AE7970897FDC05387"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-2.txt",
+      "bytes": 2437,
+      "sha256": "DFD9F480F254E2CEFA2B3850D510AFF1E55DCE0A03F215D136B9B91E9CB25BA5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-20.txt",
+      "bytes": 11283,
+      "sha256": "6E8FA66999C123387D3154B6136A09899B233F08B199798B103033DE751FE1C0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-21.txt",
+      "bytes": 2813,
+      "sha256": "F904665B39EA54E2346AC28DE8580068290B090F7B9E7D9CFB559663B13B9275"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-22.txt",
+      "bytes": 6401,
+      "sha256": "C70A11CC515DE4D9EBF4540F132060211C66B34149B9F1A1A6A2EEBFF7C8BA10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-23.txt",
+      "bytes": 2254,
+      "sha256": "DC84B4C44080ACDC3281A3B6D188CD8783E7E9A7E41EF014C285546AD1B9173C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-3.txt",
+      "bytes": 2251,
+      "sha256": "33DD825721A1472DD87DECEDA0AA3A16CBA53EEF6F06DC541144594518A4DB6F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-4.txt",
+      "bytes": 1777,
+      "sha256": "D1F836EBE04BE4EA1E45E04CBB5C6006F58A09BB9C301750C826CE355F5ED205"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-5.txt",
+      "bytes": 5890,
+      "sha256": "DA5C531D61EF7A1587438D74D9FD6D4D03DE0EE74AB1D59BE46F58C01CFB02F1"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-6.txt",
+      "bytes": 4679,
+      "sha256": "658C8455FEC25C2E87599DB3A3C1F2F89A07263349731D643D0A8C71FF0ABB89"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-7.txt",
+      "bytes": 2897,
+      "sha256": "116EE624F0DD436300605EFBDFDD46401AE40C33E5E9984A79A92C69424C242B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-8.txt",
+      "bytes": 15437,
+      "sha256": "C9A2F75EB90D922316367A3A5EA54FCE830C140337A6C7EBA2A6613F5B4EB04A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-dependency-9.txt",
+      "bytes": 3941,
+      "sha256": "79BCE2167CD97F16FBDFDA2878ED138DEABFC818948ACB82A5EE1EF25DE0A703"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-executed-renderer.mjs",
+      "bytes": 8276,
+      "sha256": "14E5C42D0BF1878B04044E127F191D733363620C701C0A1905F604184D6D4305"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-controlled-executed-rpc.mjs",
+      "bytes": 22467,
+      "sha256": "C64F53E6B30561AE3820564BB198E2B99BC21ED48D25B7EA0A935208D73AAAF7"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-0.txt",
+      "bytes": 2759,
+      "sha256": "11FC30174AD90B6E8B2890C87986F64DB19793C9CD5E46A5E4C14B3726BB36E8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-1.txt",
+      "bytes": 8047,
+      "sha256": "5C3A74BA19E29E2FCCF421BA610592272E0625BB88FFA68C2C3AA8B8F3618C10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-10.txt",
+      "bytes": 5136,
+      "sha256": "D89B1BB5AE0381ED15D88DD2FFB26B499B61919F35B83B8DA5A59C5AC191D479"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-11.txt",
+      "bytes": 2381,
+      "sha256": "2742906692B608EC77CB87F1170297647F119BE69414F5BB713E3C670DAD1EE8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-12.txt",
+      "bytes": 5004,
+      "sha256": "7680DD3C144929DA7B47ECBE0E2B89606189B18FEA4DC30022988532707EDC7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-13.txt",
+      "bytes": 4261,
+      "sha256": "2829BC5F3475F847FDF0683FD298D8C741772E84AFD840C14E26EBBEFB192B57"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-14.txt",
+      "bytes": 29231,
+      "sha256": "5993C8FDD2D76DB8298E80B8C1173BA05F9F1639C1D262EF3E7C5A09D6B0DABC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-15.txt",
+      "bytes": 1915,
+      "sha256": "28FBE55985556DD8A6AC5290CEA3118C13775DE81EA045CFCAA829811A2FAA7F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-16.txt",
+      "bytes": 855,
+      "sha256": "7D10B08A6968490E6025068E0978A323489E56B9EC8E50EB7ABED59BB779C783"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-17.txt",
+      "bytes": 6028,
+      "sha256": "978305B120AF0DC22B8DB341E43BE54EA1EEE9DDBD89BB32604083B4122D22FE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-18.txt",
+      "bytes": 12721,
+      "sha256": "4A5C8188FB9BF0F682F3A68A5710DCF1FC29B686C26B889499806CE96589570B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-19.txt",
+      "bytes": 4913,
+      "sha256": "E66FD5E1BFB04AD23149F176D20A811DCEC80059B49A427AE7970897FDC05387"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-2.txt",
+      "bytes": 2437,
+      "sha256": "DFD9F480F254E2CEFA2B3850D510AFF1E55DCE0A03F215D136B9B91E9CB25BA5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-20.txt",
+      "bytes": 11283,
+      "sha256": "6E8FA66999C123387D3154B6136A09899B233F08B199798B103033DE751FE1C0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-21.txt",
+      "bytes": 2813,
+      "sha256": "F904665B39EA54E2346AC28DE8580068290B090F7B9E7D9CFB559663B13B9275"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-22.txt",
+      "bytes": 6401,
+      "sha256": "C70A11CC515DE4D9EBF4540F132060211C66B34149B9F1A1A6A2EEBFF7C8BA10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-23.txt",
+      "bytes": 2254,
+      "sha256": "DC84B4C44080ACDC3281A3B6D188CD8783E7E9A7E41EF014C285546AD1B9173C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-3.txt",
+      "bytes": 2251,
+      "sha256": "33DD825721A1472DD87DECEDA0AA3A16CBA53EEF6F06DC541144594518A4DB6F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-4.txt",
+      "bytes": 1777,
+      "sha256": "D1F836EBE04BE4EA1E45E04CBB5C6006F58A09BB9C301750C826CE355F5ED205"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-5.txt",
+      "bytes": 5890,
+      "sha256": "DA5C531D61EF7A1587438D74D9FD6D4D03DE0EE74AB1D59BE46F58C01CFB02F1"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-6.txt",
+      "bytes": 4679,
+      "sha256": "658C8455FEC25C2E87599DB3A3C1F2F89A07263349731D643D0A8C71FF0ABB89"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-7.txt",
+      "bytes": 2897,
+      "sha256": "116EE624F0DD436300605EFBDFDD46401AE40C33E5E9984A79A92C69424C242B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-8.txt",
+      "bytes": 15437,
+      "sha256": "C9A2F75EB90D922316367A3A5EA54FCE830C140337A6C7EBA2A6613F5B4EB04A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-dependency-9.txt",
+      "bytes": 3941,
+      "sha256": "79BCE2167CD97F16FBDFDA2878ED138DEABFC818948ACB82A5EE1EF25DE0A703"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-executed-renderer.mjs",
+      "bytes": 8276,
+      "sha256": "14E5C42D0BF1878B04044E127F191D733363620C701C0A1905F604184D6D4305"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-v0170g-restart-executed-rpc.mjs",
+      "bytes": 22467,
+      "sha256": "C64F53E6B30561AE3820564BB198E2B99BC21ED48D25B7EA0A935208D73AAAF7"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170a-failed-frozen.json",
+      "bytes": 13653,
+      "sha256": "2F3E6395CCF633382A9BA6BFF505DAF7D7EC83E115C8C7194F3125BFF3BA0F07"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170b-failed-frozen.json",
+      "bytes": 15332,
+      "sha256": "D791CF1A194400ECF9AA59905250ED285347EC76C010A524DBBA297FD3F738DE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170c-failed-frozen.json",
+      "bytes": 17245,
+      "sha256": "2189C55CDC5348C3CC41BFC038BCA1993C44F725E23B7C869C9EF3970376483E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170d-failed-frozen.json",
+      "bytes": 20627,
+      "sha256": "12EBF9B3B5E0B5E97C288F32CCDE6307E32E3F0504F46E778999DCFBA4668653"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170e-failed-frozen.json",
+      "bytes": 17673,
+      "sha256": "5D06B5A24029FA46E6A393DF7B8EBAB9C086596F0C51124127CFA5DBCF43050C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170f-failed-frozen.json",
+      "bytes": 22260,
+      "sha256": "725040EAEF5E99989E5C904E4CD245621F936153C1C579A1384AB259180B6228"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-execution-sources.json",
+      "bytes": 10567,
+      "sha256": "2CA7935B036E4F53EAED17789F646CB4786513B3E879E3880A98A6F2C332E0AF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\LICENSE",
+      "bytes": 1086,
+      "sha256": "827FD39732D6951DFAFCB783320ED5CD19D3E9983168C279AF4AFC86EC888C58"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\README.md",
+      "bytes": 28847,
+      "sha256": "F9C53A9DCE890C27D319429FD2D0EF2B66B461D46EE2E74BE27A8BCAE4051683"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\cordis.patch.yml",
+      "bytes": 74,
+      "sha256": "F40697CEF62FCC7D3D2F4316725A2ABD7865365D2EA0CD10D5D3EB16A0006E28"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\acceptance.js",
+      "bytes": 54609,
+      "sha256": "C063DF7A2B6AE8C1D398B3367178BE5E3C6BA3BABC28008F6CE4D61986C129F5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\chatgpt-host.js",
+      "bytes": 32170,
+      "sha256": "32858DFFB7A90D8FAD4F663092EF15B9BCBE73D5B8707D7A3FA300AE13AE1E99"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\chatgpt-oauth.js",
+      "bytes": 19132,
+      "sha256": "372789AF53F1A6282538B7DC198B4BE6A4FDE26415D74242B21F0FF65B745274"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\chatgpt-responses.js",
+      "bytes": 41528,
+      "sha256": "6D345C4B005D9A82FCBA11550219298C6EDE6B3F151D1FC939B598957B32B1C3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\chatgpt-router.js",
+      "bytes": 3112,
+      "sha256": "6C76F788E27F22B3E4D3F9E8BEFC6C9D40F45A7674F0A0C6D4B541A361B7C0C5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\chatgpt-sessions.js",
+      "bytes": 23981,
+      "sha256": "2D8285404887E11ACA5E3FA2A0B062FCD3437353565D6597B7FA22B93092174F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\client.js",
+      "bytes": 394221,
+      "sha256": "1927FE229112EEBCC64EFB0C30FDDF82DF0571856FEAA751A3306A85020B7D53"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\compatible-host.js",
+      "bytes": 9437,
+      "sha256": "D6971B3B2741E0EB6EC05D4AEFBFB65541490DAE55EA64551C623B55B3241868"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\compatible-responses.js",
+      "bytes": 8856,
+      "sha256": "FAAD1B7CF63EB47FF2932526FD299F3415D5EB84647DC0F5C8ADDBDA5F449AF7"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\connections.js",
+      "bytes": 20476,
+      "sha256": "D0E737A11654D315C100571A7CB19873C5F9C14C425F87B21BDDFA24FCC001C1"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\coordination.js",
+      "bytes": 32853,
+      "sha256": "2766CC6C1071EA6188BCEE2A08C5CB965B82B6811A418D3368C1E63FE51619EE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\deepseek-catalog.js",
+      "bytes": 4755,
+      "sha256": "001ACEE0E2F7BF6E8CADD6F3AEFF0FD07A9936D400A4D14C9EA9605A03A2D634"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\deepseek-connections.js",
+      "bytes": 10517,
+      "sha256": "A177318BBFC926753B6E46C84B13A71F622D2EC767E73E98672B8AADF376DC4D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\deepseek-deadline.js",
+      "bytes": 255,
+      "sha256": "622C440A9F7BD28560B7445C1179257D8D68D4EA543FB9D32B56753D5405289F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\deepseek-host.js",
+      "bytes": 8653,
+      "sha256": "A1C05CB5E3AEB13F3F6DB6F122A2313C6AF47E3B7918F900EE378929F26C3B36"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\deepseek-router.js",
+      "bytes": 3968,
+      "sha256": "9AE158757285F03B8469CEFB749DA1D490839E8083BDB541C363C57026CF40F3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\image-acceptance.js",
+      "bytes": 12381,
+      "sha256": "200C547BE1B9AF3B9825D213A850F3A63F1A0FD19A65CFB33C940886939647E6"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\index.js",
+      "bytes": 156398,
+      "sha256": "32F7EF11A163A433F6C5353EAECA8390B438009BC5AD0E972ABFE24019AE7285"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\ledger.js",
+      "bytes": 10911,
+      "sha256": "A2F58F0F7F3CA926148CE5408BF7240DC57316816C6832254299ED437DA77E3A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\native-connections.js",
+      "bytes": 3573,
+      "sha256": "68492A1E5A591AECE533A771D251E51CB80CE4A4015E9E51DF3AAB91365E3E4F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\opencode-go-adapter.js",
+      "bytes": 6868,
+      "sha256": "F442B4825A1DC1511E73BFB47D26886752723E190025FE1E6FE1ADA711D122B4"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\opencode-go-host.js",
+      "bytes": 8277,
+      "sha256": "FF36EE9529292BAF815046942F0B1E0DDF017EDE0ADFCA28B0E08AE857040D81"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\program-checks.js",
+      "bytes": 11568,
+      "sha256": "1E713A38B13E6F39380723E655FE5DF2704C9B30BFAA1039344EBA0344096FFC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\protocol.js",
+      "bytes": 10575,
+      "sha256": "36628437CDCD69A7EF9EE72BE0F8CA2397A6795F1A67F3723FA8269E6B59F301"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\recovery.js",
+      "bytes": 3798,
+      "sha256": "57F54B630F7BC67C5F19B5339CE8EC4131D57824B8632E87037CA24756F533FD"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\research-acceptance.js",
+      "bytes": 31125,
+      "sha256": "6507D07521A8FDE8B4F31872DD60ED7BE6240F608DA0BF0F1B95CC3BB0A4FAA3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\research-artifact.js",
+      "bytes": 2478,
+      "sha256": "5C6F00DCA0CFDA1EF71069132F0902317C7BD346B426D07A4A2BBEBBFCE8BB21"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\research-contribution.js",
+      "bytes": 19909,
+      "sha256": "A6DDEBE858CA7635433E40EB408D833398E6140BB4FDB3B2E4D0ABBC49E76A01"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\routing.js",
+      "bytes": 17352,
+      "sha256": "4B8E7AD121DDBC6C1583C3C75F65653DC90DE8BEC3B599A3134A76C1A3A18C57"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\source-network.js",
+      "bytes": 21316,
+      "sha256": "B476E7648A3753649CFF37CF0AE1BD79631727639B3DF30E494438439D0A8B8B"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\subscription-reference.js",
+      "bytes": 2815,
+      "sha256": "3733A54AE2970FEC5900CAC8AA626E6EF221039B3818D34C93AECCC4FF658277"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\takeover.js",
+      "bytes": 48758,
+      "sha256": "59C0464CFCFCA9F664A9871593F2F47BCC17C6FBF1D9AE4D9978C879654CBE43"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\typert.host.js",
+      "bytes": 59,
+      "sha256": "BC86280BC50E60349EE89D7E23C018E6F2D199674AF7F14AC32482281D49DC06"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\lib\\typert.remote-client.js",
+      "bytes": 73,
+      "sha256": "1A8F43647DBB2341F80CCAE6A94472F8F57A40915440E0CC569EE80C7A7206F1"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\profiles\\desktop\\node_modules\\@irishwei\\dsh-router\\package.json",
+      "bytes": 3558,
+      "sha256": "E694E56EE1EDAB075480D45F5EB6BD9C0A04D559738ABE5484C6135B2A5DA199"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\router\\desktop\\state.json",
+      "bytes": 3239976,
+      "sha256": "704F278C50801E5EEB97DFB20F63960F2EE30EFB9ECB5A2938FA35C8A5D3F82F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\t18-controlled-counts.json",
+      "bytes": 2695101,
+      "sha256": "3EEE8E99A82D3BE0A45F047328A73FD7E8484FE3135FE94A97597511AB054F29"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-home\\t18-controlled-scenario.json",
+      "bytes": 60,
+      "sha256": "CBDC0A75A18A8D0928082EF74333BADAF5F3B58764007E82252B8075E86B86BA"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-owner.json",
+      "bytes": 619,
+      "sha256": "4893333B16743AC239C07C05D094021CE342CFD0F0D3B6CEC1BB30F2A1BCE767"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-renderer-run.log",
+      "bytes": 98,
+      "sha256": "9CEE1A9DC079BD0E61CF27231820C2C578F32C9D5BFA4E34BBD0B4A8A0DE8093"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-rpc-run.log",
+      "bytes": 110,
+      "sha256": "B02A260304B38B3138CAE2822E4A167D72870AD76AB2705563AFFCB1C8A8F669"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled-stopped.json",
+      "bytes": 418,
+      "sha256": "CD4965EE4E780035FD2704521FF20D822C978D2D6B5A8B2FA08A456CFE1F185E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled.private.err.log",
+      "bytes": 1026,
+      "sha256": "8E4BF405DA4DBC04EFB4EC2BD64DF7926751B37B124C5610D146638EB95ADC7E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-controlled.private.out.log",
+      "bytes": 207,
+      "sha256": "8F5A6C8F14ABC2E02A13A38DCAA1DB3AA443D4C2D1063F6F53B9D6CF340B7E57"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-desktop-evidence.json",
+      "bytes": 6649080,
+      "sha256": "EE3F55411FA3DE4E62820DBE997A420BB7C56C9959B28564FDB318232CF8F1B0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-desktop-initial.json",
+      "bytes": 211823,
+      "sha256": "F024254635756DB161D73037F694E7BC5D553CAFC8D7D6E3CCB512CBD2E08A18"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-desktop-owned.ps1",
+      "bytes": 6401,
+      "sha256": "C70A11CC515DE4D9EBF4540F132060211C66B34149B9F1A1A6A2EEBFF7C8BA10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-desktop-summary.json",
+      "bytes": 112580,
+      "sha256": "41ED67143C3CE1AE1D67F259E62B9218A0B0EA038824223D230EA984BF67114A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-fixture-bundle\\lib\\index.js",
+      "bytes": 15437,
+      "sha256": "C9A2F75EB90D922316367A3A5EA54FCE830C140337A6C7EBA2A6613F5B4EB04A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-host-rpc.mjs",
+      "bytes": 2813,
+      "sha256": "F904665B39EA54E2346AC28DE8580068290B090F7B9E7D9CFB559663B13B9275"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-install.ps1",
+      "bytes": 2254,
+      "sha256": "DC84B4C44080ACDC3281A3B6D188CD8783E7E9A7E41EF014C285546AD1B9173C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-live-renderer-context.json",
+      "bytes": 279,
+      "sha256": "C79634AC5B4672ADCBBE08DA443DD76692FD557AB34DB4E12234971A4D19D91F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-live-renderer-evidence.json",
+      "bytes": 80497,
+      "sha256": "CC1AEB3F0C5DBDC9A02942257B905D5C9D7F8D7E5607DCB11A201CA87D27C440"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-live-renderer-run.log",
+      "bytes": 96,
+      "sha256": "A484C51A61E9350AF32D7502E6F023C59318A69B1A13105406FB56895FD878ED"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-offline-cli-receipt.json",
+      "bytes": 229,
+      "sha256": "8DAF24FF584D1FBA428B9AFA67A51E0EC42ABFD9BD5E4D5DC14CAF78BF5FD602"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-offline-cli.log",
+      "bytes": 525,
+      "sha256": "FCAB160393E3BF51BF59E4C20EF5C9B883535D7FD41802F457D29CE2057E88CF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-package-identity.json",
+      "bytes": 10482,
+      "sha256": "5F446A32F304A296B75E3318E96089F2DC68D064F2F92EA26D536CCAE45DF149"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-preparation.json",
+      "bytes": 659,
+      "sha256": "958C44087BAE0328C293BC2C858F083AB984EE62DF1C7D41EEA24D5428603A78"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-public-proof.json",
+      "bytes": 8503494,
+      "sha256": "221D57DF300A0150A940B44960B411ED2B56DFB1A1DAEA7E2E4E80E9D5AE5D37"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-renderer-evidence.json",
+      "bytes": 1868,
+      "sha256": "29B30B4FFD83C7C01E3BD14AB8C6562AD945CE32650001B136AFF24D79EF945D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-evidence.json",
+      "bytes": 3710,
+      "sha256": "F6168920992E3A5966F18AFAFF5079F0A241B24199B2FBDDFD7CB0F791455E82"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-execution-sources.json",
+      "bytes": 10486,
+      "sha256": "6A0C049028D0D7F72E79B62A5B9585C3E1C32D19B6D094FC79B79361EBDFA15A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-owner.json",
+      "bytes": 609,
+      "sha256": "94E784D993A114BC71ADBEB3C5B8E8D23BCCB62B502D4717C28779FFD2A8F072"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-renderer-evidence.json",
+      "bytes": 1865,
+      "sha256": "007CF52974330B8AC0B91EAC46ABABA6F3205516C62380EF600E56E76BA6E460"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-renderer-run.log",
+      "bytes": 95,
+      "sha256": "869CF807392D2CC940A1D55E81A7E10CA7ADDCC7FD6C151D4324B758C948169D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-rpc-run.log",
+      "bytes": 68,
+      "sha256": "7FC870B6B9BAB2FC9D9EA9D4F73795B780AFB127C09C1D4911BE71903E5717BC"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-state-scope.json",
+      "bytes": 7401,
+      "sha256": "828DA022B9DDA895CFCF5B78D4008B27F0901E5393F5EA8F0797EA063D6C64D5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart-stopped.json",
+      "bytes": 414,
+      "sha256": "0AE15DE532E93007EB3DD0811DCFD0296037CDA5DD2658DE73E924DA5180913C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart.private.err.log",
+      "bytes": 1025,
+      "sha256": "6C025BE9E9367DD58DD76DBC8EA3CF00F402AD62EAE9CC2371DB2673CB52169D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-restart.private.out.log",
+      "bytes": 207,
+      "sha256": "5662FA4BBE7E739BD9F956C95F9919D007283AA3C686455A292D6330E9DA079F"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-reviewed-contract.md",
+      "bytes": 11283,
+      "sha256": "6E8FA66999C123387D3154B6136A09899B233F08B199798B103033DE751FE1C0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-alternative-complete.json",
+      "bytes": 151696,
+      "sha256": "B33AEBDEBF7127AF21AAB2DB8436D0B09D359A9E77DD711EC867877F49D4E0E8"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-authorization.json",
+      "bytes": 53127,
+      "sha256": "C618EAE34229ED36B33CCBAAF25E4785C5828923624E747EA15C50F79F111D3D"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-budget-stop.json",
+      "bytes": 129129,
+      "sha256": "6763A659FA4702DEA5C33F6B4C7F9CDAA193B07EB5FA30605F362392D3DD4368"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-budget-unknown-money.json",
+      "bytes": 77150,
+      "sha256": "1F90011B6FE9583772B201AE8910A9E25F5A2B74F4AE227765A5212D05AA2358"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-capacity-refused.json",
+      "bytes": 102773,
+      "sha256": "ED9E740FAFF49E59CF840AC5DDECBB4890CD14D9D6F77D2676DD2D06773602F0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-consultation-cap128-recovery512.json",
+      "bytes": 201272,
+      "sha256": "5E08FFC790293FA8F7D9ADF0D71D0ACA6F5A0EC23656516E91E5FD55E2233023"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-consultation-cap256-recovery64.json",
+      "bytes": 201255,
+      "sha256": "82C955E34DD5ECA166BB225E46C1BCBE25EDCAE345F08810D90092ADDB15BCCE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-consultation-recovery.json",
+      "bytes": 201012,
+      "sha256": "BC7CADD6391139DF7FF3C1E46E9DDF4BECAC8D5A54AC77F7AA36872CD18E8355"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-duplicate-operation.json",
+      "bytes": 162364,
+      "sha256": "09C1F5B7E201FE81212C16DFA00A4DC1531F93DCF0D9B76146A1D4490D8D3231"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-fixed-no-alternative.json",
+      "bytes": 151462,
+      "sha256": "FADE0C81A506B6DF3915790D0D6385FD05F53BE94AA44B86665D3642238AB0F5"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-image-complete.json",
+      "bytes": 119165,
+      "sha256": "5CE1590E5ABE94018D9244A6BDF1E4690F9C4DBAAD566ADCD5A0331A273BAC37"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-image-refused.json",
+      "bytes": 106189,
+      "sha256": "D34CD37E36ABDE7F31EB0949410BA010732F7982ED229FB921676BC075B6525A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-manual-current-only.json",
+      "bytes": 245847,
+      "sha256": "EE0F1405E13D3BDDA7A3E4B9C5D14B032456E29F07EACA7BE2C4827C29FF2983"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-manual-retry.json",
+      "bytes": 157443,
+      "sha256": "6C3ED45F6CC83F7A499F1B4390009E9FDD1A72632EE1CDC72A3905314605B4FF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-manual-stop.json",
+      "bytes": 108113,
+      "sha256": "A590ABC46D44B11F35586DAFF3E91B4D128DEB913D4609F25DF1EE60E93A73C0"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-network-exhausted.json",
+      "bytes": 152309,
+      "sha256": "3A3F305A69046E463D5F54663F33B6DF573AE19994AED973F81A44BFDE65EBCF"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-network-recovered.json",
+      "bytes": 115276,
+      "sha256": "8C3BFEB036D90510ADE845313FCEAFB6064AD4E9AAF06760C356AA44050B5F38"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-opaque-failure.json",
+      "bytes": 53010,
+      "sha256": "D4AF187D99AFA076348751CB5FB4E08A9668A52EC5156605A816CAE2F803C760"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-operation-unproved.json",
+      "bytes": 95108,
+      "sha256": "6E5BBE6319FA385441534F68E0E3D61F83B50714A161248DAB6EC903565EFC65"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-partial-response.json",
+      "bytes": 53098,
+      "sha256": "1AA17FE81F01B9C561464D5C4A6C9277A6D09CEE89CC5ADEDC3F5757ED527F9A"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-permit-revoked.json",
+      "bytes": 108271,
+      "sha256": "C90496470FBBE0B26C70FFBC9FFAD37B3BC1FFB59CF57D230C4EF9BCEFA91851"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-protocol-refused.json",
+      "bytes": 102102,
+      "sha256": "BB4090BE6C16A13EC5BCB60CC61F6245ECA219453526B01D6D3DA98209A1A445"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-quota.json",
+      "bytes": 52941,
+      "sha256": "3F085C4374426BB6B8766426D72B7D76AF5905D25517B4076FEC5CDE2AE7EE23"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-rate-limit-too-long.json",
+      "bytes": 53131,
+      "sha256": "A7B4FD22C32DEC895A7CCFB73C544692A0B76715DC6CCE4B1AD6154414AE5A10"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-takeover-cap128-recovery512.json",
+      "bytes": 367957,
+      "sha256": "6450FA13DE961F5985E72E3F3503B3A6E45C0D61BD089240660732070EACDC8C"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-takeover-cap512-recovery128.json",
+      "bytes": 367957,
+      "sha256": "460F1C9264DCF93C40CD738466426FA0B0BBFBFDB516D9EAD845FD7C8B641BCE"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-takeover-recovery.json",
+      "bytes": 367701,
+      "sha256": "52724D2FEDADC8D22B450AC7971CE79C66A747DBFC83CC16F3BFA98DBF63A53E"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-tool-format-refused.json",
+      "bytes": 102884,
+      "sha256": "B5254F6CB1873AB1B3B8813972CCD4E1EAF2098DADF7B5F44785D7A27DCA9324"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-scenario-unknown-usage.json",
+      "bytes": 52829,
+      "sha256": "8CC91EBFBDBF7E4B1489DEF8D7A228566A3C3E71EF9A48043056EC9E9C64B4F3"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-state-pre-restart.json",
+      "bytes": 1386,
+      "sha256": "00AE0C58A29D47DFE64012FBF5BCCD0BB9A9CF62765E80AE846DCEAD01172862"
+    },
+    {
+      "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\t18-v0170g-state-sealed.json",
+      "bytes": 3239976,
+      "sha256": "6C00F3E5E13EEE9A907F94869D7FFB99B5FC713BC9665680A6C6790AD2A02188"
+    },
+    {
+      "path": "E:\\GPT\\Router项目\\artifacts\\irishwei-dsh-router-0.17.0.tgz",
+      "bytes": 244754,
+      "sha256": "2DBE7055718996CF7479415EDAAC58B9A5E411863D5DBC672FAA06AAFD97F55F"
+    }
+  ],
+  "realModelRequests": 0,
+  "priorLabels": {
+    "passed": true,
+    "preservation": {
+      "passed": true,
+      "prior": {
+        "passed": true,
+        "prior": {
+          "passed": true,
+          "prior": {
+            "priorFrozenFilesVerified": 166,
+            "legacyStateBytes": 9114595,
+            "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+            "t07FrozenFilesVerified": 39,
+            "goAndCompatibleFrozenPackagesVerified": true,
+            "realModelRequests": 0
+          },
+          "records": [
+            {
+              "manifest": "t15-v0150a-failed-frozen.json",
+              "manifestSha256": "785d8ae8f3603d0927347e927c0ce4aa1149b476cf066a67bfe0545c6955115e",
+              "verified": 12,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150b-failed-frozen.json",
+              "manifestSha256": "1b349af29df7f4534c86f24948abf0ba43b21fd5c7f2043344c30e8018ff520e",
+              "verified": 19,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150c-partial-frozen.json",
+              "manifestSha256": "24b5a597f90bef9eda740179cff01a3a20714a08d8c87eccb94a988ab24f64d3",
+              "verified": 28,
+              "sealedLiveState": true
+            }
+          ],
+          "verifiedT15CapturedFiles": 59,
+          "sealedStateMatchesPreRestartManifest": true,
+          "liveControlledStateMatchesSealedBytes": true,
+          "liveStateScope": "isolated controlled profile intentionally reopened; full public Tasks/config/counts/default equality is separately required",
+          "realModelRequests": 0
+        },
+        "t15ValidationFiles": 59,
+        "t15InstalledFiles": 36,
+        "t15RepositoryCopies": 14,
+        "finalReviewReports": 2,
+        "realModelRequests": 0
+      },
+      "T17FrozenFileEntries": 495,
+      "T17ArchiveFiles": 50,
+      "T17PackageBytes": 233897,
+      "productionModelRequests": 0
+    },
+    "records": [
+      {
+        "manifest": "t18-v0170a-failed-frozen.json",
+        "manifestSha256": "2F3E6395CCF633382A9BA6BFF505DAF7D7EC83E115C8C7194F3125BFF3BA0F07",
+        "phase": "failed-controlled",
+        "filesVerified": 45
+      },
+      {
+        "manifest": "t18-v0170b-failed-frozen.json",
+        "manifestSha256": "D791CF1A194400ECF9AA59905250ED285347EC76C010A524DBBA297FD3F738DE",
+        "phase": "failed-controlled",
+        "filesVerified": 51
+      },
+      {
+        "manifest": "t18-v0170c-failed-frozen.json",
+        "manifestSha256": "2189C55CDC5348C3CC41BFC038BCA1993C44F725E23B7C869C9EF3970376483E",
+        "phase": "failed-controlled",
+        "filesVerified": 58
+      },
+      {
+        "manifest": "t18-v0170d-failed-frozen.json",
+        "manifestSha256": "12EBF9B3B5E0B5E97C288F32CCDE6307E32E3F0504F46E778999DCFBA4668653",
+        "phase": "failed-controlled",
+        "filesVerified": 71
+      },
+      {
+        "manifest": "t18-v0170e-failed-frozen.json",
+        "manifestSha256": "5D06B5A24029FA46E6A393DF7B8EBAB9C086596F0C51124127CFA5DBCF43050C",
+        "phase": "failed-controlled",
+        "filesVerified": 58
+      },
+      {
+        "manifest": "t18-v0170f-failed-frozen.json",
+        "manifestSha256": "725040EAEF5E99989E5C904E4CD245621F936153C1C579A1384AB259180B6228",
+        "phase": "failed-controlled",
+        "filesVerified": 76
+      }
+    ],
+    "frozenT18FileEntries": 359,
+    "realModelRequests": 0
+  },
+  "note": "Raw owned receipts and executed source copies retain their original phase. Later independent review uses a separate archive index."
+}

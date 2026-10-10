@@ -1,0 +1,19 @@
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+1423 !== 8192
+
+    at run (file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170c-controlled-executed-rpc.mjs:196:16)
+    at async file:///C:/Users/a1500/AppData/Local/Temp/router-implementation/implement-spec-go-20261009/t18-v0170c-controlled-executed-rpc.mjs:230:37 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 1423,
+  expected: 8192,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.19.0

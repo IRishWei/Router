@@ -1,0 +1,395 @@
+{
+  "label": "t18-v0170g",
+  "version": "0.17.0",
+  "source": "5e51bf3e3e40e1d05bffa4976cae1c5a263cafc7",
+  "package": {
+    "bytes": 244754,
+    "sha256": "2DBE7055718996CF7479415EDAAC58B9A5E411863D5DBC672FAA06AAFD97F55F"
+  },
+  "fixture": {
+    "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-fixture-final.mjs",
+    "bytes": 15437,
+    "sha256": "C9A2F75EB90D922316367A3A5EA54FCE830C140337A6C7EBA2A6613F5B4EB04A",
+    "provider": "router-t18-controlled-fixture",
+    "ownedModels": 7,
+    "maxLocalStreams": 160,
+    "presetTokensPerKnownStream": 8,
+    "preparation": "Each fresh Session first completes one separate Native prime Task and all its auxiliary/title Calls. The recovery Task retains that full prior history; setup Call costs stay in the setup Task ledger."
+  },
+  "localRecorder": {
+    "atomicJsonRename": true,
+    "transientEpermRetries": 4,
+    "retryDelayMs": 20,
+    "scope": "Only a complete pending local counter-file rename can wait. Every retry is recorded. No model stream is retried or hidden; other IO errors and exhausted rename waits fail the fixture."
+  },
+  "registryRefresh": {
+    "protocol": "t18-current-registry-refresh-v1",
+    "provider": "router-t18-controlled-fixture",
+    "entries": 14,
+    "generationDelta": 2,
+    "revisionDelta": 28
+  },
+  "controlledRunDeadlineMs": 240000,
+  "perExactTaskDeadlineMs": 45000,
+  "scenarios": [
+    {
+      "name": "network-recovered",
+      "entries": 2,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "alternative-complete",
+      "alternative": "alternative",
+      "entries": 3,
+      "targetEntries": 1,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "fixed-no-alternative",
+      "alternative": "alternative",
+      "fixed": true,
+      "entries": 3,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "capacity-refused",
+      "alternative": "alternative-small",
+      "entries": 2,
+      "category": "network",
+      "reasonPattern": "CONTEXT_CAPACITY_EXCEEDED",
+      "setupPrime": true
+    },
+    {
+      "name": "protocol-refused",
+      "alternative": "alternative-unknown",
+      "entries": 2,
+      "category": "network",
+      "reasonPattern": "MODEL_FORMAT_UNSUPPORTED",
+      "setupPrime": true
+    },
+    {
+      "name": "tool-format-refused",
+      "alternative": "alternative-format-unsupported",
+      "entries": 2,
+      "category": "network",
+      "reasonPattern": "^RECOVERY_TOOL_PROTOCOL_UNSUPPORTED$",
+      "setupPrime": true
+    },
+    {
+      "name": "image-refused",
+      "alternative": "alternative-text-only",
+      "image": true,
+      "entries": 2,
+      "category": "network",
+      "reasonPattern": "^RECOVERY_IMAGE_CAPABILITY_UNSUPPORTED$",
+      "setupPrime": true
+    },
+    {
+      "name": "image-complete",
+      "image": true,
+      "entries": 2,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "duplicate-operation",
+      "entries": 3,
+      "category": "network",
+      "reasonPattern": "RECOVERY_DUPLICATE_OPERATION",
+      "setupPrime": true
+    },
+    {
+      "name": "operation-unproved",
+      "entries": 2,
+      "category": "network",
+      "reasonPattern": "RECOVERY_TOOL_OPERATION_UNKNOWN",
+      "setupPrime": true
+    },
+    {
+      "name": "consultation-recovery",
+      "coordination": true,
+      "entries": 3,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "consultation-cap256-recovery64",
+      "mode": "consultation-recovery",
+      "coordination": true,
+      "coordinationMaxTokens": 256,
+      "recoveryMaxTokens": 64,
+      "coordinationForecastTokens": 8192,
+      "recoveryForecastTokens": 8191,
+      "entries": 3,
+      "completed": true,
+      "category": "network",
+      "effectiveMaxTokens": 64,
+      "effectiveForecastTokens": 8191,
+      "setupPrime": true
+    },
+    {
+      "name": "consultation-cap128-recovery512",
+      "mode": "consultation-recovery",
+      "coordination": true,
+      "coordinationMaxTokens": 128,
+      "recoveryMaxTokens": 512,
+      "coordinationForecastTokens": 8191,
+      "recoveryForecastTokens": 8192,
+      "entries": 3,
+      "completed": true,
+      "category": "network",
+      "effectiveMaxTokens": 128,
+      "effectiveForecastTokens": 8191,
+      "setupPrime": true
+    },
+    {
+      "name": "takeover-recovery",
+      "coordination": true,
+      "takeover": true,
+      "entries": 5,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "takeover-cap128-recovery512",
+      "mode": "takeover-recovery",
+      "coordination": true,
+      "takeover": true,
+      "takeoverMaxTokens": 128,
+      "recoveryMaxTokens": 512,
+      "takeoverForecastTokens": 65535,
+      "recoveryForecastTokens": 65536,
+      "entries": 5,
+      "completed": true,
+      "category": "network",
+      "effectiveMaxTokens": 128,
+      "effectiveForecastTokens": 65535,
+      "setupPrime": true
+    },
+    {
+      "name": "takeover-cap512-recovery128",
+      "mode": "takeover-recovery",
+      "coordination": true,
+      "takeover": true,
+      "takeoverMaxTokens": 512,
+      "recoveryMaxTokens": 128,
+      "takeoverForecastTokens": 65536,
+      "recoveryForecastTokens": 65535,
+      "entries": 5,
+      "completed": true,
+      "category": "network",
+      "effectiveMaxTokens": 128,
+      "effectiveForecastTokens": 65535,
+      "setupPrime": true
+    },
+    {
+      "name": "network-exhausted",
+      "entries": 3,
+      "category": "network",
+      "reasonPattern": "RECOVERY_ATTEMPT_LIMIT",
+      "setupPrime": true
+    },
+    {
+      "name": "rate-limit-too-long",
+      "entries": 1,
+      "category": "rate-limit",
+      "reasonPattern": "RECOVERY_WAIT_LIMIT",
+      "setupPrime": true
+    },
+    {
+      "name": "unknown-usage",
+      "entries": 1,
+      "category": "network",
+      "reasonPattern": "RECOVERY_USAGE_UNKNOWN",
+      "setupPrime": true
+    },
+    {
+      "name": "partial-response",
+      "entries": 1,
+      "category": "network",
+      "reasonPattern": "RECOVERY_RESPONSE_PARTIAL",
+      "setupPrime": true
+    },
+    {
+      "name": "opaque-failure",
+      "entries": 1,
+      "category": "unknown",
+      "reasonPattern": "RECOVERY_FAILURE_UNSAFE",
+      "setupPrime": true
+    },
+    {
+      "name": "authorization",
+      "entries": 1,
+      "category": "authorization",
+      "reasonPattern": "RECOVERY_REAUTHORIZE_REQUIRED",
+      "setupPrime": true
+    },
+    {
+      "name": "quota",
+      "entries": 1,
+      "category": "quota",
+      "reasonPattern": "RECOVERY_QUOTA_REQUIRED",
+      "setupPrime": true
+    },
+    {
+      "name": "manual-retry",
+      "manual": true,
+      "entries": 2,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "manual-current-only",
+      "manual": true,
+      "alternative": "alternative",
+      "entries": 3,
+      "completed": true,
+      "category": "network",
+      "setupPrime": true
+    },
+    {
+      "name": "manual-stop",
+      "manual": true,
+      "entries": 1,
+      "category": "network",
+      "reasonPattern": "^RECOVERY_CANCELED$",
+      "setupPrime": true
+    },
+    {
+      "name": "budget-stop",
+      "budgetTokens": 20,
+      "entries": 1,
+      "category": "network",
+      "reasonPattern": "^RECOVERY_STOPPED$",
+      "setupPrime": true
+    },
+    {
+      "name": "budget-unknown-money",
+      "money": true,
+      "entries": 1,
+      "category": "network",
+      "reasonPattern": "RECOVERY_BUDGET_UNPROVEN",
+      "setupPrime": true
+    },
+    {
+      "name": "permit-revoked",
+      "entries": 1,
+      "category": "rate-limit",
+      "reasonPattern": "RECOVERY_POLICY_CHANGED",
+      "setupPrime": true
+    }
+  ],
+  "productionModelRequests": 0,
+  "scope": {
+    "source": "Full rc.2 Task fixtures include actual local fake-credential refresh invalid_grant, live pending restart, Native retry plugins and cross-Task operations.",
+    "installed": "Fresh official offline CLI package, isolated Desktop, full public native prompts, exact Task/all auxiliary Call settlement, actual installed Renderer live stop, predetermined external Adapter responses and native WeakSet observations.",
+    "restart": "This profile reopens only terminal Tasks. All stored non-connections fields and complete counter bytes remain exact. Only fourteen current fixture registry rows refresh the predeclared auth/config generations, registry revision and timestamps; identities/order/status/capability/handoff remain exact. Report raw whole-state equality honestly.",
+    "image": "Retain the actual SDK-admitted attachment bytes and hash; the separate source PNG hash does not forbid legitimate ingress conversion.",
+    "limits": "No Go/official production recovery, second account, actual billing, model quality or screenshot claim. Preset known usage is eight tokens per local stream; absent usage remains unknown. Only scheduled delays have the 500ms/1000ms contract, not OS wall time."
+  },
+  "phase": "prelaunch-plan-created-not-executed",
+  "priorLabels": {
+    "passed": true,
+    "preservation": {
+      "passed": true,
+      "prior": {
+        "passed": true,
+        "prior": {
+          "passed": true,
+          "prior": {
+            "priorFrozenFilesVerified": 166,
+            "legacyStateBytes": 9114595,
+            "legacyStateSha256": "7b8c6e6bceffefb871caedc6df404b4b5b76403b2e5044314d8c4429e194906a",
+            "t07FrozenFilesVerified": 39,
+            "goAndCompatibleFrozenPackagesVerified": true,
+            "realModelRequests": 0
+          },
+          "records": [
+            {
+              "manifest": "t15-v0150a-failed-frozen.json",
+              "manifestSha256": "785d8ae8f3603d0927347e927c0ce4aa1149b476cf066a67bfe0545c6955115e",
+              "verified": 12,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150b-failed-frozen.json",
+              "manifestSha256": "1b349af29df7f4534c86f24948abf0ba43b21fd5c7f2043344c30e8018ff520e",
+              "verified": 19,
+              "sealedLiveState": false
+            },
+            {
+              "manifest": "t15-v0150c-partial-frozen.json",
+              "manifestSha256": "24b5a597f90bef9eda740179cff01a3a20714a08d8c87eccb94a988ab24f64d3",
+              "verified": 28,
+              "sealedLiveState": true
+            }
+          ],
+          "verifiedT15CapturedFiles": 59,
+          "sealedStateMatchesPreRestartManifest": true,
+          "liveControlledStateMatchesSealedBytes": true,
+          "liveStateScope": "isolated controlled profile intentionally reopened; full public Tasks/config/counts/default equality is separately required",
+          "realModelRequests": 0
+        },
+        "t15ValidationFiles": 59,
+        "t15InstalledFiles": 36,
+        "t15RepositoryCopies": 14,
+        "finalReviewReports": 2,
+        "realModelRequests": 0
+      },
+      "T17FrozenFileEntries": 495,
+      "T17ArchiveFiles": 50,
+      "T17PackageBytes": 233897,
+      "productionModelRequests": 0
+    },
+    "records": [
+      {
+        "manifest": "t18-v0170a-failed-frozen.json",
+        "manifestSha256": "2F3E6395CCF633382A9BA6BFF505DAF7D7EC83E115C8C7194F3125BFF3BA0F07",
+        "phase": "failed-controlled",
+        "filesVerified": 45
+      },
+      {
+        "manifest": "t18-v0170b-failed-frozen.json",
+        "manifestSha256": "D791CF1A194400ECF9AA59905250ED285347EC76C010A524DBBA297FD3F738DE",
+        "phase": "failed-controlled",
+        "filesVerified": 51
+      },
+      {
+        "manifest": "t18-v0170c-failed-frozen.json",
+        "manifestSha256": "2189C55CDC5348C3CC41BFC038BCA1993C44F725E23B7C869C9EF3970376483E",
+        "phase": "failed-controlled",
+        "filesVerified": 58
+      },
+      {
+        "manifest": "t18-v0170d-failed-frozen.json",
+        "manifestSha256": "12EBF9B3B5E0B5E97C288F32CCDE6307E32E3F0504F46E778999DCFBA4668653",
+        "phase": "failed-controlled",
+        "filesVerified": 71
+      },
+      {
+        "manifest": "t18-v0170e-failed-frozen.json",
+        "manifestSha256": "5D06B5A24029FA46E6A393DF7B8EBAB9C086596F0C51124127CFA5DBCF43050C",
+        "phase": "failed-controlled",
+        "filesVerified": 58
+      },
+      {
+        "manifest": "t18-v0170f-failed-frozen.json",
+        "manifestSha256": "725040EAEF5E99989E5C904E4CD245621F936153C1C579A1384AB259180B6228",
+        "phase": "failed-controlled",
+        "filesVerified": 76
+      }
+    ],
+    "frozenT18FileEntries": 359,
+    "realModelRequests": 0
+  }
+}

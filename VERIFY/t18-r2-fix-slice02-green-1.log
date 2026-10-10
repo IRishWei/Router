@@ -1,0 +1,11 @@
+✔ a real consultation recovery obeys the smaller recovery cap with one owned intent and one advice (280.3214ms)
+✔ a real consultation recovery keeps the smaller consultation cap and forecast within the finite Task budget (195.6695ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1014.5383
+runExit=0 durationMs=1084

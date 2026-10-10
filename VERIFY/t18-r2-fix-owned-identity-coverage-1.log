@@ -1,0 +1,13 @@
+✔ a real consultation recovery obeys the smaller recovery cap with one owned intent and one advice (241.2889ms)
+✔ a copied consultation recovery request cannot inherit the original owned request identity (129.7026ms)
+ℹ {"pauseReason":"RECOVERY_FAILURE_UNSAFE","recoveryState":"paused","recoveryReason":"RECOVERY_FAILURE_UNSAFE","calls":[{"purpose":"execution","status":"completed","dispatched":true},{"purpose":"execution","status":"completed","dispatched":true},{"purpose":"consultation","status":"failed","dispatched":true,"failureCode":"CONNECTION"},{"purpose":"consultation","status":"failed","dispatched":false,"failureCode":"MODEL_NOT_FOUND"}]}
+✔ a real consultation recovery keeps the smaller consultation cap and forecast within the finite Task budget (176.5958ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1117.0137
+runExit=0 durationMs=1298

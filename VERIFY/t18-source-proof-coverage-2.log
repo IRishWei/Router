@@ -1,0 +1,24 @@
+✔ a full native recovery refuses unsafe alternative billing without a target model entry (186.8923ms)
+✔ a full native recovery refuses unsafe alternative protocol without a target model entry (127.5169ms)
+✔ a full native recovery refuses unsafe alternative capacity without a target model entry (135.9892ms)
+✔ a full native recovery refuses unsafe alternative fixed without a target model entry (152.934ms)
+✖ ordinary recovery retains the exact image attachment and proves declared image pricing (165.1645ms)
+✔ ordinary recovery retains the exact image attachment and refuses unknown image pricing (109.775ms)
+✔ a real recovery state write failure stops dispatch and releases reservations while retaining known usage (77.6897ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 6
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1478.6895
+
+✖ failing tests:
+
+test at test\t18.proof.test.mjs:30:45
+✖ ordinary recovery retains the exact image attachment and proves declared image pricing (165.1645ms)
+  TypeError: ctx.attachments.get is not a function
+      at TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.proof.test.mjs:48:44)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:960:7)

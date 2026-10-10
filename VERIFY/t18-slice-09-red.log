@@ -1,0 +1,19 @@
+✖ a live manual recovery has one CAS winner and a terminal Task cannot be revived (3084.9327ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3870.0211
+
+✖ failing tests:
+
+test at test\t18.integration.test.mjs:35:1
+✖ a live manual recovery has one CAS winner and a terminal Task cannot be revived (3084.9327ms)
+  Error: The public Router state did not reach the expected live seam
+      at waitForSnapshot (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18-harness.mjs:75:9)
+      at async TestContext.<anonymous> (file:///C:/Users/a1500/.codex/worktrees/t18-failure-recovery/Router%E9%A1%B9%E7%9B%AE/test/t18.integration.test.mjs:42:18)
+      at async Test.run (node:internal/test_runner/test:1389:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3)

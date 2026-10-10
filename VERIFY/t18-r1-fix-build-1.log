@@ -1,0 +1,5 @@
+
+> @irishwei/dsh-router@0.17.0 build
+> node scripts/build.mjs
+
+runExit=0 durationMs=1009

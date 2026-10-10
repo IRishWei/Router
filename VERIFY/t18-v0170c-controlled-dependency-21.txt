@@ -1,0 +1,29 @@
+import assert from 'node:assert/strict';
+import { readFile, writeFile } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
+import { verifyPreservedEvidence } from './implement-spec-go-20261009/t18-preservation.mjs';
+await verifyPreservedEvidence();
+const directory = 'C:/Users/a1500/AppData/Local/Temp/router-implementation';
+const stage = process.argv[2] ?? 'controlled'; assert(['controlled','restart'].includes(stage));
+const ownerPath = `${directory}/t18-v0170c-${stage}-owner.json`;
+const owner = JSON.parse(await readFile(ownerPath, 'utf8'));
+assert.equal(owner.purpose, 'T18 controlled Desktop validation');
+execFileSync('powershell.exe', ['-NoProfile','-Command', `$o=Get-Content -LiteralPath '${ownerPath}' -Raw|ConvertFrom-Json; $p=Get-Process -Id $o.pid -ErrorAction Stop; if($p.Path -ne $o.executable -or $p.StartTime.ToUniversalTime() -ne ([datetime]$o.startedAt).ToUniversalTime()){throw 'Ownership mismatch'}`], {stdio:'pipe'});
+let launch; const deadline = Date.now()+20000;
+while(Date.now()<deadline){const match=(await readFile(owner.outLog,'utf8')).match(/http:\/\/127\.0\.0\.1:\d+\/\?token=[^\s"<>]+/gu); if(match?.length){launch=new URL(match.at(-1));break;}await delay(100);}
+assert(launch,'Owned Host URL unavailable');
+const origin=launch.origin;
+const exchange=await fetch(launch,{redirect:'manual',signal:AbortSignal.timeout(10000)});
+assert([301,302,303,307,308].includes(exchange.status));
+const cookie=exchange.headers.getSetCookie().map(x=>x.split(';',1)[0]).join('; ');assert(cookie);
+async function rpc(namespace,method,args={}){
+ const rpcId=randomUUID();const response=await fetch(`${origin}/api/${namespace}/${method}`,{method:'POST',headers:{'content-type':'application/json',Cookie:cookie,Origin:origin},body:JSON.stringify({type:'client-request',rpcId,method:`${namespace}/${method}`,payload:{args}}),signal:AbortSignal.timeout(65000)});
+ assert(response.ok);const result=await response.json();assert.equal(result.rpcId,rpcId);assert(result.result?.ok,`RPC ${method}: ${result.result?.error?.code??'unknown'}`);return result.result.value;
+}
+const snapshot=()=>rpc('router','snapshot');
+const save=(name,value)=>writeFile(`${directory}/${name}`,JSON.stringify(value,null,2),{flag:'wx'});
+let initial;for(let i=0;i<100;i++){try{initial=await snapshot();break;}catch{await delay(100);}}assert(initial);assert.equal(initial.storageError,null);
+const counts=async()=>JSON.parse(await readFile(`${owner.home}/t18-controlled-counts.json`,'utf8'));
+export {rpc,snapshot,save,initial,owner,directory};

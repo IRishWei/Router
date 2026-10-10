@@ -1,0 +1,17 @@
+{
+  "round": "red1",
+  "passed": false,
+  "sourceSha256": "9229B98EEBB940B8BFAFA4C8D473FF383688EEC953519396AEE829265E2194D5",
+  "failure": {
+    "code": "EPERM",
+    "syscall": "rename",
+    "path": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-counter-lock-red1\\t18-controlled-counts.pending.json",
+    "dest": "C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-counter-lock-red1\\t18-controlled-counts.json",
+    "message": "EPERM: operation not permitted, rename 'C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-counter-lock-red1\\t18-controlled-counts.pending.json' -> 'C:\\Users\\a1500\\AppData\\Local\\Temp\\router-implementation\\implement-spec-go-20261009\\t18-counter-lock-red1\\t18-controlled-counts.json'"
+  },
+  "actualRecords": 0,
+  "childExit": 0,
+  "productionModelRequests": 0,
+  "out": "",
+  "err": ""
+}
