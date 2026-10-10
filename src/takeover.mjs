@@ -299,7 +299,7 @@ export class TaskTakeoverController {
     if (currentSessionMessageProjections.length !== this.#catalog.length || this.#catalog.some((item, index) => currentSessionMessageProjections[index] !== item.definition || item.definition.type !== item.type || item.definition.project !== item.project)) throw new LlmError('Public message interpreters changed', 'TAKEOVER_SESSION_PROJECTION_CHANGED');
   }
   #verifyOperations(agent) {
-    if ([...this.#toolBindings.values()].some(binding => binding.affectedAgents.some(owner => owner.session.id === agent.session.id)) || this.#router.toolReceiptsForSession(agent.session.id).some(receipt => receipt.outcome !== 'completed')) throw new LlmError('An operation in the public execution tree is pending or unknown', 'TAKEOVER_TOOL_OUTCOME_UNKNOWN');
+    if ([...this.#toolAncestry.values()].some(scope => !scope.settled && scope.affectedAgents.some(owner => owner.session.id === agent.session.id)) || this.#router.toolReceiptsForSession(agent.session.id).some(receipt => receipt.outcome !== 'completed')) throw new LlmError('An operation in the public execution tree is pending or unknown', 'TAKEOVER_TOOL_OUTCOME_UNKNOWN');
   }
   #auditTools(messages, tools = [], history, target, model) {
     const hasToolContent = messages.some(message => message.role === 'tool' || message.content.some(part => ['tool-call', 'tool-addition', 'tool-removal'].includes(part.type)));
@@ -348,6 +348,7 @@ export class TaskTakeoverController {
       const turn = this.#turn(owner);
       return { agent: owner, turn, taskId: this.#router.exactTask(owner.session.id, turn)?.id };
     }));
+    this.#toolAncestry.set(exec.token, { agent, affectedAgents, taskOwners, rootCallId, scopeReason, settled: false });
     const definition = this.#tools.get(exec.name, exec.agent);
     if (!definition) return;
     const schema = toolSchema(definition);
@@ -356,15 +357,18 @@ export class TaskTakeoverController {
     const key = operation?.effect === 'side-effect' && operation.idempotencyKey ? exec.arguments?.[operation.idempotencyKey] : null;
     const operationKey = operation?.effect === 'side-effect' && typeof key === 'string' && key ? hash({ schema, operation, key }) : null;
     const owner = this.#owner(definition, exec.agent);
-    this.#toolAncestry.set(exec.token, { agent, affectedAgents, taskOwners, rootCallId, scopeReason });
     this.#toolBindings.set(exec.token, { callId: exec.callId, name: exec.name, schema: clone(schema), schemaHash: hash(schema), operation: operation?.effect === 'side-effect' && !operationKey ? null : operation, operationKey, argsHash: hash(exec.arguments), semanticBindingId: owner.id, owner, agent, affectedAgents, taskOwners, rootCallId, scopeReason });
   }
   recordToolResult(exec, result) {
     const binding = this.#toolBindings.get(exec.token);
+    const ancestry = this.#toolAncestry.get(exec.token);
+    if (ancestry) ancestry.settled = true;
     this.#toolBindings.delete(exec.token);
     if (binding?.pendingKey) this.#pendingOperations.delete(binding.pendingKey);
     const parent = this.#toolBindings.get(exec.parent) ?? this.#toolAncestry.get(exec.parent);
-    const taskOwners = binding?.taskOwners ?? parent?.taskOwners ?? (exec.agent && this.#nativeRoot(exec) ? [{ agent: exec.agent, turn: this.#turn(exec.agent) }] : []);
+    const knownOwners = binding?.taskOwners ?? ancestry?.taskOwners ?? parent?.taskOwners;
+    const rootOwners = knownOwners || exec.rootCallId === undefined ? [] : [...new Map([...this.#toolBindings.values()].filter(candidate => candidate.rootCallId === exec.rootCallId).flatMap(candidate => candidate.taskOwners).map(owner => [owner.taskId, owner])).values()];
+    const taskOwners = knownOwners ?? (rootOwners.length ? rootOwners : exec.agent && this.#nativeRoot(exec) ? [{ agent: exec.agent, turn: this.#turn(exec.agent) }] : []);
     for (const taskOwner of taskOwners) {
       const task = this.#router.exactTask(taskOwner.agent.session.id, taskOwner.turn);
       if (!task || taskOwner.taskId && taskOwner.taskId !== task.id) continue;

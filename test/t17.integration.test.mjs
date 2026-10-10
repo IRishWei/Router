@@ -1181,3 +1181,88 @@ test('a late child receipt stays with its original Task after the same Session b
     assert.equal(second.turn, original.turn + 1);
   } finally { await cleanup(home, run); }
 });
+
+test('a missing definition with an unobserved parent and omitted agent cannot lose its matching native Task evidence', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t17-child-combined-unknown-'));
+  let run;
+  try {
+    run = await prepare(home);
+    registerTool(run);
+    let unrelatedToken, childResult;
+    run.ctx.tools.register({ name: 't17_combined_host_token', description: 'Independent Host operation', parameters: { type: 'object', properties: {}, additionalProperties: false },
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+      async execute(_args, exec) { unrelatedToken = exec.token; return 'HOST_TOKEN_CREATED'; },
+    });
+    await run.ctx.tools.execute({ callId: 'independent-combined-host-call', name: 't17_combined_host_token', arguments: {}, signal: new AbortController().signal });
+    run.toolDefinition.execute = async (_args, exec) => {
+      childResult = await run.ctx.tools.execute({ callId: exec.callId + ':combined-child', rootCallId: exec.rootCallId, name: 't17_combined_not_registered', arguments: {}, parent: unrelatedToken, signal: exec.signal });
+      return 'RECEIPT_COMPLETE:ORIGINAL_VALUE';
+    };
+    const task = await submit(run.ctx, run.sessionId, prompt);
+    assert.equal(childResult.isError, true);
+    assert.equal(childResult.error.info.code, 'UNKNOWN_TOOL');
+    assert.equal(run.target.requests.length, 0);
+    assert.equal(task.toolReceipts.some(item => item.name === 't17_combined_host_token'), false);
+    const receipt = task.toolReceipts.find(item => item.name === 't17_combined_not_registered');
+    assert.equal(receipt.outcome, 'unknown');
+    assert.equal(receipt.failureCode, 'UNKNOWN_TOOL');
+    assert.equal(task.takeover.plan.reason, 'TAKEOVER_TOOL_OUTCOME_UNKNOWN');
+    assert.equal(task.lifecycle, 'paused');
+  } finally { await cleanup(home, run); }
+});
+
+test('a missing definition child waiting in a public execute wrapper remains unsettled before its result', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t17-child-missing-pending-'));
+  let run, nested, releaseNested, notifyStarted;
+  const pending = new Promise(resolve => { releaseNested = resolve; });
+  const started = new Promise(resolve => { notifyStarted = resolve; });
+  try {
+    run = await prepare(home);
+    registerTool(run);
+    run.ctx.on('tools/execute', async (exec, next) => {
+      if (exec.name === 't17_missing_pending_definition') { notifyStarted(); await pending; }
+      return next();
+    }, { prepend: true });
+    run.toolDefinition.execute = async (_args, exec) => {
+      nested = run.ctx.tools.execute({ callId: exec.callId + ':missing-pending-child', rootCallId: exec.rootCallId, name: 't17_missing_pending_definition', arguments: {}, parent: exec.token, signal: exec.signal });
+      await started;
+      return 'RECEIPT_COMPLETE:ORIGINAL_VALUE';
+    };
+    const task = await submit(run.ctx, run.sessionId, prompt);
+    assert.equal(task.toolReceipts.length, 1);
+    assert.equal(task.toolReceipts[0].outcome, 'completed');
+    assert.equal(run.target.requests.length, 0);
+    assert.equal(task.takeover.plan.reason, 'TAKEOVER_TOOL_OUTCOME_UNKNOWN');
+    assert.equal(task.lifecycle, 'paused');
+    assert.equal(task.executionOwner.identity.provider, 't17-main');
+  } finally { releaseNested(); await nested; await cleanup(home, run); }
+});
+
+test('an early tool preparation error without pre-execute retains a matching native Task owner', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t17-child-early-error-'));
+  let run;
+  try {
+    run = await prepare(home);
+    registerTool(run);
+    let unrelatedToken, childResult, childPreExecutions = 0;
+    run.ctx.tools.register({ name: 't17_early_host_token', description: 'Independent Host operation', parameters: { type: 'object', properties: {}, additionalProperties: false },
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+      async execute(_args, exec) { unrelatedToken = exec.token; return 'HOST_TOKEN_CREATED'; },
+    });
+    await run.ctx.tools.execute({ callId: 'independent-early-host-call', name: 't17_early_host_token', arguments: {}, signal: new AbortController().signal });
+    run.ctx.on('tools/pre-execute', (exec, next) => { if (exec.name === 't17_early_not_registered') childPreExecutions++; return next(); });
+    run.toolDefinition.execute = async (_args, exec) => {
+      childResult = await run.ctx.tools.execute({ callId: exec.callId + ':early-child', rootCallId: exec.rootCallId, name: 't17_early_not_registered', arguments: undefined, parent: unrelatedToken, signal: exec.signal });
+      return 'RECEIPT_COMPLETE:ORIGINAL_VALUE';
+    };
+    const task = await submit(run.ctx, run.sessionId, prompt);
+    assert.equal(childPreExecutions, 0);
+    assert.equal(childResult.isError, true);
+    assert.match(childResult.error.message, /losslessly JSON-serializable/);
+    assert.equal(run.target.requests.length, 0);
+    assert.equal(task.toolReceipts.some(item => item.name === 't17_early_host_token'), false);
+    assert.equal(task.toolReceipts.find(item => item.name === 't17_early_not_registered').outcome, 'unknown');
+    assert.equal(task.takeover.plan.reason, 'TAKEOVER_TOOL_OUTCOME_UNKNOWN');
+    assert.equal(task.lifecycle, 'paused');
+  } finally { await cleanup(home, run); }
+});
