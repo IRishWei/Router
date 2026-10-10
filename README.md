@@ -65,6 +65,14 @@ ChatGPT 有界验收最多创建一个 Task，并在统一派发入口限制最�
 
 兼容性以候选声明、实际准备的公共模型事实和最终原生请求核对为准，声明不等于任意提供商 wire 已验证。现有 Go、自定义兼容与 ChatGPT 的公开元数据尚不能证明接管所需完整合同，因此保持明确拒绝；真实效果验收另见最终交付门槛。源码合同与验证范围见 [T17 合同](docs/implementation/t17-takeover-contract.md) 和 [T17 源码证据](docs/implementation/t17-takeover-source-evidence.md)。
 
+## 同一任务的故障恢复
+
+**路由与预算 → 故障恢复**默认关闭。启用后，执行、咨询和接管共用最多两次额外恢复，每次计划等待不超过500ms，累计不超过1000ms；可信 Retry-After 超限会暂停。原失败 code、可信 status、已报告 usage 与未知消耗分别保留，失败不成为验收通过。
+
+只有网络/限流且无部分响应、账本用量已知、完整原生输入/工具/图像/容量与预算都可证明时才允许恢复。授权失效需重新授权，额度不足需检查额度；未知工具操作、部分文本或推理、存储失败、人工输入、候选撤权和许可变化都会停止新派发。固定模型保持固定。自动策略可明确配置同授权/计费路径的已启用替代；人工“重试当前模型”始终保持当前源模型。
+
+公开调用为 `setRecoveryPolicy({enabled, automatic, alternativeCandidateId, maxTokens, forecastTokens})` 和 `resolveTaskRecovery({taskId, recoveryId, expectedRevision, action:'retry-current'|'stop'})`。Snapshot 的 `config.recovery` 与 `task.recovery` 可查看恢复状态及次数；live 人工等待按钮绑定精确 Task/recovery/revision。已结束或重启的旧 Task 无公开 resume，修复后发送新任务，不会复活旧任务。完整接口与受控范围见 [T18 合同](docs/implementation/t18-failure-recovery-contract.md) 和 [T18 源码证据](docs/implementation/t18-failure-recovery-source-evidence.md)。
+
 ## 复用宿主连接
 
 **连接与模型 → 刷新宿主连接**只调用 DSH 的公开 provider、可配置目录和模型元数据契约。原生引用显示来源、可用状态、配置/授权未知项、能力置信度和精确候选身份；发现不会自动加入模型池。账号或计费来源无法由公开元数据证明时保持“未知”，目录可见也不表示推理、工具或图像请求已经验证。

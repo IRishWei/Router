@@ -102,7 +102,7 @@ window.__ModuleLoader__.load({
       const [seconds, setSeconds] = React.useState('');
       const [money, setMoney] = React.useState({});
       if (!task.budget) return null;
-      const active = ['running', 'waiting-budget'].includes(task.lifecycle);
+      const active = ['running', 'waiting-budget', 'waiting-recovery'].includes(task.lifecycle);
       const limits = task.budget.limits;
       if (task.openCodeGoDetection || task.compatibleDetection) return h('div', null,
         h('p', null, `${task.compatibleDetection ? '兼容连接' : 'Go'} 检测预算：${limits.tokens} token · ${limits.durationMs / 1000} 秒；不支持扩额。`),
@@ -132,7 +132,7 @@ window.__ModuleLoader__.load({
       return h('div', null,
         h('p', null, `token：${number(ledger.tokens.total)}${ledger.tokens.total === null ? `（已知部分 ${ledger.knownTokens.total}）` : ''} · 输入 ${number(ledger.tokens.input)} · 输出 ${number(ledger.tokens.output)} · 缓存读 ${number(ledger.tokens.cacheRead)} · 缓存写 ${number(ledger.tokens.cacheWrite)} · 推理 ${number(ledger.tokens.reasoning)}`),
         h('p', null, `耗时：${(ledger.elapsedMs / 1000).toFixed(3)} 秒 · 记账调用 ${ledger.callCount}`),
-        task.nativeLifecycle === 'completed' && ['running', 'waiting-budget'].includes(task.lifecycle) ? h('p', null, '原生 turn 已完成，所属辅助调用仍在处理；任务预算继续生效。') : null,
+        task.nativeLifecycle === 'completed' && ['running', 'waiting-budget', 'waiting-recovery'].includes(task.lifecycle) ? h('p', null, '原生 turn 已完成，所属辅助调用仍在处理；任务预算继续生效。') : null,
         ledger.uncertainDispatchCalls ? h('p', null, `${ledger.uncertainDispatchCalls} 次调用仅保留可能派发的意图；是否实际发送及消耗未知，不能按零计算。`) : null,
         h('p', null, '实际账单支出：未知，尚无已确认账单；API 费用计算和订阅参考价值分别统计，不能据此证明现金节省。'),
         ...ledger.money.map(item => h('p', { key: `${item.currency}:${item.kind}` }, `${amountKind(item.kind)}：${item.currency} ${number(item.amount)}${item.amount === null ? `（已知部分 ${number(item.knownSubtotal)}；${item.unknownCalls} 次报价或用量未完整）` : ''} · 估算，账单未确认`)),
@@ -210,6 +210,33 @@ window.__ModuleLoader__.load({
         field('接管输入与输出总预留 token', draft.forecastTokens, value => patch({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 65536, step: 1 }),
         h('button', { type: 'button', onClick: () => save(draft) }, '保存接管设置'));
     }
+    function RecoveryPolicyEditor({ state, disabled, save }) {
+      const initial = state.config.recovery ?? { enabled: false, automatic: false, alternativeCandidateId: null, maxTokens: 512, forecastTokens: 32768 };
+      const [draft, setDraft] = React.useState(initial);
+      React.useEffect(() => { setDraft(initial); }, [JSON.stringify(initial)]);
+      const patch = change => setDraft(current => ({ ...current, ...change }));
+      return h('fieldset', { disabled }, h('legend', null, '故障恢复'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '启用故障恢复', checked: draft.enabled, onChange: event => patch({ enabled: event.target.checked }) }), '允许新任务有界恢复'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '自动执行安全恢复', checked: draft.automatic, onChange: event => patch({ automatic: event.target.checked }) }), '自动执行可证明安全的恢复'),
+        h('label', null, '恢复替代候选 ', h('select', { 'aria-label': '恢复替代候选', value: draft.alternativeCandidateId ?? '', onChange: event => patch({ alternativeCandidateId: event.target.value || null }) }, h('option', { value: '' }, '只重试当前模型'), ...state.models.filter(model => model.enabled && model.available).map(model => h('option', { key: model.candidateId ?? model.id, value: model.candidateId ?? model.id }, model.name)))),
+        h('p', null, '默认关闭；执行、咨询、接管共用最多两次额外恢复。每次计划等待最多 500ms，累计最多 1000ms；固定模型保持固定。替代候选必须同时证明授权、计费、完整输入与容量，未知用量或工具结果会暂停。'),
+        field('恢复输出 token 上限', draft.maxTokens, value => patch({ maxTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 4096, step: 1 }),
+        field('恢复输入与输出总预留 token', draft.forecastTokens, value => patch({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 65536, step: 1 }),
+        h('button', { type: 'button', onClick: () => save(draft) }, '保存恢复设置'));
+    }
+    function RecoveryResult({ task, disabled, change, api, openConnections }) {
+      const recovery = task.recovery;
+      if (!recovery) return null;
+      const live = !task.nativeLifecycle && task.lifecycle === 'waiting-recovery' && recovery.state === 'waiting-user';
+      const resolve = action => change(() => api.resolveTaskRecovery({ taskId: task.id, recoveryId: recovery.id, expectedRevision: recovery.revision, action }));
+      const category = { network: '连接故障', 'rate-limit': '限流', authorization: '授权失效', quota: '额度不足', 'response-unknown': '响应不完整', control: '人工或停止控制', handoff: '交接不可证明', unknown: '原因未知' };
+      return h('div', null,
+        h('p', null, `故障恢复：${category[recovery.category] ?? recovery.category} · ${recovery.state} · 已用 ${recovery.attempts}/2 次 · 计划等待 ${recovery.waitMs}ms · 实际记录等待 ${number(recovery.actualWaitMs)}ms`),
+        h('p', null, `原错误：${recovery.failure.code}${recovery.failure.status ? ` · HTTP ${recovery.failure.status}` : ''}${recovery.failure.providerRetryAfterMs ? ` · Retry-After ${recovery.failure.providerRetryAfterMs}ms` : ''}${recovery.reason ? ` · ${recovery.reason}` : ''}`),
+        recovery.category === 'authorization' ? h('button', { type: 'button', onClick: openConnections }, '前往连接设置重新授权') : null,
+        live ? h(React.Fragment, null, h('button', { type: 'button', disabled, onClick: () => resolve('retry-current') }, `重试当前模型 ${task.id}`), h('button', { type: 'button', disabled, onClick: () => resolve('stop') }, `停止恢复 ${task.id}`)) : null,
+        !['running', 'waiting-budget', 'waiting-recovery'].includes(task.lifecycle) || task.nativeLifecycle ? h('p', null, '此任务已结束；修复连接、授权或预算后发送新任务，不会复活旧任务。') : null);
+    }
     function AcceptanceResult({ task }) {
       const acceptance = task.acceptance ?? { verdict: 'unconfirmed', evidence: [] };
       const label = acceptance.verdict === 'passed' ? '通过' : acceptance.verdict === 'failed' ? '失败' : '无法确认';
@@ -279,7 +306,7 @@ window.__ModuleLoader__.load({
       const change = async action => {
         setBusy(true);
         try { setState(valueOf(await action())); setError(''); }
-        catch { setError('设置保存失败，请检查模型是否有效及 DSH 本地存储。'); }
+        catch { setError('操作未完成。恢复按钮只适用于当前仍在等待的任务；请刷新记录并检查连接与 DSH 本地存储。'); }
         finally { setBusy(false); }
       };
       const disabled = busy || Boolean(state?.storageError);
@@ -315,13 +342,15 @@ window.__ModuleLoader__.load({
         h(AcceptancePolicyEditor, { state, disabled, save: policy => change(() => api.setAcceptancePolicy(policy)) }),
         h(CoordinationPolicyEditor, { state, disabled, save: policy => change(() => api.setCoordinationPolicy(policy)) }),
         h(TakeoverPolicyEditor, { state, disabled, save: policy => change(() => api.setTakeoverPolicy(policy)) }),
-        ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(TakeoverResult, { task }), h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
+        h(RecoveryPolicyEditor, { state, disabled, save: policy => change(() => api.setRecoveryPolicy(policy)) }),
+        ...state.tasks.filter(task => ['running', 'waiting-budget', 'waiting-recovery'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(RecoveryResult, { task, disabled, change, api, openConnections: () => setPage('连接与模型') }), h(TakeoverResult, { task }), h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
       const history = () => h('div', null, h('h3', null, '任务记录'), state.tasks.length === 0 ? h('p', null, '尚无任务。') : h('ol', null, ...state.tasks.slice(-20).reverse().map(task => h('li', { key: task.id, style: { padding: '12px 0', whiteSpace: 'pre-wrap' } },
         h('strong', null, `${task.activeSelection?.provider ?? '尚未选择'}/${task.activeSelection?.model ?? '—'}`),
-        h('p', null, `${task.lifecycle === 'completed' ? '响应完成' : task.lifecycle === 'paused' ? '任务暂停' : task.lifecycle === 'waiting-budget' ? '预算等待' : '执行中'}${task.pauseReason ? ` · ${reasons[task.pauseReason] ?? task.pauseReason}` : ''}`),
+        h('p', null, `${task.lifecycle === 'completed' ? '响应完成' : task.lifecycle === 'paused' ? '任务暂停' : task.lifecycle === 'waiting-budget' ? '预算等待' : task.lifecycle === 'waiting-recovery' ? '恢复等待' : '执行中'}${task.pauseReason ? ` · ${reasons[task.pauseReason] ?? task.pauseReason}` : ''}`),
         h(AcceptanceResult, { task }),
         h(CoordinationResult, { task }),
         h(TakeoverResult, { task }),
+        h(RecoveryResult, { task, disabled, change, api, openConnections: () => setPage('连接与模型') }),
         h('p', null, task.result || '尚无输出'), h('small', null, `有效配置 ${task.configVersion} · ${task.id}`),
         h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }),
         h('details', null, h('summary', null, '选择与结果记录'), h('pre', null, JSON.stringify(task.timeline, null, 2)))))));

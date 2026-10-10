@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { renderPrompt } from '@deepseek-ai/dsh-system-prompt';
-import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema, coordinationPolicySchema, takeoverPolicySchema } from './protocol.mjs';
+import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema, coordinationPolicySchema, takeoverPolicySchema, recoveryPolicySchema, recoveryActionSchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
 import { isChatGptSubscription } from './subscription-reference.mjs';
@@ -22,6 +22,7 @@ import { createImageAcceptance, validateImageContribution } from './image-accept
 import { validateResearchContribution } from './research-contribution.mjs';
 import { coordinationSchema, recoverPendingCoordination, TaskCoordinationController } from './coordination.mjs';
 import { TaskTakeoverController, takeoverSchema, recordTakeoverStage, recoverPendingTakeover, takeoverReason } from './takeover.mjs';
+import { defaultRecoveryPolicy, RECOVERY_LIMITS, failureFacts, classifyFailure, recoveryForecast, recoverPendingRecovery } from './recovery.mjs';
 
 export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -42,6 +43,7 @@ const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: fals
 const defaultCoordinationPolicy = () => ({ enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 256, maxAdviceChars: 4096, forecastTokens: 4096 });
 const defaultTakeoverPolicy = () => ({ enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 512, forecastTokens: 32768 });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
+const jsonHash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
   const identity = config.provider === CONTROLLED_PROVIDER ? { connectionId: 'controlled-local', accountId: 'local', billingPath: 'controlled' } : { connectionId: `dsh-native:${config.provider}`, accountId: 'unknown', billingPath: 'unknown' };
@@ -116,7 +118,9 @@ function workloadFingerprint(requirements, messages, inputs) {
 }
 function hasComparableAcceptance(task) {
   const acceptance = task.acceptance;
-  return acceptance?.schemaVersion === 1
+  return task.lifecycle === 'completed' && task.recovery?.state !== 'paused'
+    && !(task.calls ?? []).some(call => ['failed', 'interrupted'].includes(call.status))
+    && acceptance?.schemaVersion === 1
     && acceptance.version === 1
     && acceptance.phase === 'checked'
     && acceptance.scope === 'explicit-requirements'
@@ -271,6 +275,7 @@ export class RouterService extends TypertRemoteService {
   #compatibleDetections = new Map();
   #deepSeekDeadlineTimers = new Map();
   #takeover;
+  #recoveryWaiters = new Map();
   constructor(ctx, state, path, connections, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
@@ -279,7 +284,7 @@ export class RouterService extends TypertRemoteService {
     this.#connections = connections;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'commitState', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance', 'publishCoordination', 'publishTakeover', 'planTakeover', 'completeTakeover', 'toolReceipt', 'recordToolReceipt', 'toolReceiptsForSession', 'pauseTakeover', 'attachDeepSeek', 'attachChatGpt']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'commitState', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'streamReservedCallWithRecovery', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance', 'publishCoordination', 'publishTakeover', 'planTakeover', 'completeTakeover', 'toolReceipt', 'recordToolReceipt', 'toolReceiptsForSession', 'pauseTakeover', 'pauseRecovery', 'attachDeepSeek', 'attachChatGpt']) this[method] = this[method].bind(this);
     this.#takeover = new TaskTakeoverController({ router: this, llm: ctx.llm, attachments: ctx.get('attachments'), tools: ctx.tools, sessionQuery: () => ctx.get('sessionQuery'), turnForAgent: agent => ctx.get('sessionProjections')?.stateOf(agent.session, 'turnBoundary')?.lastTurn, manualForAgent: agent => ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending, live: candidateId => ({ automatic: this.#state.config.automatic, fixedCandidateId: this.#state.config.fixedCandidateId, policy: this.#state.config.takeover, capture: candidateId ? this.#connections.capture(candidateId) : null }) });
     ctx.on('tools/change', () => this.#takeover.toolsChanged());
     for (const method of methods) {
@@ -506,7 +511,7 @@ export class RouterService extends TypertRemoteService {
       const hasImage = [...agent.session.deriveMessages(), ...messages].some(message => message.content.some(part => part.type === 'image'));
       const capability = step.selectionSnapshot?.capability;
       const incompatible = step.enforceCandidate && hasImage && capability?.image.supported !== true;
-      const blocked = step.blocked ?? this.#restriction(step.effectiveRoute) ?? (incompatible ? 'NO_COMPATIBLE_IMAGE_CANDIDATE' : null);
+      const blocked = detectionTask?.recovery?.state === 'paused' ? detectionTask.recovery.reason : step.blocked ?? this.#restriction(step.effectiveRoute) ?? (incompatible ? 'NO_COMPATIBLE_IMAGE_CANDIDATE' : null);
       if (blocked) {
         const task = this.#active.get(`${agent.session.id}:${turn}`);
         if (task) task.routingPauseReason = blocked;
@@ -542,7 +547,19 @@ export class RouterService extends TypertRemoteService {
       const config = stepSnapshot?.route ? { ...resolved, provider: stepSnapshot.route.provider, model: stepSnapshot.route.model } : resolved;
       if (stepSnapshot?.route && !sameRoute(resolved, stepSnapshot.route)) delete config.reasoningEffort;
       const task = this.#active.get(`${agent.session.id}:${turn}`);
-      if (stepSnapshot?.takeover?.planId && task.routingPauseReason?.startsWith('TAKEOVER_')) throw new LlmError('The interrupted takeover requires explicit resolution', task.routingPauseReason);
+      if (task?.recoveryOwned && task.recovery?.state === 'paused') throw new LlmError('Recovery is paused', task.recovery.reason);
+      const previousReservation = this.#nativeReservations.get(agent);
+      if (task?.recoveryOwned && previousReservation?.taskId === task.id && previousReservation.turn === turn && previousReservation.step === step && task.recovery?.state !== 'ready') throw new LlmError('Router did not authorize a further attempt', task.recovery?.reason ?? 'RECOVERY_DISABLED');
+      const recovery = task?.recovery?.state === 'ready' ? task.recovery : null;
+      if (recovery) {
+        this.#verifyRecoveryBoundary(agent, task, recovery, signal);
+        const fresh = await this.captureCandidate(recovery.target.candidateId, { signal });
+        this.#verifyRecoveryBoundary(agent, task, recovery, signal);
+        if (!fresh.enabled || !sameIdentity(fresh.identity, recovery.target.identity) || fresh.authEpoch !== recovery.target.authEpoch || fresh.connectionConfigRevision !== recovery.target.connectionConfigRevision) throw new LlmError('Recovery candidate changed', 'RECOVERY_CANDIDATE_CHANGED');
+        config.provider = fresh.identity.provider; config.model = fresh.identity.model; config.maxTokens = task.recoveryPolicy.maxTokens;
+        stepSnapshot.selectionSnapshot = fresh; stepSnapshot.recovery = { id: recovery.id, model: recovery.model };
+      }
+      if (stepSnapshot?.takeover?.planId && task.routingPauseReason?.startsWith('TAKEOVER_') && !(recovery?.safeTakeoverPlanId === stepSnapshot.takeover.planId && task.routingPauseReason === 'TAKEOVER_TARGET_RESPONSE_FAILED')) throw new LlmError('The interrupted takeover requires explicit resolution', task.routingPauseReason);
       if (task?.deepSeekDetection) config.maxTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS;
       if (task?.openCodeGoDetection) config.maxTokens = task.openCodeGoDetection.outputTokens;
       if (stepSnapshot?.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed') config.maxTokens = 1024;
@@ -557,7 +574,7 @@ export class RouterService extends TypertRemoteService {
         task.activeSelection = candidate?.identity ?? selection(config);
         task.configVersion = stepSnapshot?.config.version ?? this.#state.config.version;
         if (candidate?.identity?.billingPath === 'compatible-unconfirmed' && (!Number.isSafeInteger(task.budget.limits.tokens) || task.budget.limits.tokens < 1 || !Number.isSafeInteger(task.budget.limits.durationMs) || task.budget.limits.durationMs < 1)) throw new LlmError('Set finite token and duration limits before using compatible connections', 'COMPATIBLE_BUDGET_REQUIRED');
-        const forecast = stepSnapshot?.takeover?.forecast ?? (detectionOf(task) || candidate?.identity?.billingPath === 'compatible-unconfirmed' ? stepSnapshot?.detectionForecast : config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null);
+        const forecast = recovery ? recoveryForecast(recovery.forecastTokens, recovery.maxTokens) : stepSnapshot?.takeover?.forecast ?? (detectionOf(task) || candidate?.identity?.billingPath === 'compatible-unconfirmed' ? stepSnapshot?.detectionForecast : config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null);
         const reason = detectionOf(task) ? 'explicit-detection' : stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? (stepSnapshot.config.fixedCandidateId ?? stepSnapshot.config.fixedModel) ? 'fixed-model' : 'enabled-pool' : 'native-routing';
         task.timeline.push({ kind: 'selection', reason, provider: config.provider, model: config.model, configVersion: task.configVersion });
         const previous = this.#nativeReservations.get(agent);
@@ -566,6 +583,10 @@ export class RouterService extends TypertRemoteService {
         const reservation = this.reserveCall(task.id, { purpose, step, selection: task.activeSelection, candidateId: candidate?.candidateId, selectionSnapshot: candidate, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
         this.#bindCall(task.calls[before]);
         this.#nativeReservations.set(agent, { taskId: task.id, turn, step, callId: task.calls[before].id });
+        if (recovery) {
+          Object.assign(task.calls[before], { recoveryId: recovery.id, sourceCallId: recovery.sourceCallId, originatingPurpose: recovery.originatingPurpose, recoveryPhase: recovery.phase });
+          recovery.callId = task.calls[before].id; recovery.state = 'call-reserved'; recovery.revision++; this.#persist();
+        }
         if (stepSnapshot?.takeover?.planId) task.calls[before].takeoverPlanId = stepSnapshot.takeover.planId;
         await reservation;
         if (stepSnapshot?.takeover?.planId) {
@@ -573,6 +594,7 @@ export class RouterService extends TypertRemoteService {
           call.takeoverPlanId = stepSnapshot.takeover.planId;
           await this.#takeover.update(task.sessionId, task.turn, call.takeoverPlanId, { state: 'call-reserved', callId: call.id });
           this.#takeover.verifyBoundary(agent, signal, task.takeover.plan);
+          if (recovery?.safeTakeoverPlanId === call.takeoverPlanId && task.routingPauseReason === 'TAKEOVER_TARGET_RESPONSE_FAILED') { delete task.routingPauseReason; this.#persist(); }
         }
         if (manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) {
           task.routingPauseReason = 'NATIVE_SELECTION_CHANGED';
@@ -580,8 +602,15 @@ export class RouterService extends TypertRemoteService {
         }
       }
       // Return the entire downstream config, including native effort and token settings.
-      if (stepSnapshot?.takeover?.planId) this.#nativeConfigs.set(config, { agent, step: stepSnapshot, call: task.calls.at(-1), taskId: task.id });
+      if (stepSnapshot?.takeover?.planId || recovery) this.#nativeConfigs.set(config, { agent, step: stepSnapshot, call: task.calls.find(item => item.id === this.#nativeReservations.get(agent)?.callId), taskId: task.id });
       return config;
+    }, { prepend: true });
+    ctx.on('agent/request-error', async ({ agent, turn, step, provider, failure, signal }, next) => {
+      const task = this.#active.get(`${agent.session.id}:${turn}`);
+      const reservation = this.#nativeReservations.get(agent);
+      const call = reservation?.taskId === task?.id && reservation.turn === turn && reservation.step === step ? task.calls.find(item => item.id === reservation.callId) : null;
+      if (!call || call.settlementSeq === undefined || !call.hostAttemptId || call.selection.provider !== provider || call.status !== 'failed' || !task.recoveryOwned) return next();
+      return this.#recoverFailure(agent, task, call, failure, signal);
     }, { prepend: true });
     const service = this;
     ctx.on('llm/stream', (request, next) => {
@@ -591,7 +620,7 @@ export class RouterService extends TypertRemoteService {
       return (async function* () {
       // Check when consumed: outer request/budget middleware may have waited.
       // Revocation blocks dispatch; fixed/automatic changes await full assembly.
-      const agent = ctx.get('agents')?.get(request.sessionId);
+      const agent = ctx.get('agents')?.get(request.sessionId ?? auxiliary?.task.sessionId);
       const step = agent && service.#steps.get(agent);
       const call = auxiliary?.call ?? service.#inflight.get(request.sessionId);
       // A rejected entrant has no authority to clear another stream's durable marker.
@@ -606,27 +635,40 @@ export class RouterService extends TypertRemoteService {
           if (task) task.routingPauseReason = blocked;
           throw new LlmError(`Router cannot dispatch: ${blocked}`, 'MODEL_NOT_FOUND');
         }
+        const task = service.#active.get(`${request.sessionId}:${call.turn ?? service.#nativeReservations.get(agent)?.turn}`);
+        if (native && task?.recoveryOwned && call.purpose === 'retry' && (!call.recoveryId || task.recovery?.id !== call.recoveryId || task.recovery.callId !== call.id || task.recovery.state !== 'call-reserved' || task.recovery.attempts > RECOVERY_LIMITS.attempts)) throw new LlmError('This attempt has no Task recovery grant', task.recovery?.reason ?? 'RECOVERY_ATTEMPT_LIMIT');
+        if (call.recoveryId) service.#verifyRecoveryBoundary(agent, task ?? auxiliary.task, (task ?? auxiliary.task).recovery, request.signal);
       };
       try {
         verify();
+        if (native && call.recoveryId) await service.#auditRecoveryFinal(request, agent, step, call);
+        if (auxiliary && call.recoveryId) await service.#auditConsultationFinal(request, agent, auxiliary);
         if (native && step?.takeover) await service.#takeover.auditFinal(request, { agent, step, call });
         if (call) await service.persistDispatchIntent(call.taskId, call.id);
         // No await between this final signal/ownership/eligibility check and next().
         verify();
+        const recoveryState = call.recoveryId ? service.#state.tasks.find(task => task.id === call.taskId)?.recovery : null;
+        if (recoveryState && (agent.session.seq - 1 !== recoveryState.finalCursor || recoveryState.finalRequest?.callId !== call.id)) throw new LlmError('The final recovery cut changed', 'RECOVERY_FINAL_BOUNDARY_CHANGED');
         if (step?.takeover?.planId) service.#takeover.verifyFinal(request, { agent, step, call });
         if (call) { call.dispatchStarted = true; call.dispatchedAt = new Date().toISOString(); service.#persist(); }
-        if (native) {
+        if (native && (step?.takeover?.planId || service.#state.tasks.find(task => task.id === call.taskId)?.recoveryOwned || service.#state.tasks.find(task => task.id === call.taskId)?.takeoverPolicy?.enabled)) {
           const task = service.#state.tasks.find(task => task.id === call.taskId);
-          if (task.takeoverPolicy?.enabled) task.executionOwner = { candidateId: call.candidateId ?? null, identity: structuredClone(call.selection), callId: call.id, turn: task.turn, step: call.step, confidence: 'possible' };
+          task.executionOwner = { candidateId: call.candidateId ?? null, identity: structuredClone(call.selection), callId: call.id, turn: task.turn, step: call.step, confidence: 'possible' };
           if (step?.takeover?.planId) recordTakeoverStage(task.takeover, 'dispatch-started');
           if (task.takeoverPolicy?.enabled) service.#persist();
         }
       } catch (error) {
         if (call) { call.dispatchIntent = 'blocked'; call.dispatchStarted = false; delete call.dispatchedAt; service.#persist(); }
+        if (call?.recoveryId) {
+          const task = service.#state.tasks.find(item => item.id === call.taskId);
+          service.#pauseRecovery(task, task.calls.find(item => item.id === task.recovery.sourceCallId), task.recovery.failure, task.recovery.category, error.code?.replace(/^TAKEOVER_/u, 'RECOVERY_') ?? 'RECOVERY_PLUGIN_EXCEPTION');
+          await service.flush();
+        }
         if (native && step?.takeover?.planId) await service.#takeover.refuse(agent, takeoverReason(error, request.signal));
         throw error;
       }
       for await (const chunk of auxiliary ? service.#trackedDispatch(auxiliary, next) : next()) {
+        if (!['usage', 'finish'].includes(chunk.type)) call.partialResponse = true;
         if (native && (chunk.type !== 'finish' || ['stop', 'tool-calls', 'max-tokens'].includes(chunk.reason?.kind))) {
           const task = service.#state.tasks.find(task => task.id === call.taskId);
           if (task.executionOwner?.callId === call.id && task.executionOwner.confidence !== 'response-observed') {
@@ -647,6 +689,7 @@ export class RouterService extends TypertRemoteService {
       this.#goDetections.clear();
       this.#compatibleDetections.clear();
       for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router disabled during budget wait', 'MODEL_NOT_FOUND'));
+      for (const waiter of this.#recoveryWaiters.values()) waiter.reject(new LlmError('Router disabled during recovery', 'ROUTER_DISABLED'));
       for (const task of this.#active.values()) for (const call of task.calls) this.#releaseUnboundCall(task, call, 'ROUTER_DISABLED', true);
       return this.flush();
     }, 'router: persist on dispose');
@@ -671,19 +714,29 @@ export class RouterService extends TypertRemoteService {
   #sourceKey(sessionId, purpose, messages) { return JSON.stringify([sessionId, purpose, messages?.map(message => message.id)]); }
   async #watchPreparedCall(config, signal, invoke) {
     const binding = this.#nativeConfigs.get(config);
-    const prepared = await invoke();
-    if (binding) {
-      try {
+    try {
+      const prepared = await invoke();
+      if (binding) {
         if (this.#steps.get(binding.agent) !== binding.step || this.#nativeReservations.get(binding.agent)?.callId !== binding.call.id) throw new LlmError('The native call owner changed during preparation', 'TAKEOVER_PREPARED_OWNER_CHANGED');
-        this.#takeover.bindPrepared(prepared, { ...binding, signal });
-      } catch (error) {
-        const task = this.#state.tasks.find(task => task.id === binding.taskId);
+        if (binding.call.recoveryId) {
+          const task = this.#active.get(`${binding.agent.session.id}:${this.#nativeReservations.get(binding.agent)?.turn}`);
+          this.#verifyRecoveryBoundary(binding.agent, task, task.recovery, signal);
+          binding.step.recovery.boundModel = this.#takeover.bindHandoffPrepared(prepared, task.recovery.target, binding.step.recovery.model, task.recoveryPolicy.maxTokens);
+        }
+        if (binding.step.takeover) this.#takeover.bindPrepared(prepared, { ...binding, signal });
+      }
+      return prepared;
+    } catch (error) {
+      const task = binding && this.#state.tasks.find(task => task.id === binding.taskId);
+      if (binding?.call.recoveryId) {
+        this.#pauseRecovery(task, task.calls.find(item => item.id === task.recovery.sourceCallId), task.recovery.failure, task.recovery.category, error.code?.replace(/^TAKEOVER_/u, 'RECOVERY_') ?? 'RECOVERY_PLUGIN_EXCEPTION');
+        await this.flush();
+      } else if (binding?.step.takeover) {
         if (task) task.routingPauseReason = takeoverReason(error, signal);
         await this.#takeover.refuse(binding.agent, takeoverReason(error, signal));
-        throw error;
       }
+      throw error;
     }
-    return prepared;
   }
   #watchPublicStream(request, invoke) {
     if (isAgentLoopRequest(request) || this.#ownedRequests.has(request)) return invoke();
@@ -739,6 +792,49 @@ export class RouterService extends TypertRemoteService {
     this.#bindCall(call);
     return this.#ownedCallStream(task, request, call);
   }
+  /** One consultation intent, fresh reserved Call/handle per recovery; advice remains owned by the caller. */
+  streamReservedCallWithRecovery(taskId, firstCallId, request) {
+    const service = this;
+    return (async function* () {
+      let callId = firstCallId;
+      const chain = [];
+      while (true) {
+        const task = [...service.#active.values()].find(item => item.id === taskId);
+        const call = task?.calls.find(item => item.id === callId);
+        if (!call || call.purpose !== 'consultation') throw new TypeError('Only the exact consultation intent can use this runner');
+        chain.push(callId);
+        call.consultationIntentCallId = firstCallId;
+        let failure = null, caught;
+        try {
+          for await (const chunk of service.streamReservedCall(taskId, callId, request)) {
+            if (chunk.type === 'finish' && ['error', 'aborted'].includes(chunk.reason?.kind)) { failure = chunk.reason.failure; continue; }
+            yield chunk;
+          }
+        } catch (error) { caught = error; failure = error.failure ?? { code: error.code ?? 'CONSULTATION_UNAVAILABLE' }; }
+        if (call.status === 'completed') {
+          if (chain.length > 1) {
+            task.auxiliaryFaults = (task.auxiliaryFaults ?? []).filter(fault => !chain.includes(fault.callId));
+            if (chain.includes(task.auxiliaryPauseCallId)) { task.auxiliaryPauseReason = task.auxiliaryFaults[0]?.reason; task.auxiliaryPauseCallId = task.auxiliaryFaults[0]?.callId; }
+            service.#persist();
+          }
+          return;
+        }
+        const agent = service.ctx.get('agents')?.get(task.sessionId);
+        const recovery = task.recoveryOwned && await service.#recoverFailure(agent, task, call, failure ?? call.failure ?? { code: call.failureCode ?? 'CONSULTATION_NOT_COMPLETED' }, request.signal, request);
+        if (recovery?.kind !== 'retry') { if (caught) throw caught; yield { type: 'finish', reason: { kind: 'error', failure: { ...failure, message: 'The consultation did not complete' } } }; return; }
+        const state = task.recovery, target = state.target;
+        request = { ...request, provider: target.identity.provider, model: target.identity.model };
+        service.#verifyRecoveryBoundary(agent, task, state, request.signal);
+        const before = task.calls.length;
+        const reserved = service.reserveCall(taskId, { purpose: 'consultation', step: call.step, selection: target.identity, candidateId: target.candidateId, selectionSnapshot: target, forecast: recoveryForecast(state.forecastTokens, state.maxTokens) }, request.signal);
+        const retryCall = task.calls[before];
+        Object.assign(retryCall, { recoveryId: state.id, sourceCallId: call.id, originatingPurpose: 'consultation', recoveryPhase: 'consultation' });
+        state.callId = retryCall.id; state.state = 'call-reserved'; state.revision++; service.#persist();
+        await reserved; service.#verifyRecoveryBoundary(agent, task, state, request.signal);
+        callId = retryCall.id;
+      }
+    })();
+  }
   #ownedCallStream(task, request, existingCall = null, source = null) {
     if (task.deepSeekDetection) request = withOutputLimit(request, DEEPSEEK_DETECTION_OUTPUT_TOKENS);
     if (task.openCodeGoDetection) request = withOutputLimit(request, task.openCodeGoDetection.outputTokens);
@@ -788,7 +884,7 @@ export class RouterService extends TypertRemoteService {
     if (!existingCall) this.#automaticOwners.set(request, owner);
     const stream = (async function* () {
       owner.started = true;
-      let failureCode;
+      let failureCode, caughtFailure;
       try {
         originalSignal.throwIfAborted(); controller.signal.throwIfAborted();
         if (!owner.call) {
@@ -810,6 +906,10 @@ export class RouterService extends TypertRemoteService {
         }
         const signal = AbortSignal.any([originalSignal, controller.signal]); signal.throwIfAborted();
         const prepared = await service.ctx.llm.prepareCall(request, signal);
+        if (owner.call.recoveryId) {
+          service.#verifyRecoveryBoundary(service.ctx.get('agents')?.get(task.sessionId), task, task.recovery, signal);
+          owner.recoveryBoundModel = service.#takeover.bindHandoffPrepared(prepared, task.recovery.target, task.recovery.model, task.recovery.maxTokens);
+        }
         const options = Object.freeze({ ...request, ...prepared.config, signal });
         owner.call.snapshot = Object.fromEntries(['provider', 'model', 'temperature', 'maxTokens', 'reasoningEffort', 'stop'].filter(key => prepared.config[key] !== undefined).map(key => [key, structuredClone(prepared.config[key])]));
         owner.call.dispatchState = 'request-confirmed';
@@ -820,7 +920,7 @@ export class RouterService extends TypertRemoteService {
           yield chunk;
         }
       } catch (error) {
-        failureCode = typeof error.code === 'string' ? error.code : 'AUXILIARY_CALL_FAILED'; throw error;
+        failureCode = typeof error.code === 'string' ? error.code : 'AUXILIARY_CALL_FAILED'; caughtFailure = error.failure; throw error;
       } finally {
         try {
           // Prepared middleware may manually consume our dispatch and omit its return().
@@ -837,8 +937,12 @@ export class RouterService extends TypertRemoteService {
             const { usage, finish } = owner;
             const canceled = originalSignal.aborted || controller.signal.aborted;
             const status = canceled || finish?.kind === 'aborted' || finish?.kind === 'max-tokens' ? 'interrupted' : !failureCode && finish?.kind === 'stop' ? 'completed' : 'failed';
-            if (status !== 'completed' && !canceled) task.auxiliaryPauseReason ??= finish?.failure?.code ?? failureCode ?? (finish?.kind === 'max-tokens' ? 'AUXILIARY_MAX_TOKENS' : 'AUXILIARY_CALL_FAILED');
-            service.settleCall(task.id, owner.call.id, { status, usage, finishReason: canceled ? 'aborted' : finish?.kind ?? 'unknown', failureCode: finish?.failure?.code ?? failureCode ?? owner.closeReason });
+            if (status !== 'completed' && !canceled) {
+              const reason = finish?.failure?.code ?? failureCode ?? (finish?.kind === 'max-tokens' ? 'AUXILIARY_MAX_TOKENS' : 'AUXILIARY_CALL_FAILED');
+              if (!task.auxiliaryPauseReason) { task.auxiliaryPauseReason = reason; task.auxiliaryPauseCallId = owner.call.id; }
+              task.auxiliaryFaults ??= []; task.auxiliaryFaults.push({ callId: owner.call.id, reason });
+            }
+            service.settleCall(task.id, owner.call.id, { status, usage, finishReason: canceled ? 'aborted' : finish?.kind ?? 'unknown', failureCode: finish?.failure?.code ?? failureCode ?? owner.closeReason, failure: finish?.failure ?? caughtFailure });
           }
         } finally { owner.iterators.delete(stream); cleanup(); }
       }
@@ -856,6 +960,7 @@ export class RouterService extends TypertRemoteService {
     this.settleCall(task.id, call.id, { status: possiblyDispatched(call) ? 'interrupted' : 'not-dispatched', usage: null, finishReason: 'aborted', failureCode: reason });
   }
   #cancelTaskCalls(task) {
+    this.#recoveryWaiters.get(task.id)?.resolve();
     for (const owner of this.#ownedCalls.get(task.id) ?? []) owner.controller.abort(new LlmError('Router task stopped its auxiliary request', 'ABORTED'));
     for (const call of task.calls) this.#releaseUnboundCall(task, call, 'ABORTED');
     for (const call of task.calls) this.#waiters.get(call.id)?.resolve();
@@ -906,6 +1011,7 @@ export class RouterService extends TypertRemoteService {
     if (task.lifecycle === 'paused') {
       task.pauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : null) ?? task.nativePauseReason ?? task.routingPauseReason ?? task.auxiliaryPauseReason ?? 'UNKNOWN_TERMINAL';
       task.fault = { kind: ['CONNECTION', 'AUTH', 'RATE_LIMIT', 'NO_ADAPTER'].includes(task.pauseReason) ? 'connection' : 'execution', code: task.pauseReason, retryable: task.pauseReason === 'CONNECTION' || task.pauseReason === 'RATE_LIMIT' };
+      if (task.recovery) task.fault = { kind: ['network', 'rate-limit', 'authorization', 'quota'].includes(task.recovery.category) ? 'connection' : 'execution', category: task.recovery.category, code: task.recovery.failure.code, reason: task.pauseReason, retryable: false };
     }
     task.endedAt = new Date().toISOString();
     task.timeline.push({ kind: 'terminal', lifecycle: task.lifecycle, reason: task.pauseReason ?? 'response-completed', acceptance: task.acceptance?.verdict ?? 'unconfirmed' });
@@ -1133,6 +1239,14 @@ export class RouterService extends TypertRemoteService {
     if (stage) recordTakeoverStage(task.takeover, stage, reason);
     this.#persist();
   }
+  pauseRecovery(taskId, reason) {
+    const task = this.#state.tasks.find(item => item.id === taskId);
+    if (!task?.recovery) return;
+    task.recovery.state = 'paused'; task.recovery.reason = reason; task.recovery.revision++;
+    task.routingPauseReason = reason;
+    task.timeline.push({ kind: 'recovery-paused', recoveryId: task.recovery.id, reason });
+    this.#persist(); this.#recoveryWaiters.get(task.id)?.resolve();
+  }
   recordToolReceipt(taskId, receipt) {
     const task = this.#state.tasks.find(item => item.id === taskId);
     if (!task) return;
@@ -1190,7 +1304,7 @@ export class RouterService extends TypertRemoteService {
     const routeCandidate = this.#connections.candidateForRoute(identity);
     const pricingCapture = details.selectionSnapshot ?? (routeCandidate && sameIdentity(routeCandidate, identity) ? this.#connections.capture(routeCandidate.candidateId, snapshot) : null);
     const priceQuote = pricingCapture ? pricingCapture.quote : priced?.quote ?? null;
-    const call = { id: randomUUID(), taskId, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v2', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, ...(details.candidateId ? { candidateId: details.candidateId, selectionSnapshot: structuredClone(details.selectionSnapshot) } : {}), ...(pricingCapture?.subscription ? { subscription: structuredClone(pricingCapture.subscription) } : {}), quoteVersion: pricingCapture ? pricingCapture.quoteVersion : priced?.quoteVersion ?? null, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
+    const call = { id: randomUUID(), taskId, turn: task.turn, purpose: details.purpose, accountingEntry: 'task-call-v1', dispatchProtocol: 'durable-intent-v2', attempt: task.calls.length + 1, ...(details.step === undefined ? {} : { step: details.step }), selection: identity, ...(details.candidateId ? { candidateId: details.candidateId, selectionSnapshot: structuredClone(details.selectionSnapshot) } : {}), ...(pricingCapture?.subscription ? { subscription: structuredClone(pricingCapture.subscription) } : {}), quoteVersion: pricingCapture ? pricingCapture.quoteVersion : priced?.quoteVersion ?? null, configVersion: details.configVersion ?? task.configVersion, routerSnapshot: snapshot, status: 'prepared', dispatchState: 'proposed', dispatchStarted: false, usage: null, priceQuote: structuredClone(priceQuote), reservation: reserveRecord(details.forecast ?? null, priceQuote), preparedAt: new Date().toISOString() };
     task.calls.push(call);
     if (details.nativePurpose !== undefined) call.nativePurpose = details.nativePurpose;
     this.#callSignals.set(call.id, signal);
@@ -1253,6 +1367,8 @@ export class RouterService extends TypertRemoteService {
     if (settlement.seq !== undefined) call.settlementSeq = settlement.seq;
     call.finishReason = settlement.finishReason;
     if (settlement.failureCode) call.failureCode = settlement.failureCode;
+    if (settlement.failure) call.failure = failureFacts(settlement.failure);
+    if (call.recoveryId && task.recovery?.callId === call.id && settlement.status === 'completed') { task.recovery.state = 'completed'; task.recovery.revision++; }
     call.settledAt = new Date().toISOString();
     call.elapsedMs = call.dispatchedAt ? Math.max(0, Date.parse(call.settledAt) - Date.parse(call.dispatchedAt)) : null;
     call.cost = !possiblyDispatched(call) && !call.usage ? { amount: null, reason: 'NOT_DISPATCHED', billingConfirmation: 'unconfirmed' } : costOf(tokensOf(call.usage), call.priceQuote, call.usageAccounting);
@@ -1318,10 +1434,12 @@ export class RouterService extends TypertRemoteService {
         if (call.takeoverPlanId) this.#takeover.verifyBoundary(this.ctx.get('agents')?.get(task.sessionId), signal, task.takeover.plan);
       }
       const decision = budgetCheck(task, call);
+      if (call.recoveryId && decision.unenforceable.some(item => item.resource !== 'durationMs')) throw new LlmError('Recovery budget cannot be proved', 'RECOVERY_BUDGET_UNPROVEN');
       task.budget.unenforceableLimits = detectionOf(task)
         ? decision.unenforceable.filter(item => item.resource !== 'durationMs')
         : decision.unenforceable;
       if (!decision.blocked.length) {
+        if (call.recoveryId) call.recoveryBudgetApproved = true;
         call.status = 'prepared'; call.reservation.state = 'reserved';
         task.lifecycle = 'running'; delete task.budget.waiting;
         this.#persist(); await this.flush();
@@ -1347,6 +1465,7 @@ export class RouterService extends TypertRemoteService {
     for (const owner of this.#ownedCalls.get(task.id) ?? []) if (owner.call === call) owner.controller.signal.throwIfAborted();
     if (!['waiting', 'reserved'].includes(call.reservation.state) || task.budget.stopRequested || task.nativeLifecycle === 'paused') throw new LlmError('Router task no longer permits this reservation', 'ABORTED');
     if (this.#storageError) throw new LlmError('Router storage is unavailable', 'MODEL_NOT_FOUND');
+    if (call.recoveryId) this.#verifyRecoveryBoundary(this.ctx.get('agents')?.get(task.sessionId), task, task.recovery, signal);
   }
   async setModelEnabled(candidateId, enabled) {
     if (typeof enabled !== 'boolean') throw new TypeError('Invalid enabled state');
@@ -1412,6 +1531,145 @@ export class RouterService extends TypertRemoteService {
     if (parsed.candidateId && !this.#connections.capture(parsed.candidateId).enabled) throw new TypeError('The takeover target must be enabled');
     return this.#change({ takeover: parsed });
   }
+  async #recoverFailure(agent, task, call, failure, signal, boundedRequest = null) {
+      const facts = failureFacts(failure), category = classifyFailure(facts);
+      call.failure = facts;
+      const blocked = !task.recoveryPolicy.enabled ? 'RECOVERY_DISABLED' : category === 'authorization' ? 'RECOVERY_REAUTHORIZE_REQUIRED' : category === 'quota' ? 'RECOVERY_QUOTA_REQUIRED' : call.partialResponse ? 'RECOVERY_RESPONSE_PARTIAL' : (task.recovery?.attempts ?? 0) >= RECOVERY_LIMITS.attempts ? 'RECOVERY_ATTEMPT_LIMIT' : facts.providerRetryAfterMs > RECOVERY_LIMITS.delayMs || (task.recovery?.waitMs ?? 0) + (facts.providerRetryAfterMs ?? 0) > RECOVERY_LIMITS.totalWaitMs ? 'RECOVERY_WAIT_LIMIT' : !['network', 'rate-limit'].includes(category) ? 'RECOVERY_FAILURE_UNSAFE' : tokensOf(call.usage).total === null || ledgerOf(task).unknownTokenCalls.total > 0 ? 'RECOVERY_USAGE_UNKNOWN' : null;
+      if (blocked) { this.#pauseRecovery(task, call, facts, category, blocked); await this.flush(); return; }
+      task.recovery = { version: 1, id: task.recovery?.id ?? randomUUID(), revision: (task.recovery?.revision ?? 0) + 1, attempts: (task.recovery?.attempts ?? 0) + 1, waitMs: task.recovery?.waitMs ?? 0, actualWaitMs: task.recovery?.actualWaitMs ?? 0, state: 'planning', phase: call.purpose === 'consultation' ? 'consultation' : call.takeoverPlanId ? 'takeover' : 'execution', sourceCallId: call.id, originatingPurpose: call.purpose === 'consultation' ? 'consultation' : 'execution', callId: null, category, failure: facts, target: structuredClone(call.selectionSnapshot), reason: null, inputHash: jsonHash(task.inputs), fixedCandidateId: this.#state.config.fixedCandidateId, acceptanceRevision: task.acceptance?.revision ?? null, requirementHash: task.acceptance?.requirementHash ?? null, coordinationRevision: task.coordination?.revision ?? null, maxTokens: boundedRequest?.maxTokens ?? task.recoveryPolicy.maxTokens, forecastTokens: task.recoveryPolicy.forecastTokens };
+      task.timeline.push({ kind: 'recovery-grant', recoveryId: task.recovery.id, sourceCallId: call.id, phase: task.recovery.phase, attempt: task.recovery.attempts, category });
+      this.#persist(); await this.flush();
+      try {
+        const recovery = task.recovery;
+        if (task.recoveryPolicy.automatic && recovery.attempts > 1 && task.recoveryPolicy.alternativeCandidateId && !recovery.fixedCandidateId && !this.#steps.get(agent)?.pending) {
+          const alternative = await this.captureCandidate(task.recoveryPolicy.alternativeCandidateId, { signal });
+          this.#verifyRecoveryBoundary(agent, task, recovery, signal);
+          if (!['connectionId', 'accountId', 'billingPath'].every(key => alternative.identity[key] === call.selection[key] && call.selection[key] !== 'unknown') || ['unknown', 'compatible-unconfirmed'].includes(alternative.identity.billingPath) || !alternative.enabled) throw new LlmError('The alternative authorization or billing path is different or unknown', 'RECOVERY_BILLING_PATH_CHANGED');
+          recovery.target = alternative;
+        }
+        task.recovery.portableHistory = await this.#takeover.captureHandoffHistory(agent, task, signal, () => this.#verifyRecoveryBoundary(agent, task, task.recovery, signal));
+        this.#verifyRecoveryBoundary(agent, task, task.recovery, signal);
+        recovery.model = await this.#takeover.resolveHandoffTarget(recovery.target, signal, () => this.#verifyRecoveryBoundary(agent, task, recovery, signal));
+        const assembled = this.#steps.get(agent).assembled;
+        const proofRequest = boundedRequest ?? { messages: agent.session.deriveMessages(), tools: assembled.tools, toolHistory: agent.session.toolHistory(), system: renderPrompt(assembled) };
+        recovery.boundedHistory = boundedRequest ? this.#takeover.boundedHandoffHistory(boundedRequest.messages) : null;
+        recovery.requestHash = boundedRequest ? jsonHash({ messages: boundedRequest.messages, maxTokens: boundedRequest.maxTokens, tools: boundedRequest.tools ?? [], system: boundedRequest.system ?? null }) : null;
+        const proof = await this.#takeover.auditHandoffRequest({ request: proofRequest, agent, target: recovery.target, model: recovery.model, maxTokens: recovery.maxTokens, forecastTokens: recovery.forecastTokens, history: recovery.boundedHistory ?? recovery.portableHistory, signal, recheck: () => this.#verifyRecoveryBoundary(agent, task, recovery, signal) });
+        recovery.imageForecast = proof.imageForecast;
+        if (call.takeoverPlanId) {
+          if (task.routingPauseReason !== 'TAKEOVER_TARGET_RESPONSE_FAILED' || task.takeover?.plan.id !== call.takeoverPlanId || !sameIdentity(recovery.target.identity, task.takeover.plan.target.identity)) throw new LlmError('This takeover failure has no safe recovery transition', 'RECOVERY_TAKEOVER_UNPROVEN');
+          this.#takeover.verifyBoundary(agent, signal, task.takeover.plan);
+          recovery.safeTakeoverPlanId = call.takeoverPlanId;
+        }
+        if (!task.recoveryPolicy.automatic) await this.#waitForManualRecovery(agent, task, recovery, signal);
+        await this.#waitRecovery(agent, task, task.recovery, signal, facts.providerRetryAfterMs ?? 1);
+        this.#verifyRecoveryBoundary(agent, task, task.recovery, signal);
+        task.recovery.state = 'ready'; task.recovery.revision++; task.lifecycle = 'running'; this.#persist(); await this.flush();
+        this.#verifyRecoveryBoundary(agent, task, task.recovery, signal);
+        return { kind: 'retry' };
+      } catch (error) { this.#pauseRecovery(task, call, facts, category, signal.aborted ? 'RECOVERY_CANCELED' : error.code?.replace(/^TAKEOVER_/u, 'RECOVERY_') ?? 'RECOVERY_UNAVAILABLE'); await this.flush(); }
+  }
+  async setRecoveryPolicy(policy) {
+    const parsed = recoveryPolicySchema().parse(policy);
+    if (parsed.alternativeCandidateId && !this.#connections.capture(parsed.alternativeCandidateId).enabled) throw new TypeError('The recovery alternative must be enabled');
+    return this.#change({ recovery: parsed });
+  }
+  async resolveTaskRecovery(request) {
+    const action = recoveryActionSchema().parse(request);
+    const task = [...this.#active.values()].find(item => item.id === action.taskId), state = task?.recovery;
+    if (!task || task.nativeLifecycle || !this.#recoveryWaiters.has(task.id)) throw Object.assign(new Error('This Task has ended; start a new Task after repairing the connection or budget'), { code: 'RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED' });
+    if (state?.id !== action.recoveryId || state.revision !== action.expectedRevision || state.state !== 'waiting-user') throw Object.assign(new Error('This recovery action is stale'), { code: 'RECOVERY_STALE' });
+    const waiter = this.#recoveryWaiters.get(task.id);
+    state.state = 'resolving'; state.userAction = action.action; state.revision++;
+    this.#persist(); await this.flush();
+    if (this.#storageError) throw Object.assign(new Error('Recovery action could not be persisted'), { code: 'STATE_WRITE_FAILED' });
+    if (action.action === 'stop') return this.stopTask(task.id);
+    waiter.resolve(); return this.snapshot();
+  }
+  #pauseRecovery(task, call, failure, category, reason) {
+    task.recovery = { ...task.recovery, version: 1, id: task.recovery?.id ?? randomUUID(), revision: (task.recovery?.revision ?? 0) + 1, attempts: task.recovery?.attempts ?? 0, waitMs: task.recovery?.waitMs ?? 0, actualWaitMs: task.recovery?.actualWaitMs ?? 0, state: 'paused', phase: call?.purpose === 'consultation' ? 'consultation' : call?.takeoverPlanId ? 'takeover' : 'execution', sourceCallId: call?.id ?? null, originatingPurpose: call?.purpose === 'consultation' ? 'consultation' : 'execution', callId: null, category, failure, reason };
+    task.routingPauseReason = reason;
+    task.timeline.push({ kind: 'recovery-paused', recoveryId: task.recovery.id, sourceCallId: call?.id ?? null, category, reason });
+    this.#persist();
+  }
+  #verifyRecoveryBoundary(agent, task, state, signal) {
+    signal?.throwIfAborted();
+    if (this.#storageError) throw new LlmError('Recovery storage is unavailable', 'STATE_WRITE_FAILED');
+    if (state?.state === 'paused') throw new LlmError('Recovery has paused', state.reason);
+    if (this.#active.get(`${task.sessionId}:${task.turn}`) !== task || task.nativeLifecycle || task.budget.stopRequested || task.recovery !== state || state.state === 'paused') throw new LlmError('Recovery is no longer live', 'RECOVERY_BOUNDARY_CHANGED');
+    if (jsonHash(task.inputs) !== state.inputHash || (task.acceptance?.revision ?? null) !== state.acceptanceRevision || (task.acceptance?.requirementHash ?? null) !== state.requirementHash || (task.coordination?.revision ?? null) !== state.coordinationRevision) throw new LlmError('Recovery input or evidence changed', 'RECOVERY_INPUT_CHANGED');
+    if (agent.inbox.nextStep.some(message => message.source?.kind === 'user')) throw new LlmError('Human input takes precedence', 'HUMAN_INPUT_PENDING');
+    const step = this.#steps.get(agent);
+    if (manualChanged(step, this.ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) throw new LlmError('Native selection takes precedence', 'NATIVE_SELECTION_CHANGED');
+    if (!this.#state.config.automatic || this.#state.config.fixedCandidateId !== state.fixedCandidateId || jsonHash(this.#state.config.recovery) !== jsonHash(task.recoveryPolicy)) throw new LlmError('Recovery permission changed', 'RECOVERY_POLICY_CHANGED');
+    const blocked = this.#restriction({ ...state.target?.identity, candidateId: state.target?.candidateId, selectionSnapshot: state.target });
+    if (blocked) throw new LlmError('Recovery candidate changed', blocked);
+    const call = task.calls.find(item => item.id === state.callId);
+    const budgetTask = { ...task, calls: task.calls.filter(item => item !== call) };
+    if (ledgerOf(budgetTask).unknownTokenCalls.total) throw new LlmError('Task usage became unknown', 'RECOVERY_USAGE_UNKNOWN');
+    if (call) {
+      const decision = budgetCheck(budgetTask, call);
+      if (decision.unenforceable.some(item => item.resource !== 'durationMs')) throw new LlmError('Recovery budget cannot be proved', 'RECOVERY_BUDGET_UNPROVEN');
+      if (call.recoveryBudgetApproved && call.status !== 'waiting' && decision.blocked.length) throw new LlmError('Recovery budget changed', 'RECOVERY_BUDGET_CHANGED');
+    }
+    if (state.portableHistory) this.#takeover.verifyHandoffHistory(agent, task, state.portableHistory);
+    return task;
+  }
+  async #auditRecoveryFinal(request, agent, step, call) {
+    const task = this.#state.tasks.find(item => item.id === call.taskId), state = task.recovery;
+    const recheck = () => this.#verifyRecoveryBoundary(agent, task, state, request.signal);
+    recheck();
+    if (!isAgentLoopRequest(request) || !step.recovery?.boundModel || !sameIdentity(call.selection, state.target.identity) || !sameRoute(request, state.target.identity) || request.maxTokens !== task.recoveryPolicy.maxTokens) throw new LlmError('The native recovery owner changed', 'RECOVERY_FINAL_REQUEST_CHANGED');
+    const proof = await this.#takeover.auditHandoffRequest({ request, agent, target: state.target, model: step.recovery.boundModel, maxTokens: task.recoveryPolicy.maxTokens, forecastTokens: task.recoveryPolicy.forecastTokens, history: state.portableHistory, signal: request.signal, recheck, native: true });
+    recheck();
+    if (jsonHash(proof.imageForecast) !== jsonHash(state.imageForecast)) throw new LlmError('Retained image pricing changed', 'RECOVERY_IMAGE_FORECAST_CHANGED');
+    state.finalCursor = proof.sessionProof.cursor;
+    state.finalRequest = { nativeRequest: true, taskId: task.id, sessionId: task.sessionId, turn: task.turn, step: call.step, callId: call.id, provider: request.provider, model: request.model, maxTokens: request.maxTokens, messages: proof.messages, tools: structuredClone(request.tools ?? []), toolHistory: structuredClone(request.toolHistory ?? null), system: request.system ?? null, prepared: step.recovery.boundModel, sessionProof: proof.sessionProof };
+    state.revision++; this.#persist(); await this.flush(); recheck();
+  }
+  async #auditConsultationFinal(request, agent, owner) {
+    const task = owner.task, state = task.recovery, call = owner.call;
+    const recheck = () => this.#verifyRecoveryBoundary(agent, task, state, request.signal);
+    recheck();
+    if (!owner.recoveryBoundModel || this.#ownedRequests.get(request) !== owner || state.callId !== call.id || !sameRoute(request, state.target.identity) || jsonHash({ messages: request.messages, maxTokens: request.maxTokens, tools: request.tools ?? [], system: request.system ?? null }) !== state.requestHash) throw new LlmError('The consultation intent or prepared handle changed', 'RECOVERY_FINAL_REQUEST_CHANGED');
+    const history = await this.#takeover.captureHandoffHistory(agent, task, request.signal, recheck);
+    recheck();
+    const proof = await this.#takeover.auditHandoffRequest({ request, agent, target: state.target, model: owner.recoveryBoundModel, maxTokens: state.maxTokens, forecastTokens: state.forecastTokens, history: state.boundedHistory, signal: request.signal, recheck });
+    recheck();
+    state.finalCursor = history.sessionProof.cursor;
+    state.finalRequest = { nativeRequest: false, ownedRequest: true, taskId: task.id, sessionId: task.sessionId, turn: task.turn, callId: call.id, provider: request.provider, model: request.model, maxTokens: request.maxTokens, messages: proof.messages, prepared: owner.recoveryBoundModel, sessionProof: history.sessionProof };
+    state.revision++; this.#persist(); await this.flush(); recheck();
+  }
+  async #waitRecovery(agent, task, state, signal, delayMs) {
+    this.#verifyRecoveryBoundary(agent, task, state, signal);
+    if (delayMs > RECOVERY_LIMITS.delayMs || state.waitMs + delayMs > RECOVERY_LIMITS.totalWaitMs) throw new LlmError('Recovery wait allowance exceeded', 'RECOVERY_WAIT_LIMIT');
+    const started = Date.now();
+    try {
+    state.state = 'backoff'; state.waitMs += delayMs; state.deadline = Date.now() + delayMs; state.revision++; task.lifecycle = 'waiting-recovery'; this.#persist(); await this.flush();
+    this.#verifyRecoveryBoundary(agent, task, state, signal);
+    while (Date.now() < state.deadline) {
+      const waiting = Promise.withResolvers(); this.#recoveryWaiters.set(task.id, waiting);
+      const timer = setTimeout(waiting.resolve, Math.max(1, state.deadline - Date.now()));
+      const abort = () => waiting.reject(signal.reason);
+      signal.addEventListener('abort', abort, { once: true });
+      try { signal.throwIfAborted(); await waiting.promise; }
+      finally { clearTimeout(timer); signal.removeEventListener('abort', abort); this.#recoveryWaiters.delete(task.id); }
+      this.#verifyRecoveryBoundary(agent, task, state, signal);
+    }
+    } finally { state.actualWaitMs += Math.max(0, Date.now() - started); }
+  }
+  async #waitForManualRecovery(agent, task, state, signal) {
+    state.state = 'waiting-user'; state.reason = 'RECOVERY_MANUAL_REQUIRED'; state.revision++; task.lifecycle = 'waiting-recovery';
+    while (!state.userAction) {
+      const waiter = Promise.withResolvers(); this.#recoveryWaiters.set(task.id, waiter);
+      const abort = () => waiter.reject(signal.reason); signal.addEventListener('abort', abort, { once: true });
+      try { this.#persist(); await this.flush(); this.#verifyRecoveryBoundary(agent, task, state, signal); await waiter.promise; }
+      finally { signal.removeEventListener('abort', abort); this.#recoveryWaiters.delete(task.id); }
+      this.#verifyRecoveryBoundary(agent, task, state, signal);
+    }
+    if (state.userAction !== 'retry-current') throw new LlmError('Recovery was stopped', 'RECOVERY_STOPPED');
+    state.reason = null;
+  }
   async requestSemanticAssessment() {
     if (!this.#state.config.automatic || !this.#state.config.semanticAssessment) throw new TypeError('Enable automatic routing and semantic assessment before requesting a Task assessment');
     this.#state.semanticAssessmentRequest = { status: 'armed', requestedAt: new Date().toISOString() };
@@ -1452,13 +1710,14 @@ export class RouterService extends TypertRemoteService {
     this.#persist();
     await this.flush();
     if (this.#storageError) throw new Error('Router storage is unavailable; the settings change was not persisted');
-    if (['automatic', 'fixedCandidateId', 'pool', 'takeover'].some(key => Object.hasOwn(change, key))) {
+    if (['automatic', 'fixedCandidateId', 'pool', 'takeover', 'recovery'].some(key => Object.hasOwn(change, key))) {
       this.#wakeTakeoverWaiters();
     }
     return this.snapshot();
   }
   #wakeTakeoverWaiters(sessionId) {
-    for (const task of this.#active.values()) if (!sessionId || task.sessionId === sessionId) for (const call of task.calls) if (call.takeoverPlanId && call.reservation?.state === 'waiting') this.#waiters.get(call.id)?.resolve();
+    for (const task of this.#active.values()) if (!sessionId || task.sessionId === sessionId) this.#recoveryWaiters.get(task.id)?.resolve();
+    for (const task of this.#active.values()) if (!sessionId || task.sessionId === sessionId) for (const call of task.calls) if ((call.takeoverPlanId || call.recoveryId) && call.reservation?.state === 'waiting') this.#waiters.get(call.id)?.resolve();
   }
   async flush() { await this.#writes; }
   async commitState() {
@@ -1479,6 +1738,7 @@ export class RouterService extends TypertRemoteService {
       this.#state.config.automatic = false;
       for (const task of this.#active.values()) { task.lifecycle = 'paused'; task.pauseReason = 'STATE_WRITE_FAILED'; }
       for (const waiter of this.#waiters.values()) waiter.reject(new LlmError('Router budget state could not be persisted', 'MODEL_NOT_FOUND'));
+      for (const waiter of this.#recoveryWaiters.values()) waiter.reject(new LlmError('Router recovery state could not be persisted', 'STATE_WRITE_FAILED'));
     });
   }
   #observe(session, event) {
@@ -1498,6 +1758,7 @@ export class RouterService extends TypertRemoteService {
       const compatibleDetection = this.#compatibleDetections.get(session.id);
       const detection = deepSeekDetection ?? chatGptDetection ?? goDetection ?? compatibleDetection;
       const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), coordinationPolicy: freezeCoordinationPolicy(this.#state.config, this.#connections), coordination: null, takeoverPolicy: { ...structuredClone(this.#state.config.takeover), objective: this.#state.config.routingObjective, fixedCandidateId: this.#state.config.fixedCandidateId }, takeover: null, executionOwner: null, plannedSelection: null, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(deepSeekDetection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}), ...(chatGptDetection ? { chatGptDetection: { capture: structuredClone(detection.capture), outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls } } : {}) };
+      task.recoveryPolicy = structuredClone(this.#state.config.recovery); task.recoveryOwned = this.#state.config.automatic && task.recoveryPolicy.enabled && !detection; task.recovery = null;
       if (detection) {
         if (goDetection) task.openCodeGoDetection = { capture: structuredClone(detection.capture), outputTokens: detection.outputTokens, outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls };
         if (compatibleDetection) task.compatibleDetection = { capture: structuredClone(detection.capture), outputTokens: detection.outputTokens, outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls };
@@ -1519,7 +1780,7 @@ export class RouterService extends TypertRemoteService {
       if (event.type === 'assistant/message') task.result += event.data.message.content.filter(item => item.type === 'text').map(item => item.text).join('');
       const finish = lastAssistantStreamChunk(event.data.stream ?? [], 'finish')?.reason;
       const deadlineExpired = detectionOf(task)?.deadlineExpired === true;
-      this.settleCall(task.id, call.id, { status: call.takeoverPlanId && !possiblyDispatched(call) ? 'not-dispatched' : deadlineExpired || event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' || finish?.failure?.code === 'ABORTED' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed', usage: event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null, seq: event.seq, finishReason: deadlineExpired ? 'aborted' : finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop'), failureCode: deadlineExpired ? 'ABORTED' : finish?.failure?.code });
+      this.settleCall(task.id, call.id, { status: call.takeoverPlanId && !possiblyDispatched(call) ? 'not-dispatched' : deadlineExpired || event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' || finish?.failure?.code === 'ABORTED' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed', usage: event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null, seq: event.seq, finishReason: deadlineExpired ? 'aborted' : finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop'), failureCode: deadlineExpired ? 'ABORTED' : finish?.failure?.code, failure: finish?.failure });
       if (call.takeoverPlanId === task.takeover?.plan.id && ['failed', 'interrupted'].includes(call.status) && ['dispatch-started', 'dispatched'].includes(task.takeover.plan.state)) {
         recordTakeoverStage(task.takeover, task.executionOwner?.confidence === 'response-observed' ? 'interrupted' : 'dispatch-unknown', 'TARGET_RESPONSE_NOT_COMPLETED');
         task.routingPauseReason = 'TAKEOVER_TARGET_RESPONSE_FAILED';
@@ -1527,6 +1788,17 @@ export class RouterService extends TypertRemoteService {
     }
     if (event.type === 'turn/end') {
       const reason = event.data.reason;
+      if (reason?.error && task.recoveryOwned && !detectionOf(task) && (!task.recovery || task.recovery.state === 'completed') && !task.routingPauseReason) {
+        const reservation = this.#nativeReservations.get(this.ctx.get('agents')?.get(session.id));
+        const call = reservation?.taskId === task.id ? task.calls.find(item => item.id === reservation.callId) : null;
+        const facts = failureFacts(reason.error), category = classifyFailure(facts);
+        if (call && call.status !== 'completed') { call.failure = facts; call.failureCode = facts.code; }
+        this.#pauseRecovery(task, call, facts, category, category === 'authorization' ? 'RECOVERY_REAUTHORIZE_REQUIRED' : category === 'quota' ? 'RECOVERY_QUOTA_REQUIRED' : 'RECOVERY_PLUGIN_EXCEPTION');
+      }
+      if (reason?.error && task.recovery && !['paused', 'completed'].includes(task.recovery.state)) {
+        const source = task.calls.find(item => item.id === task.recovery.sourceCallId);
+        this.#pauseRecovery(task, source, task.recovery.failure, task.recovery.category, reason.error.code ?? 'RECOVERY_PLUGIN_EXCEPTION');
+      }
       task.nativeLifecycle = reason?.kind === 'completed' && !this.#storageError ? 'completed' : 'paused';
       task.nativeEndedAt = new Date().toISOString();
       if (task.takeover && ['dispatch-started', 'dispatched'].includes(task.takeover.plan.state) && reason?.kind !== 'completed') recordTakeoverStage(task.takeover, task.executionOwner?.confidence === 'response-observed' ? 'interrupted' : 'dispatch-unknown', 'TARGET_RESPONSE_NOT_COMPLETED');
@@ -1578,14 +1850,16 @@ export async function apply(ctx) {
   state.config.acceptance ??= defaultAcceptancePolicy();
   state.config.coordination ??= defaultCoordinationPolicy();
   state.config.takeover ??= defaultTakeoverPolicy();
+  state.config.recovery ??= defaultRecoveryPolicy();
   state.semanticAssessmentRequest ??= null;
-  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean' || !acceptancePolicySchema().safeParse(state.config.acceptance).success || !coordinationPolicySchema().safeParse(state.config.coordination).success || !takeoverPolicySchema().safeParse(state.config.takeover).success) throw new Error('Unsupported DSH Router routing configuration');
+  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean' || !acceptancePolicySchema().safeParse(state.config.acceptance).success || !coordinationPolicySchema().safeParse(state.config.coordination).success || !takeoverPolicySchema().safeParse(state.config.takeover).success || !recoveryPolicySchema().safeParse(state.config.recovery).success) throw new Error('Unsupported DSH Router routing configuration');
   if (state.semanticAssessmentRequest !== null && (state.semanticAssessmentRequest?.status !== 'armed' || typeof state.semanticAssessmentRequest.requestedAt !== 'string')) throw new Error('Unsupported DSH Router assessment request');
   if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
   if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
   if (!Array.isArray(state.config.prices) || !state.config.prices.every(item => typeof item.provider === 'string' && item.provider && typeof item.model === 'string' && item.model && quoteSchema().safeParse(item.quote).success && (item.provider !== CONTROLLED_PROVIDER || item.quote.kind === 'fixture-reference'))) throw new Error('Unsupported DSH Router prices');
   let recoveredCoordination = false;
   for (const task of state.tasks) {
+    if (recoverPendingRecovery(task)) recoveredCoordination = true;
     if (recoverPendingTakeover(task)) recoveredCoordination = true;
     if (task.coordination !== undefined && task.coordination !== null) {
       const recovery = recoverPendingCoordination(task.coordination, task.acceptance?.revision ?? task.coordination.acceptanceRevision);
@@ -1607,7 +1881,7 @@ export async function apply(ctx) {
       }
     }
   }
-  for (const task of state.tasks) if (['running', 'waiting-budget'].includes(task.lifecycle)) {
+  for (const task of state.tasks) if (['running', 'waiting-budget', 'waiting-recovery'].includes(task.lifecycle)) {
     task.lifecycle = 'paused'; task.pauseReason = 'HOST_RESTARTED'; task.endedAt = new Date().toISOString();
     for (const call of task.calls) if (['prepared', 'waiting'].includes(call.status)) {
       // 0.3.0 header-confirmed calls had no durable dispatch gate; their state is ambiguous.

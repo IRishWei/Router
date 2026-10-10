@@ -34,7 +34,12 @@ export const takeoverPolicySchema = () => z.object({
   maxTokens: z.number().int().positive().safe().max(4096),
   forecastTokens: z.number().int().positive().safe().max(65536),
 }).strict().refine(value => value.forecastTokens >= value.maxTokens, { message: 'Takeover forecast must cover its output cap', path: ['forecastTokens'] });
-const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), routingObjective: z.enum(['balanced', 'cost', 'tokens', 'speed', 'quality']).default('balanced'), semanticAssessment: z.boolean().default(false), acceptance: acceptancePolicySchema().optional(), coordination: coordinationPolicySchema().optional(), takeover: takeoverPolicySchema().optional(), fixedModel: z.string().nullable().optional(), fixedCandidateId: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), semanticAssessmentRequest: z.object({ status: z.literal('armed'), requestedAt: z.string() }).strict().nullable().optional(), calibrationPreview: z.json().optional(), candidateSnapshot: z.json().optional(), unsupportedProviders: z.array(z.json()).optional(), deepSeek: z.json().optional(), chatGpt: z.json().optional(), openCodeGo: z.json().optional(), compatible: z.json().optional(), tasks: z.array(z.json()), blockedRequests: z.array(z.json()).optional(), storageError: z.string().nullable(), models: z.array(z.json()) }) };
+export const recoveryPolicySchema = () => z.object({
+  enabled: z.boolean(), automatic: z.boolean(), alternativeCandidateId: z.string().min(1).max(200).nullable(),
+  maxTokens: z.number().int().positive().safe().max(4096), forecastTokens: z.number().int().positive().safe().max(65536),
+}).strict().refine(value => value.forecastTokens >= value.maxTokens, { message: 'Recovery forecast must cover its output cap' });
+export const recoveryActionSchema = () => z.object({ taskId: z.string().uuid(), recoveryId: z.string().uuid(), expectedRevision: z.number().int().positive().safe(), action: z.enum(['retry-current', 'stop']) }).strict();
+const result = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#Snapshot', create: () => z.object({ schemaVersion: z.literal(1), config: z.object({ automatic: z.boolean(), version: z.number().int().positive(), routingObjective: z.enum(['balanced', 'cost', 'tokens', 'speed', 'quality']).default('balanced'), semanticAssessment: z.boolean().default(false), acceptance: acceptancePolicySchema().optional(), coordination: coordinationPolicySchema().optional(), takeover: takeoverPolicySchema().optional(), recovery: recoveryPolicySchema().optional(), fixedModel: z.string().nullable().optional(), fixedCandidateId: z.string().nullable().optional(), pool: z.array(z.json()).optional(), prices: z.array(z.json()).optional(), budget: z.json().optional() }), application: z.json().optional(), semanticAssessmentRequest: z.object({ status: z.literal('armed'), requestedAt: z.string() }).strict().nullable().optional(), calibrationPreview: z.json().optional(), candidateSnapshot: z.json().optional(), unsupportedProviders: z.array(z.json()).optional(), deepSeek: z.json().optional(), chatGpt: z.json().optional(), openCodeGo: z.json().optional(), compatible: z.json().optional(), tasks: z.array(z.json()), blockedRequests: z.array(z.json()).optional(), storageError: z.string().nullable(), models: z.array(z.json()) }) };
 const authorizationStartResult = { mode: 'strict', typeSymbol: '@irishwei/dsh-router#ChatGptAuthorizationStart', create: () => z.object({ attemptId: z.string().uuid(), authorizationURL: z.string().url().max(16_384) }).strict() };
 const parameter = (name, create) => ({ name, wire: name, source: 'json', codec: { mode: 'strict', typeSymbol: `@irishwei/dsh-router#${name}`, create } });
 const parameters = {
@@ -46,6 +51,8 @@ const parameters = {
   setAcceptancePolicy: [parameter('policy', () => acceptancePolicySchema())],
   setCoordinationPolicy: [parameter('policy', () => coordinationPolicySchema())],
   setTakeoverPolicy: [parameter('policy', () => takeoverPolicySchema())],
+  setRecoveryPolicy: [parameter('policy', () => recoveryPolicySchema())],
+  resolveTaskRecovery: [parameter('request', () => recoveryActionSchema())],
   requestSemanticAssessment: [],
   previewCalibrationBudget: [],
   setModelEnabled: [parameter('candidateId', () => z.string()), parameter('enabled', () => z.boolean())],

@@ -130,12 +130,10 @@ export class TaskTakeoverController {
       if (sameIdentity(target.identity, plan.source.identity)) throw new LlmError('Target already owns execution', 'TAKEOVER_TARGET_IS_CURRENT_OWNER');
       if (target.handoff?.protocol !== 'dsh-canonical-v1') throw new LlmError('Target serializer has no portable declaration', 'TAKEOVER_PROTOCOL_UNKNOWN');
       plan.target = target;
-      const sessionProof = await this.#sessionProof(agent, signal);
-      const afterRead = this.#router.exactTask(task.sessionId, task.turn);
-      if (signal.aborted || !afterRead || afterRead.acceptance.revision !== acceptance.revision || afterRead.coordination.revision !== plan.coordinationRevision || agent.inbox.nextStep.some(message => message.source?.kind === 'user')) throw new LlmError('Task changed while observing history', 'TAKEOVER_BOUNDARY_CHANGED');
-      this.#verifyOperations(agent);
-      plan.portableHistory = portableHistory(agent, current, this.#router.toolReceipt, this.#router.toolReceiptsForSession, this.#verifyReceipt);
-      plan.portableHistory.sessionProof = sessionProof;
+      plan.portableHistory = await this.captureHandoffHistory(agent, current, signal, () => {
+        const afterRead = this.#router.exactTask(task.sessionId, task.turn);
+        if (signal.aborted || !afterRead || afterRead.acceptance.revision !== acceptance.revision || afterRead.coordination.revision !== plan.coordinationRevision || agent.inbox.nextStep.some(message => message.source?.kind === 'user')) throw new LlmError('Task changed while observing history', 'TAKEOVER_BOUNDARY_CHANGED');
+      });
       const message = createUserMessage({ content: [{ type: 'text', text: "Continue this same Task with every original user constraint and completed tool receipt. The previous model still failed a trusted requirement after consultation. Correct the artifact without repeating completed operations or changing permissions, requirements, or budget." }], source: { kind: 'router-takeover', form: 'notice', summary: boundContextSummary('Router planned one evidence-based takeover'), taskId: task.id, planId: plan.id, episodeId: episode.episodeId, evidenceVersion: episode.evidenceVersion } });
       plan.noticeMessageId = message.id;
       await this.#publish(current, plan);
@@ -156,6 +154,47 @@ export class TaskTakeoverController {
       }
       return { kind: 'none', reason: plan.reason };
     }
+  }
+  /** Shared complete history proof; difficulty and recovery retain separate permission/CAS plans. */
+  async captureHandoffHistory(agent, task, signal, recheck) {
+    recheck(); this.#verifyOperations(agent);
+    const sessionProof = await this.#sessionProof(agent, signal);
+    recheck(); this.#verifyOperations(agent);
+    const history = portableHistory(agent, task, this.#router.toolReceipt, this.#router.toolReceiptsForSession, this.#verifyReceipt);
+    return { ...history, sessionProof };
+  }
+  verifyHandoffHistory(agent, task, history) {
+    this.#verifyCatalog(); this.#verifyOperations(agent);
+    if (hash(task.inputs) !== history.inputHash || task.acceptance?.requirementHash !== history.requirementHash || agent.session.surface.contentGeneration !== 0 || !containsHistory(agent.session.deriveMessages(), history)) throw new LlmError('Retained history changed', 'TAKEOVER_HISTORY_CHANGED');
+    for (const receipt of history.toolReceipts) this.#verifyReceipt(agent, receipt);
+  }
+  async resolveHandoffTarget(target, signal, recheck) {
+    const model = await this.#llm.resolveModelInfo(target.identity.provider, target.identity.model, signal);
+    recheck();
+    if (target.handoff?.protocol !== 'dsh-canonical-v1' || !model.inputModalities?.includes('text') || model.systemPromptUpdate !== 'in-history') throw new LlmError('The candidate has no complete portable protocol', 'TAKEOVER_MODEL_FORMAT_UNSUPPORTED');
+    return model;
+  }
+  boundedHandoffHistory(messages) { return { messages: portableMessages(messages), images: messages.flatMap(message => message.content.filter(part => part.type === 'image')) }; }
+  bindHandoffPrepared(prepared, target, model, maxTokens) {
+    if (!sameIdentity({ ...target.identity, ...prepared.config }, target.identity) || prepared.config.maxTokens !== maxTokens || hash(modelFacts(prepared)) !== hash(modelFacts(model))) throw new LlmError('The actual prepared handle has different model facts', 'TAKEOVER_PREPARED_MODEL_CHANGED');
+    return { ...clone(modelFacts(prepared)), config: clone(prepared.config), adapterDefaults: clone(prepared.adapterDefaults) };
+  }
+  /** Shared capacity, protocol, image-byte and exact public native-history audit. */
+  async auditHandoffRequest({ request, agent, target, model, maxTokens, forecastTokens, history, signal, recheck, native = false }) {
+    recheck();
+    if (!containsHistory(request.messages, history)) throw new LlmError('The request lost retained history', 'TAKEOVER_FINAL_REQUEST_CHANGED');
+    if (history.images.length && (target.capability.image.supported !== true || !model.inputModalities?.includes('image'))) throw new LlmError('Retained images cannot be represented', target.capability.image.supported === null ? 'TAKEOVER_IMAGE_CAPABILITY_UNKNOWN' : 'TAKEOVER_IMAGE_CAPABILITY_UNSUPPORTED');
+    this.#auditTools(request.messages, request.tools, request.toolHistory, target, model);
+    const sessionProof = native ? await this.#sessionProof(agent, signal, request.messages) : null;
+    recheck();
+    const imageForecast = await this.#priceImages(request.messages, target.identity, signal, recheck);
+    recheck();
+    const inputTokens = bytes({ messages: portableMessages(request.messages), tools: request.tools ?? [], toolHistory: request.toolHistory ?? null, system: request.system ?? null }) + (imageForecast?.visualTokens ?? 0) + (imageForecast?.textBytes ?? 0);
+    const capacity = Math.min(target.maxContextTokens ?? 0, model.context?.contextWindow ?? 0);
+    if (!Number.isSafeInteger(capacity) || capacity < 1) throw new LlmError('Full context capacity is unknown', 'TAKEOVER_CONTEXT_CAPACITY_UNKNOWN');
+    if (!Number.isSafeInteger(inputTokens) || inputTokens + maxTokens > capacity) throw new LlmError('Full history exceeds capacity', 'TAKEOVER_CONTEXT_CAPACITY_EXCEEDED');
+    if (inputTokens + maxTokens > forecastTokens) throw new LlmError('Full history exceeds the reservation', 'TAKEOVER_FORECAST_EXCEEDED');
+    return { inputTokens, imageForecast, sessionProof, messages: portableMessages(request.messages) };
   }
   verifyBoundary(agent, signal, plan) {
     signal?.throwIfAborted();
@@ -378,17 +417,31 @@ export class TaskTakeoverController {
       const semanticsChanged = owner && !this.#sameOwner(owner);
       this.#router.recordToolReceipt(task.id, { ...receipt, outcome: result.isError || semanticsChanged || scopeReason ? 'unknown' : 'completed', resultHash: hash(result.content), failureCode: scopeReason ?? (semanticsChanged ? 'TAKEOVER_TOOL_SEMANTICS_CHANGED' : result.error?.info?.code ?? null) });
       if (semanticsChanged && task.takeover) this.#router.pauseTakeover(task.id, task.takeover.plan.id, 'TAKEOVER_TOOL_SEMANTICS_CHANGED', 'interrupted');
+      if (task.recoveryOwned && task.recovery?.attempts > 0 && task.recovery.state !== 'paused' && (result.isError || semanticsChanged || scopeReason)) this.#router.pauseRecovery(task.id, semanticsChanged ? 'RECOVERY_TOOL_SEMANTICS_CHANGED' : 'RECOVERY_TOOL_OUTCOME_UNKNOWN');
     }
   }
   guardTool(exec) {
     const binding = this.#toolBindings.get(exec.token);
     if (binding?.scopeReason && binding.taskOwners.some(owner => this.#router.exactTask(owner.agent.session.id, owner.turn)?.takeoverPolicy?.enabled)) return binding.scopeReason;
+    if (binding?.scopeReason) {
+      const owners = binding.taskOwners.map(owner => this.#router.exactTask(owner.agent.session.id, owner.turn)).filter(task => task?.recoveryOwned && task.recovery?.attempts > 0);
+      if (owners.length) {
+        for (const task of owners) this.#router.pauseRecovery(task.id, 'RECOVERY_TOOL_OUTCOME_UNKNOWN');
+        return 'RECOVERY_TOOL_OUTCOME_UNKNOWN';
+      }
+    }
     const agent = binding?.agent ?? exec.agent;
     if (!agent?.session?.id || !binding && !this.#nativeRoot(exec, agent)) return;
     const task = this.#router.exactTask(agent.session.id, this.#turn(agent));
-    if (!task?.takeover) return;
+    const recovering = task?.recoveryOwned && task.recovery?.attempts > 0;
+    if (!task?.takeover && !recovering) return;
+    if (recovering && task.recovery.state === 'paused') return task.recovery.reason;
+    if (!task.takeover) return this.#guardOperation(exec, binding, agent, task, 'RECOVERY');
     if (task.routingPauseReason?.startsWith('TAKEOVER_') || ['interrupted', 'delivery-unknown', 'dispatch-unknown'].includes(task.takeover.plan.state)) return task.routingPauseReason ?? task.takeover.plan.reason ?? 'TAKEOVER_PAUSED';
     if (!['dispatch-started', 'dispatched'].includes(task.takeover.plan.state)) return;
+    return this.#guardOperation(exec, binding, agent, task, 'TAKEOVER');
+  }
+  #guardOperation(exec, binding, agent, task, prefix) {
     const prior = this.#router.toolReceiptsForSession(task.sessionId);
     const unknown = prior.some(receipt => receipt.outcome !== 'completed');
     const repeatedCall = prior.some(receipt => receipt.callId === exec.callId);
@@ -397,8 +450,9 @@ export class TaskTakeoverController {
     try { for (const receipt of prior.filter(receipt => receipt.outcome === 'completed')) this.#verifyReceipt(agent, receipt); }
     catch { semanticsChanged = true; }
     const pendingKey = binding?.operationKey ? `${task.sessionId}:${binding.operationKey}` : null;
-    const reason = exec.parent !== undefined ? 'TAKEOVER_TOOL_HISTORY_UNSUPPORTED' : unknown ? 'TAKEOVER_TOOL_OUTCOME_UNKNOWN' : repeatedCall ? 'TAKEOVER_DUPLICATE_TOOL_CALL' : semanticsChanged || binding && !this.#sameOwner(binding.owner) ? 'TAKEOVER_TOOL_SEMANTICS_CHANGED' : repeatedOperation ? 'TAKEOVER_DUPLICATE_OPERATION' : pendingKey && this.#pendingOperations.has(pendingKey) ? 'TAKEOVER_TOOL_OUTCOME_UNKNOWN' : !binding?.operation ? 'TAKEOVER_TOOL_OPERATION_UNKNOWN' : null;
-    if (reason) { this.#router.pauseTakeover(task.id, task.takeover.plan.id, reason, 'interrupted'); return reason; }
+    const suffix = exec.parent !== undefined ? 'TOOL_HISTORY_UNSUPPORTED' : unknown ? 'TOOL_OUTCOME_UNKNOWN' : repeatedCall ? 'DUPLICATE_TOOL_CALL' : semanticsChanged || binding && !this.#sameOwner(binding.owner) ? 'TOOL_SEMANTICS_CHANGED' : repeatedOperation ? 'DUPLICATE_OPERATION' : pendingKey && this.#pendingOperations.has(pendingKey) ? 'TOOL_OUTCOME_UNKNOWN' : !binding?.operation ? 'TOOL_OPERATION_UNKNOWN' : null;
+    const reason = suffix ? prefix + '_' + suffix : null;
+    if (reason) { if (prefix === 'TAKEOVER') this.#router.pauseTakeover(task.id, task.takeover.plan.id, reason, 'interrupted'); else this.#router.pauseRecovery(task.id, reason); return reason; }
     if (pendingKey) { binding.pendingKey = pendingKey; this.#pendingOperations.set(pendingKey, exec.token); }
   }
   async refuse(agent, reason) {

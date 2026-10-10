@@ -18,6 +18,7 @@ const consultationSchema = z.object({
   candidateId: z.string().min(1),
   selectionSnapshot: z.record(z.string(), z.unknown()),
   callId: z.string().min(1).nullable(),
+  callIds: z.array(z.string().min(1)).optional(),
   trigger: z.enum(['repeated-obstacle', 'capability-deficiency']),
   state: z.enum(['intent-persisted', 'call-reserved', 'advice-ready', 'advice-delivered', 'delivery-unknown', 'failed', 'stale']),
   adviceHash: z.string().regex(/^[a-f0-9]{64}$/u).nullable(),
@@ -350,7 +351,7 @@ export class TaskCoordinationController {
     let failureCode = null;
     let oversized = false;
     try {
-      const stream = this.#router.streamReservedCall(task.id, callId, request);
+      const stream = this.#router.streamReservedCallWithRecovery ? this.#router.streamReservedCallWithRecovery(task.id, callId, request) : this.#router.streamReservedCall(task.id, callId, request);
       for await (const chunk of stream) {
         if (chunk.type === 'text-delta') {
           if (advice.length + chunk.text.length > policy.maxAdviceChars) oversized = true;
@@ -359,8 +360,11 @@ export class TaskCoordinationController {
         if (chunk.type === 'finish') { finish = chunk.reason?.kind; failureCode = chunk.reason?.failure?.code ?? null; }
       }
     } catch (error) {
+      this.#bindConsultationCalls(agent, task, episode, callId);
       return this.#failConsultation(agent, task, acceptance, state, episode, errorCode(error, signal.aborted ? 'CANCELED' : 'CONSULTATION_UNAVAILABLE'));
     }
+    this.#bindConsultationCalls(agent, task, episode, callId);
+    callId = episode.consultation.callId;
     advice = advice.trim();
     if (finish !== 'stop' || oversized || !advice) return this.#failConsultation(agent, task, acceptance, state, episode, oversized ? 'CONSULTATION_OUTPUT_TOO_LARGE' : failureCode ?? 'CONSULTATION_NOT_COMPLETED');
 
@@ -455,6 +459,10 @@ export class TaskCoordinationController {
     episode.consultation.reason = reason;
     await this.#commit(this.#router.exactTask(agent.session.id, task.turn) ?? task, acceptance, state, episode, 'consultation-failed', { callId: episode.consultation.callId, reason });
     return { kind: 'stalled', reason, episodeId: episode.episodeId };
+  }
+  #bindConsultationCalls(agent, task, episode, originalCallId) {
+    const calls = this.#router.exactTask(agent.session.id, task.turn)?.calls.filter(call => call.id === originalCallId || call.consultationIntentCallId === originalCallId) ?? [];
+    if (calls.length) { episode.consultation.callIds = calls.map(call => call.id); episode.consultation.callId = calls.at(-1).id; }
   }
 
   async #release(callId, taskId, request) {
