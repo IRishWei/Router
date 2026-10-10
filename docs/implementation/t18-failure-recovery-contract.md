@@ -57,6 +57,10 @@ await router.resolveTaskRecovery({
 
 接管恢复同时遵守原接管许可与恢复许可。规划时冻结 `recovery.maxTokens` 为两套 `maxTokens` 的较小值，`recovery.forecastTokens` 为两套 `forecastTokens` 的较小值。完整输入、图像价格与容量证明、Native Request 分配、实际 prepared、最终请求和预算均使用这两个有效上限；两套独立派发门还核对精确 recovery/plan/Call 归属。恢复 Call 的 `reservation.tokens.output` 等于有效 max，`total` 等于有效 forecast，`input` 等于二者之差；该 Call 对应的 `takeover.plan.forecast` 保存相同预留。恢复最终请求与接管最终请求各自保存实际相同的 max 与 prepared 配置。两套原 policy 保留；首次接管和后续非恢复接管 Call 继续使用原接管上限，既有 Call 不改写。
 
+执行、咨询与接管恢复均不能扩大原请求已经分配的输出许可。有效 `recovery.maxTokens` 同时受 recovery policy、所在 phase policy、原 logical request 的明确 max 和原实际请求配置限制。执行使用原 Native Call 的 `hostConfig.maxTokens`；咨询使用原 `coordinationPolicy.maxTokens`、logical request max 与实际 prepared `call.snapshot.maxTokens`；接管使用原 plan policy 和 Native 配置。缺少原请求的明确 max 时不凭空添加一个原上限，但仍受配置的 recovery/phase 上限约束。有效 forecast 为 recovery 与咨询/接管 phase forecast 的较小值；执行没有另一套 phase forecast，沿用 recovery forecast。
+
+咨询重试创建采用有效 max 的 logical request，同时冻结该请求的完整 messages/tools/system 与 max 的 `requestHash`。实际 prepared options 重新绑定精确的 owned WeakMap 归属，最终门核对同一 intent、实际 Call、hash、prepared max 和精确 input/output/total reservation；复制 options 后通过公开 LLM 再进入不能继承该归属。所有实际尝试仍保留同一 intent 与 `consultation.callIds`，advice 只交回一次。原非恢复咨询使用原 coordination 上限。兼容连接的 owned 1024 预设是上限，不能提高明确 request max；兼容 Native 首次调用仍使用原 1024 预设，恢复使用冻结的有效 max。每一步规划、容量/图像证明、预算、allocation、prepared 和 final 都使用这个有效许可，原 policy 和已完成/失败 Call 保留。
+
 ## 人工等待与重启
 
 人工按钮只存在于仍 live、awaited 的 waiting-user 边界。停止可取消待派发预留和当前 Task。修改许可/模型、用户 steer、原生 pending、停止或存储失败会唤醒等待并使旧 plan 失效。CAS action fulfilled 只表示消费了这个 live 决定，随后竞态仍可让硬门拒绝派发。
@@ -64,3 +68,5 @@ await router.resolveTaskRecovery({
 工具保护与故障处理共用暂停转换，统一设置 paused/reason、增加 revision、记录 timeline、持久化并唤醒 live recovery waiter。工具暂停保留原 failure/source/phase 与已消费次数、计划等待和实际等待；故障处理按原调用来源更新故障字段，不退还 grant 或清空已有历史证明。
 
 终态和重启没有公开 resume 旧 Task 的能力。resolver 返回 `RECOVERY_NOT_LIVE_NEW_TASK_REQUIRED`；UI 明确提示修复后发送新任务，不会复活旧任务。重启时未完成 recovery 记 `RECOVERY_RESTARTED_UNKNOWN`，Task 记 HOST_RESTARTED，次数/计划等待/原始 Call 与未知状态保留；没有后台计时器、模型请求、advice、工具或私有状态复活。原 T17 和 T16 的 pending/restart 保护继续使用原合同。
+
+原 Native `turn/end` 同时关闭尚未结束的恢复，不留下 `call-reserved` 等 live 状态。预算恢复等待上的 `stopTask` 实际终态为 Task `BUDGET_STOPPED` / recovery paused `RECOVERY_STOPPED`；waiting-user 的 resolver stop 通过原取消信号结束 awaited 边界，实际 recovery reason 为 `RECOVERY_CANCELED`。结束时保留 failure、source/Call、次数、等待与历史证明。读取这些已结束任务时，完整持久化 recovery 和 timeline 保持原值，不再改写成 `RECOVERY_RESTARTED_UNKNOWN`；resolver 仍拒绝复活旧 Task。

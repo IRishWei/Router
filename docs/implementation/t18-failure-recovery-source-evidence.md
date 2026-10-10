@@ -14,6 +14,9 @@
 | t18.oauth.test.mjs | 真实 ChatGPT session/credential/refresh/adapter chain；临时 fake credential home + 本地 HTTP token endpoint 返回 INVALID_GRANT；1 refresh、0 responses、0 模型派发、终态 resolver 拒绝 |
 | t18.client.test.mjs | 实际 rc.2 Renderer/Typert codec/严格 RPC 从关闭配置启用恢复、精确 live retry/stop、终态无 resume 按钮、新 Task 指引 |
 | t18.caps.test.mjs | 接管/恢复 max 128/512 两方向、forecast 16384/32768 两方向、原接管上限保留、两套 prepared/final 及精确预留一致、16500 token 预算与真实原图附件/字节 |
+| t18.consultation-caps.test.mjs | 咨询/恢复 max 64/128 与 forecast4096/8192 两方向、4500 token有限预算、原咨询许可保留、owned prepared/final/hash/reservation 同步、一个 intent/一次 advice/全部实际 Call、复制 owned 请求拒绝 |
+| t18.allocation-caps.test.mjs | 原 Native compatible1024 与恢复64/2048两方向、owned compatible咨询128/恢复64、logical2048但原实际 prepared1024、精确有效许可与完整 Task账本 |
+| t18.terminal.test.mjs | 真实预算等待停止后的终态恢复归一、完整持久化 recovery/timeline重启保留、0新请求/工具、manual resolver stop 的实际RECOVERY_CANCELED |
 
 OAuth 证据只认证本地受控刷新拒绝链路，通用 AUTH fixture 只认证分类。标题与恢复执行均逐 Call 对账；例如标题 1、原执行失败 1、恢复执行 1 = 3 Call / 36 fixture token。phase 共享案例原执行 4、咨询 2、目标 1 = 7 Call / 84 fixture token，目标首次失败后没有第 8 次请求；咨询仍一个 intent，接管仍一个 notice。副作用重复案例 body=1；ambiguous late child 红阶段 body=1，修复后 body=0。
 
@@ -54,6 +57,40 @@ Standards 的非阻断重复暂停转换在此复审修复阶段合并。真实 
 | git diff --check | PASS，0.103s | t18-r1-fix-diff-check-1.log |
 
 本轮仍未打包、安装、启动 Desktop 或执行真实模型请求；独立 r2 源码复审和随后安装验证需绑定新固定提交。
+
+## r2 固定提交复审修复
+
+独立 Spec 复审针对 `33116cd196c29c59324466df2e0a15622ef5c7bb` 确认 P2：咨询恢复沿用原 logical request max，未遵守较小的 recovery 上限。先加入 recovery64/consultation128、forecast4096/8192 的完整 Task red，再冻结有效 max 和 owned logical request/hash，green 后才加入反向配置。反向以4500 token有限预算观察原错误8192预留造成 waiting-budget，修复后预留4096、完整 Task完成。原首次咨询分别128和64；两方向恢复均64/4096，1个意图、1次advice、2个咨询实际Call，完整 Task均5 Call/60 fixture token。
+
+随后逐条审查 allocation：compatible Native 的1024预设会覆盖恢复64，实际 prepared门拒绝；反向 recovery2048则可扩大原1024许可；compatible owned请求也会把咨询128/恢复64改为1024。新增完整 Task逐片 red→green，原 Native首发1024保留，恢复受原实际Native/owned prepared上限及全部phase/recovery许可共同限制。咨询 logical2048但实际prepared1024的额外切片先被拒绝，修复后正确冻结1024，完整输入证明、requestHash、实际请求与预算一致。四个allocation案例分别2 Call/24、5 Call/60、2 Call/24、5 Call/60 fixture token。
+
+原 stopped budget-wait 只断言 Task暂停；新的完整终态/只读重启 red观察到 before recovery=call-reserved/reason=null，after被改成RECOVERY_RESTARTED_UNKNOWN。Native turn/end现在关闭未结束恢复，实际 before/after均paused/RECOVERY_STOPPED，原调用、次数、完整proof和timeline保留，重启0模型请求/0工具。manual resolver stop已有取消链路保持paused/RECOVERY_CANCELED、1 Call/12 fixture token；这条为已有行为coverage，不伪造red。
+
+所有本轮原输出、red测试副本和逐片green源码diff使用全新的 `t18-r2-fix-*` 文件名，以FileMode.CreateNew拒绝覆盖。原r1/r2审查、旧证据和冻结包没有修改。
+
+| 完整切片 | red → green 原输出（统一 t18-r2-fix- 前缀、.log 后缀） |
+| --- | --- |
+| recovery64/consult128及较小recovery forecast | slice01-red-1 → slice01-green-1 |
+| recovery128/consult64及较小consultation forecast，4500 token预算 | slice02-red-1 → slice02-green-1 |
+| 原Native compatible1024/恢复64 | allocation-native-red-1 → allocation-native-green-2 |
+| recovery2048不得扩大原Native1024 | allocation-source-red-1 → allocation-source-green-1 |
+| owned compatible首发咨询128/恢复64 | allocation-owned-red-1 → allocation-owned-green-1 |
+| logical两套2048/原实际prepared1024 | allocation-owned-source-red-1 → allocation-owned-source-green-1 |
+| budget stop终态及读取历史 | terminal-budget-red-1 → terminal-budget-green-2 |
+
+复制owned options的公开LLM重入案例由既有gate拒绝：原咨询失败保持CONNECTION，恢复Call不派发、预留released，3个实际入口/36 fixture token，无advice；原输出为owned-identity-coverage-1（3/3）。独立request-hash-coverage-1保留一次fixture假设失败：尝试修改已由SDK冻结的nested messages，先抛TypeError成为AUXILIARY_CALL_FAILED，未到final hash门，不能冒称验证该门；这条无效用例已移除。两方向cap成功案例经过原独立final hash门，证明新的有效max已绑定到保存的logical hash。allocation-native-green-1保留一次断言纠正：Adapter收到SDK投影，不能用Adapter副本证明native WeakSet，改为观察原公开llm/stream原始request和已保存final native证明。terminal-budget-green-1保留JSON落盘省略undefined字段的断言纠正，green-2直接与实际持久化记录比较。均未覆盖原失败输出，也未用这些fixture错误代替行为red。
+
+本轮新增9个完整行为案例：咨询cap2、owned复制拒绝1、allocation4、terminal2。最终原输出如下，duration为外围Stopwatch；所有命令exit=0。
+
+| 检查 | 结果与duration | fresh原输出 |
+| --- | --- | --- |
+| 全部serial test / concurrency1 / timeout30000 | 588/588 PASS（旧535 + T18 53），85.605s；runner85.5150257s | t18-r2-fix-full-serial-1.log |
+| T18全部完整测试 | 53/53 PASS，13.029s；runner12.927613s | t18-r2-fix-native-all-1.log |
+| npm run build | 0.17.0 PASS，0.462s | t18-r2-fix-build-1.log |
+| npm run check | PASS，2.147s | t18-r2-fix-check-1.log |
+| git diff --check | PASS，0.116s | t18-r2-fix-diff-check-1.log |
+
+本轮未打包、安装、启动Desktop/RPC或执行真实模型请求；独立r3源码双轴和后续集成验证须绑定新固定提交。
 
 ## 限制
 
