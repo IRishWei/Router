@@ -335,7 +335,7 @@ export class TaskTakeoverController {
   bindTool(exec) {
     const activeParent = this.#toolBindings.get(exec.parent);
     const parent = activeParent ?? this.#toolAncestry.get(exec.parent);
-    const matchingBindings = exec.rootCallId === undefined ? [] : [...this.#toolBindings.values()].filter(binding => binding.rootCallId === exec.rootCallId);
+    const matchingBindings = exec.rootCallId === undefined ? [] : [...this.#toolAncestry.values()].filter(binding => binding.rootCallId === exec.rootCallId);
     const matchingAgents = [...new Set(matchingBindings.flatMap(binding => binding.affectedAgents))];
     const agent = parent?.agent ?? (this.#nativeRoot(exec) ? exec.agent : undefined) ?? (matchingAgents.length === 1 ? matchingAgents[0] : undefined);
     if (!parent && !this.#nativeRoot(exec, agent) && matchingAgents.length === 0) return;
@@ -367,7 +367,7 @@ export class TaskTakeoverController {
     if (binding?.pendingKey) this.#pendingOperations.delete(binding.pendingKey);
     const parent = this.#toolBindings.get(exec.parent) ?? this.#toolAncestry.get(exec.parent);
     const knownOwners = binding?.taskOwners ?? ancestry?.taskOwners ?? parent?.taskOwners;
-    const rootOwners = knownOwners || exec.rootCallId === undefined ? [] : [...new Map([...this.#toolBindings.values()].filter(candidate => candidate.rootCallId === exec.rootCallId).flatMap(candidate => candidate.taskOwners).map(owner => [owner.taskId, owner])).values()];
+    const rootOwners = knownOwners || exec.rootCallId === undefined ? [] : [...new Map([...this.#toolAncestry.values()].filter(candidate => candidate.rootCallId === exec.rootCallId).flatMap(candidate => candidate.taskOwners).map(owner => [owner.taskId, owner])).values()];
     const taskOwners = knownOwners ?? (rootOwners.length ? rootOwners : exec.agent && this.#nativeRoot(exec) ? [{ agent: exec.agent, turn: this.#turn(exec.agent) }] : []);
     for (const taskOwner of taskOwners) {
       const task = this.#router.exactTask(taskOwner.agent.session.id, taskOwner.turn);

@@ -1266,3 +1266,91 @@ test('an early tool preparation error without pre-execute retains a matching nat
     assert.equal(task.lifecycle, 'paused');
   } finally { await cleanup(home, run); }
 });
+
+test('a late early tool error with an unobserved parent retains the completed native root Task', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t17-child-late-early-error-'));
+  let run;
+  try {
+    run = await prepare(home);
+    registerTool(run);
+    let unrelatedToken, lateInput, lateResult, childPreExecutions = 0, outerCompleted = false;
+    run.ctx.tools.register({ name: 't17_late_early_host_token', description: 'Independent Host operation', parameters: { type: 'object', properties: {}, additionalProperties: false },
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+      async execute(_args, exec) { unrelatedToken = exec.token; return 'HOST_TOKEN_CREATED'; },
+    });
+    await run.ctx.tools.execute({ callId: 'independent-late-early-host-call', name: 't17_late_early_host_token', arguments: {}, signal: new AbortController().signal });
+    run.ctx.on('tools/pre-execute', (exec, next) => { if (exec.name === 't17_late_early_not_registered') childPreExecutions++; return next(); });
+    run.toolDefinition.execute = async (_args, exec) => {
+      lateInput = { callId: exec.callId + ':late-early-child', rootCallId: exec.rootCallId, name: 't17_late_early_not_registered', arguments: undefined, parent: unrelatedToken, signal: exec.signal };
+      return 'RECEIPT_COMPLETE:ORIGINAL_VALUE';
+    };
+    const resolveModel = run.target.resolveModel.bind(run.target);
+    run.target.resolveModel = async (provider, model) => {
+      if (lateInput && !lateResult) {
+        outerCompleted = (await run.ctx.router.snapshot()).tasks.at(-1).toolReceipts.some(receipt => receipt.callId === 'completed-call-1' && receipt.outcome === 'completed');
+        lateResult = await run.ctx.tools.execute(lateInput);
+      }
+      return resolveModel(provider, model);
+    };
+    const task = await submit(run.ctx, run.sessionId, prompt);
+    assert.equal(outerCompleted, true);
+    assert.equal(childPreExecutions, 0);
+    assert.equal(lateResult.isError, true);
+    assert.match(lateResult.error.message, /losslessly JSON-serializable/);
+    assert.equal(run.target.requests.length, 0);
+    assert.equal(task.toolReceipts.some(item => item.name === 't17_late_early_host_token'), false);
+    assert.equal(task.toolReceipts.find(item => item.name === 't17_late_early_not_registered').outcome, 'unknown');
+    assert.equal(task.takeover.plan.reason, 'TAKEOVER_TOOL_OUTCOME_UNKNOWN');
+    assert.equal(task.lifecycle, 'paused');
+  } finally { await cleanup(home, run); }
+});
+
+test('a late registered child cannot execute or hide its pending result under a completed native root', async () => {
+  const home = await mkdtemp(join(tmpdir(), 'router-t17-child-late-registered-pending-'));
+  let run, nested, releaseNested, notifyStarted;
+  const pending = new Promise(resolve => { releaseNested = resolve; });
+  const started = new Promise(resolve => { notifyStarted = resolve; });
+  try {
+    run = await prepare(home);
+    registerTool(run);
+    let unrelatedToken, lateInput, lateResult, nestedBodies = 0, wrapperWaiting = false, outerCompleted = false;
+    run.ctx.tools.register({ name: 't17_late_pending_host_token', description: 'Independent Host operation', parameters: { type: 'object', properties: {}, additionalProperties: false },
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+      async execute(_args, exec) { unrelatedToken = exec.token; return 'HOST_TOKEN_CREATED'; },
+    });
+    run.ctx.tools.register({ name: 't17_late_registered_pending', description: 'Controlled late child with delayed result', parameters: { type: 'object', properties: {}, additionalProperties: false },
+      routerOperation: { version: 1, effect: 'read', idempotencyKey: null, source: 't17-nested-contract', confidence: 'declared' },
+      output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
+      async execute() { nestedBodies++; return 'LATE_CHILD_BODY_RESULT'; },
+    });
+    await run.ctx.tools.execute({ callId: 'independent-late-pending-host-call', name: 't17_late_pending_host_token', arguments: {}, signal: new AbortController().signal });
+    run.ctx.on('tools/execute', async (exec, next) => {
+      const result = await next();
+      if (exec.name === 't17_late_registered_pending') { wrapperWaiting = true; notifyStarted(); await pending; }
+      return result;
+    }, { prepend: true });
+    run.toolDefinition.execute = async (_args, exec) => {
+      lateInput = { callId: exec.callId + ':late-pending-child', rootCallId: exec.rootCallId, name: 't17_late_registered_pending', arguments: {}, parent: unrelatedToken, signal: exec.signal };
+      return 'RECEIPT_COMPLETE:ORIGINAL_VALUE';
+    };
+    const resolveModel = run.target.resolveModel.bind(run.target);
+    run.target.resolveModel = async (provider, model) => {
+      if (lateInput && !nested) {
+        outerCompleted = (await run.ctx.router.snapshot()).tasks.at(-1).toolReceipts.some(receipt => receipt.callId === 'completed-call-1' && receipt.outcome === 'completed');
+        nested = run.ctx.tools.execute(lateInput);
+        await Promise.race([started, nested.then(result => { lateResult = result; })]);
+      }
+      return resolveModel(provider, model);
+    };
+    const task = await submit(run.ctx, run.sessionId, prompt);
+    assert.equal(outerCompleted, true);
+    assert.equal(run.target.requests.length, 0, JSON.stringify({ targetRequests: run.target.requests.length, nestedBodies, wrapperWaiting }));
+    assert.equal(nestedBodies, 0);
+    assert.equal(wrapperWaiting, false);
+    assert.equal(lateResult.isError, true);
+    assert.equal(task.toolReceipts.some(item => item.name === 't17_late_pending_host_token'), false);
+    assert.equal(task.toolReceipts.find(item => item.name === 't17_late_registered_pending').outcome, 'unknown');
+    assert.equal(task.takeover.plan.reason, 'TAKEOVER_TOOL_OUTCOME_UNKNOWN');
+    assert.equal(task.lifecycle, 'paused');
+  } finally { releaseNested(); await nested; await cleanup(home, run); }
+});

@@ -39,6 +39,10 @@ Host-only trusted Node 验收并未加入模型会话工具树。T17启用的真
 
 ## 实际检查收据
 
+Late lineage 修复的最终源码全量535/535 PASS（68.479s，`t17-root-finish-suite.log`），build/check及完整差异检查均 PASS（`t17-root-finish-{build,check,diffcheck}.log`）。这些检查使用源码、完整 native Task 和本地预设响应，无生产请求；固定 SHA、合同及前轮16项/最初12项不变哈希在独占 `t17-root-finish-result.md`、`t17-root-finish-receipt-hashes.json` 绑定。该结果仍须新固定提交的独立 Standards/Spec 复审、merger和安装验证，不能由前轮533/533或Standards r2 PASS替代。
+
+固定 `e26ac7ec3c518ce945da382f36ec147d10a82276` 的 Spec r2 发现 late lineage 分支：outer 已 completed 后，在 target.resolveModel 的公开 await 中，使用未观察的真实 Host parent、缺 agent 及原 root 的 early preparation error 仍曾发出 target1次。`t17-finish-late-early-error-red.log` 绑定未改源码的固定 SHA；由已保留 ancestry 收集冻结 Task owners 后1/1 green。随后 registered child 的独立红记录前一步源码差异，实测 target1、body1、公开 execute wrapper pending；仅扩展 result 回退仍不足。Pre-execute 同样查找活动及已结算 ancestry 后，公开 guard 拒绝 child body，结果记 unknown、原 Task暂停，target/body均0；两项联合2/2 green（`t17-finish-late-registered-pending-green.log`）。这是同一公开生命周期的修复，没有授予 child 权限或识别无法关联的任意 Host 操作；前三轮 packet 和复审报告保持不变，最终固定收据另存。
+
 早期完整 T17 Task 检查47/47（`t17-slice-25-green.log`），客户端 T16+T17实际 Renderer/RPC2/2（`t17-slice-18-green.log`）。早期全量517/518暴露 Host验收工具receipt污染检查scope（公开fixture evidence `CHECK_INPUT_CHANGED`），按native root归属修复后联合76/76（`t17-native-receipt-scope-green.log`）；后续收据与失败均保留。
 
 首个固定源码前 `node --test --test-concurrency=1 test/*.test.mjs` 全量530/530 PASS（98.206s，`t17-finish-full-suite-final.log`）；T16单处 teardown 修复前的529/530记录保留。该阶段0.16.0 build PASS（`t17-finish-build.log`），check与全文件diff-check结果在同一 `t17-finish-*` 收据中保存；merge integration current tip 时 Already up to date（`t17-finish-integration-merge.log`）。首个 SHA 在 Git 与外部 `t17-finish-result.md` 绑定，避免文档自引用；不以旧冻结包或 VERIFY 作为本次通过证明。
