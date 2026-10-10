@@ -224,8 +224,9 @@ export class TaskCoordinationController {
     }
 
     const missingCapability = capabilityDeficiency(unresolved);
+    const delivered = state.episodes.find(item => item.consultation?.state === 'advice-delivered');
     if (!state.selfRepair && !missingCapability && state.consultationAttempts === 0) return this.#requestRepair({ agent, signal, task, acceptance, state, episode, obstacle: unresolved });
-    if (!state.selfRepair && state.consultationAttempts >= 1) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_ATTEMPT_LIMIT');
+    if (!state.selfRepair && state.consultationAttempts >= 1 && !delivered) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_ATTEMPT_LIMIT');
     if (newEvidence) {
       state = await this.#commit(task, acceptance, state, episode, 'obstacle-observed');
       if (!state) return { kind: 'stale', reason: 'COORDINATION_STALE' };
@@ -237,7 +238,14 @@ export class TaskCoordinationController {
 
     const repeated = state.selfRepair?.episodeId === episodeId && episode.evidenceVersion > state.selfRepair.evidenceVersion;
     if (!repeated && !missingCapability) return this.#stall(task, acceptance, state, episode, 'OBSTACLE_NOT_REPEATED');
-    if (state.consultationAttempts >= 1) return this.#stall(task, acceptance, state, episode, 'CONSULTATION_ATTEMPT_LIMIT');
+    if (state.consultationAttempts >= 1) {
+      if (delivered && (delivered.episodeId !== episode.episodeId || episode.evidenceVersion > delivered.consultation.evidenceVersion) && typeof this.#router.planTakeover === 'function') {
+        const result = await this.#router.planTakeover({ agent, signal, task: this.#router.exactTask(agent.session.id, turn), acceptance, episode });
+        if (result.kind === 'none') return this.#stall(this.#router.exactTask(agent.session.id, turn), acceptance, state, episode, result.reason === 'TAKEOVER_DISABLED' ? 'CONSULTATION_ATTEMPT_LIMIT' : result.reason);
+        return result;
+      }
+      return this.#stall(task, acceptance, state, episode, 'CONSULTATION_ATTEMPT_LIMIT');
+    }
     return this.#consult({ agent, signal, task, acceptance, state, episode, obstacle: unresolved, trigger: missingCapability ? 'capability-deficiency' : 'repeated-obstacle', policy });
   }
 

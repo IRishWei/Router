@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { LlmAdapter, LlmError, lastAssistantStreamChunk, createUserMessage, isAgentLoopRequest } from '@deepseek-ai/dsh-llm';
 import { TypertRemoteService, Remote } from '@deepseek-ai/dsh-typert-protocol';
 import { renderPrompt } from '@deepseek-ai/dsh-system-prompt';
-import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema, coordinationPolicySchema } from './protocol.mjs';
+import { descriptors, quoteSchema, budgetSchema, extensionSchema, acceptancePolicySchema, coordinationPolicySchema, takeoverPolicySchema } from './protocol.mjs';
 import { ledgerOf, reserveRecord, costOf, tokensOf, emptyBudget, budgetCheck, possiblyDispatched, normalizeBudgetConstraint } from './ledger.mjs';
 import { ConnectionRegistry, identityOf, sameIdentity, sameRoute } from './connections.mjs';
 import { isChatGptSubscription } from './subscription-reference.mjs';
@@ -21,6 +21,7 @@ import { createHttpSourceEvidenceResolver, createResearchAcceptance } from './re
 import { createImageAcceptance, validateImageContribution } from './image-acceptance.mjs';
 import { validateResearchContribution } from './research-contribution.mjs';
 import { coordinationSchema, recoverPendingCoordination, TaskCoordinationController } from './coordination.mjs';
+import { TaskTakeoverController, takeoverSchema, recordTakeoverStage, recoverPendingTakeover, takeoverReason } from './takeover.mjs';
 
 export const inject = ['llm', 'profileContext', 'tools', 'sessionController'];
 export const CONTROLLED_PROVIDER = 'router-controlled';
@@ -39,6 +40,7 @@ const CHATGPT_DETECTION_OUTPUT_FORECAST_TOKENS = 2_048;
 const RESPONSES_DETECTION_MAX_CALLS = 2;
 const defaultAcceptancePolicy = () => ({ enabled: false, review: { enabled: false, candidateId: null, allowCrossModel: false, maxTokens: 256, forecastTokens: 4096 } });
 const defaultCoordinationPolicy = () => ({ enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 256, maxAdviceChars: 4096, forecastTokens: 4096 });
+const defaultTakeoverPolicy = () => ({ enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 512, forecastTokens: 32768 });
 const sameChoice = (left, right) => (!left && !right) || Boolean(left && right && sameRoute(left, right) && left.reasoningEffort === right.reasoningEffort);
 const manualChanged = (step, current) => !(!current && step.pendingConsumed) && !sameChoice(step.pending, current);
 function selection(config = { provider: CONTROLLED_PROVIDER, model: CONTROLLED_MODEL }) {
@@ -243,6 +245,7 @@ export class RouterService extends TypertRemoteService {
   #active = new Map();
   #inflight = new Map();
   #nativeReservations = new WeakMap();
+  #nativeConfigs = new WeakMap();
   #steps = new WeakMap();
   #waiters = new Map();
   #callSignals = new Map();
@@ -267,6 +270,7 @@ export class RouterService extends TypertRemoteService {
   #compatible;
   #compatibleDetections = new Map();
   #deepSeekDeadlineTimers = new Map();
+  #takeover;
   constructor(ctx, state, path, connections, files = { writeFile, rename }) {
     super(ctx, 'router');
     this.#state = state;
@@ -275,11 +279,14 @@ export class RouterService extends TypertRemoteService {
     this.#connections = connections;
     // Cordis traces service calls through a proxy; bind the public facade to its state owner.
     const methods = descriptors.map(descriptor => descriptor.method);
-    for (const method of [...methods, 'flush', 'commitState', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance', 'publishCoordination', 'attachDeepSeek', 'attachChatGpt']) this[method] = this[method].bind(this);
+    for (const method of [...methods, 'flush', 'commitState', 'reserveCall', 'settleCall', 'persistDispatchIntent', 'streamReservedCall', 'registerOwned', 'captureCandidate', 'exactTask', 'publishAcceptance', 'publishCoordination', 'publishTakeover', 'planTakeover', 'completeTakeover', 'toolReceipt', 'recordToolReceipt', 'toolReceiptsForSession', 'pauseTakeover', 'attachDeepSeek', 'attachChatGpt']) this[method] = this[method].bind(this);
+    this.#takeover = new TaskTakeoverController({ router: this, llm: ctx.llm, attachments: ctx.get('attachments'), tools: ctx.tools, sessionQuery: () => ctx.get('sessionQuery'), turnForAgent: agent => ctx.get('sessionProjections')?.stateOf(agent.session, 'turnBoundary')?.lastTurn, manualForAgent: agent => ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending, live: candidateId => ({ automatic: this.#state.config.automatic, fixedCandidateId: this.#state.config.fixedCandidateId, policy: this.#state.config.takeover, capture: candidateId ? this.#connections.capture(candidateId) : null }) });
+    ctx.on('tools/change', () => this.#takeover.toolsChanged());
     for (const method of methods) {
       Remote(this[method], { kind: 'method', name: method, static: false, private: false, addInitializer: fn => fn.call(this) });
     }
     ctx.on('session/event', (session, event) => {
+      if (event.type === 'model/selection') this.#wakeTakeoverWaiters(session.id);
       if (event.type === 'session/title-llm-request') {
         const sourceIds = event.data.messageSeqs.map(seq => session.snapshotEvents().find(item => item.seq === seq && item.type === 'user/message')?.data.id);
         const task = [...this.#active.values()].find(task => task.sessionId === session.id && sourceIds.length && sourceIds.every(id => id && task.inputs.some(input => input.messageId === id)));
@@ -291,6 +298,10 @@ export class RouterService extends TypertRemoteService {
       }
       this.#observe(session, event);
     });
+    ctx.on('tools/pre-execute', (exec, next) => { this.#takeover.bindTool(exec); return next(); }, { prepend: true });
+    ctx.on('tools/result', (exec, result) => { this.#takeover.recordToolResult(exec, result); });
+    ctx.on('agent/inbox/inserted', ({ agent, message }) => { if (message.source?.kind === 'user') this.#wakeTakeoverWaiters(agent.session.id); });
+    ctx.tools.guard(exec => this.#takeover.guardTool(exec));
     // The public dispatch event precedes every waterfall listener/consumer delay.
     ctx.on('internal/dispatch', (mode, name, args) => {
       const request = args[0];
@@ -302,6 +313,10 @@ export class RouterService extends TypertRemoteService {
       if (name !== 'llm' || !value) return value;
       const service = this;
       return new Proxy(value, { get(target, key, receiver) {
+        if (key === 'prepareCall') {
+          const prepare = Reflect.get(target, key, target);
+          return (config, signal) => service.#watchPreparedCall(config, signal, () => Reflect.apply(prepare, target, [config, signal]));
+        }
         if (key !== 'stream') return Reflect.get(target, key, receiver);
         const stream = Reflect.get(target, key, target);
         return request => service.#watchPublicStream(request, () => Reflect.apply(stream, target, [request]));
@@ -335,9 +350,22 @@ export class RouterService extends TypertRemoteService {
       // catalog and its instructions while keeping the native runtime context.
       if (task?.openCodeGoDetection || task?.compatibleDetection) assembled = { ...assembled, tools: [], sections: [{ name: 'router:connection-probe', text: GO_PROBE_SYSTEM_PROMPT, interpolate: false }] };
       step.assembled = assembled;
+      if (task?.takeover && task.routingPauseReason?.startsWith('TAKEOVER_')) step.blocked = task.routingPauseReason;
+      let handoff;
+      try { if (task?.takeover) handoff = await this.#takeover.route({ agent, signal, task }); }
+      catch (error) { step.blocked = takeoverReason(error, signal); await this.#takeover.refuse(agent, step.blocked); }
+      if (handoff && !step.blocked) {
+        step.route = { candidateId: handoff.capture.candidateId, ...handoff.capture.identity };
+        step.selectionSnapshot = handoff.capture;
+        step.enforceCandidate = true;
+        if (handoff.planId) step.takeover = handoff;
+      }
       if (manualChanged(step, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) step.blocked = 'NATIVE_SELECTION_CHANGED';
       const detection = detectionOf(task);
-      if (task && detection && !step.blocked) {
+      if (step.route && handoff) {
+        // One same-Task handoff owns this assembled request; native pending wins below.
+        if (step.pending) step.blocked = 'NATIVE_SELECTION_CHANGED';
+      } else if (task && detection && !step.blocked) {
         const captured = await this.captureCandidate(detection.capture.candidateId, { config, signal });
         if (!sameIdentity(captured.identity, detection.capture.identity)
           || captured.authEpoch !== detection.capture.authEpoch
@@ -485,6 +513,8 @@ export class RouterService extends TypertRemoteService {
         return { kind: 'reject' };
       }
       const previous = agent.session.requestHeader()?.config;
+      try { if (step.takeover) await this.#takeover.prepare({ agent, signal, task: detectionTask, step, decision }); }
+      catch (error) { detectionTask.routingPauseReason = takeoverReason(error, signal); await this.#takeover.refuse(agent, detectionTask.routingPauseReason); return { kind: 'reject' }; }
       if (!step.route || step.pending || !previous || sameRoute(step.route, previous) || (decision.messages.length === 0 && (index === 1 || messages.length > 0))) return decision;
       return { ...decision, messages: [...decision.messages, createUserMessage({ content: [{ type: 'text', text: `[model changed: assistant turns above this point were generated by ${previous.provider}/${previous.model}; the session continues with ${step.route.provider}/${step.route.model}]` }], source: { kind: 'model-selection', form: 'notice', summary: `${previous.model} → ${step.route.model}` } })] };
     }, { prepend: true });
@@ -512,9 +542,11 @@ export class RouterService extends TypertRemoteService {
       const config = stepSnapshot?.route ? { ...resolved, provider: stepSnapshot.route.provider, model: stepSnapshot.route.model } : resolved;
       if (stepSnapshot?.route && !sameRoute(resolved, stepSnapshot.route)) delete config.reasoningEffort;
       const task = this.#active.get(`${agent.session.id}:${turn}`);
+      if (stepSnapshot?.takeover?.planId && task.routingPauseReason?.startsWith('TAKEOVER_')) throw new LlmError('The interrupted takeover requires explicit resolution', task.routingPauseReason);
       if (task?.deepSeekDetection) config.maxTokens = DEEPSEEK_DETECTION_OUTPUT_TOKENS;
       if (task?.openCodeGoDetection) config.maxTokens = task.openCodeGoDetection.outputTokens;
       if (stepSnapshot?.selectionSnapshot?.identity?.billingPath === 'compatible-unconfirmed') config.maxTokens = 1024;
+      if (stepSnapshot?.takeover?.planId) config.maxTokens = task.takeoverPolicy.maxTokens;
       const blocked = stepSnapshot && manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending) ? 'NATIVE_SELECTION_CHANGED' : this.#restriction(config);
       if (blocked) {
         if (task) task.routingPauseReason = blocked;
@@ -525,7 +557,7 @@ export class RouterService extends TypertRemoteService {
         task.activeSelection = candidate?.identity ?? selection(config);
         task.configVersion = stepSnapshot?.config.version ?? this.#state.config.version;
         if (candidate?.identity?.billingPath === 'compatible-unconfirmed' && (!Number.isSafeInteger(task.budget.limits.tokens) || task.budget.limits.tokens < 1 || !Number.isSafeInteger(task.budget.limits.durationMs) || task.budget.limits.durationMs < 1)) throw new LlmError('Set finite token and duration limits before using compatible connections', 'COMPATIBLE_BUDGET_REQUIRED');
-        const forecast = detectionOf(task) || candidate?.identity?.billingPath === 'compatible-unconfirmed' ? stepSnapshot?.detectionForecast : config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null;
+        const forecast = stepSnapshot?.takeover?.forecast ?? (detectionOf(task) || candidate?.identity?.billingPath === 'compatible-unconfirmed' ? stepSnapshot?.detectionForecast : config.provider === CONTROLLED_PROVIDER ? { inputTokens: 8, outputTokens: 4, cacheReadTokens: 0, cacheWriteTokens: 0, reasoningTokens: 0, totalTokens: 12 } : null);
         const reason = detectionOf(task) ? 'explicit-detection' : stepSnapshot?.pending ? 'native-pending' : stepSnapshot?.route ? (stepSnapshot.config.fixedCandidateId ?? stepSnapshot.config.fixedModel) ? 'fixed-model' : 'enabled-pool' : 'native-routing';
         task.timeline.push({ kind: 'selection', reason, provider: config.provider, model: config.model, configVersion: task.configVersion });
         const previous = this.#nativeReservations.get(agent);
@@ -534,13 +566,21 @@ export class RouterService extends TypertRemoteService {
         const reservation = this.reserveCall(task.id, { purpose, step, selection: task.activeSelection, candidateId: candidate?.candidateId, selectionSnapshot: candidate, configVersion: task.configVersion, routerSnapshot: stepSnapshot?.config ?? this.#state.config, forecast }, signal);
         this.#bindCall(task.calls[before]);
         this.#nativeReservations.set(agent, { taskId: task.id, turn, step, callId: task.calls[before].id });
+        if (stepSnapshot?.takeover?.planId) task.calls[before].takeoverPlanId = stepSnapshot.takeover.planId;
         await reservation;
+        if (stepSnapshot?.takeover?.planId) {
+          const call = task.calls[before];
+          call.takeoverPlanId = stepSnapshot.takeover.planId;
+          await this.#takeover.update(task.sessionId, task.turn, call.takeoverPlanId, { state: 'call-reserved', callId: call.id });
+          this.#takeover.verifyBoundary(agent, signal, task.takeover.plan);
+        }
         if (manualChanged(stepSnapshot, ctx.get('sessionProjections')?.stateOf(agent.session, 'modelSelection')?.pending)) {
           task.routingPauseReason = 'NATIVE_SELECTION_CHANGED';
           throw new LlmError('Native selection changed while waiting for budget', 'MODEL_NOT_FOUND');
         }
       }
       // Return the entire downstream config, including native effort and token settings.
+      if (stepSnapshot?.takeover?.planId) this.#nativeConfigs.set(config, { agent, step: stepSnapshot, call: task.calls.at(-1), taskId: task.id });
       return config;
     }, { prepend: true });
     const service = this;
@@ -569,15 +609,34 @@ export class RouterService extends TypertRemoteService {
       };
       try {
         verify();
+        if (native && step?.takeover) await service.#takeover.auditFinal(request, { agent, step, call });
         if (call) await service.persistDispatchIntent(call.taskId, call.id);
         // No await between this final signal/ownership/eligibility check and next().
         verify();
+        if (step?.takeover?.planId) service.#takeover.verifyFinal(request, { agent, step, call });
         if (call) { call.dispatchStarted = true; call.dispatchedAt = new Date().toISOString(); service.#persist(); }
+        if (native) {
+          const task = service.#state.tasks.find(task => task.id === call.taskId);
+          if (task.takeoverPolicy?.enabled) task.executionOwner = { candidateId: call.candidateId ?? null, identity: structuredClone(call.selection), callId: call.id, turn: task.turn, step: call.step, confidence: 'possible' };
+          if (step?.takeover?.planId) recordTakeoverStage(task.takeover, 'dispatch-started');
+          if (task.takeoverPolicy?.enabled) service.#persist();
+        }
       } catch (error) {
         if (call) { call.dispatchIntent = 'blocked'; call.dispatchStarted = false; delete call.dispatchedAt; service.#persist(); }
+        if (native && step?.takeover?.planId) await service.#takeover.refuse(agent, takeoverReason(error, request.signal));
         throw error;
       }
-      yield* auxiliary ? service.#trackedDispatch(auxiliary, next) : next();
+      for await (const chunk of auxiliary ? service.#trackedDispatch(auxiliary, next) : next()) {
+        if (native && (chunk.type !== 'finish' || ['stop', 'tool-calls', 'max-tokens'].includes(chunk.reason?.kind))) {
+          const task = service.#state.tasks.find(task => task.id === call.taskId);
+          if (task.executionOwner?.callId === call.id && task.executionOwner.confidence !== 'response-observed') {
+            task.executionOwner.confidence = 'response-observed';
+            if (task.takeover?.plan.callId === call.id && task.takeover.plan.state === 'dispatch-started') recordTakeoverStage(task.takeover, 'dispatched');
+            service.#persist();
+          }
+        }
+        yield chunk;
+      }
       })();
     });
     ctx.effect(() => () => {
@@ -610,6 +669,22 @@ export class RouterService extends TypertRemoteService {
     return this.#ownedCallStream(task, request, null, source);
   }
   #sourceKey(sessionId, purpose, messages) { return JSON.stringify([sessionId, purpose, messages?.map(message => message.id)]); }
+  async #watchPreparedCall(config, signal, invoke) {
+    const binding = this.#nativeConfigs.get(config);
+    const prepared = await invoke();
+    if (binding) {
+      try {
+        if (this.#steps.get(binding.agent) !== binding.step || this.#nativeReservations.get(binding.agent)?.callId !== binding.call.id) throw new LlmError('The native call owner changed during preparation', 'TAKEOVER_PREPARED_OWNER_CHANGED');
+        this.#takeover.bindPrepared(prepared, { ...binding, signal });
+      } catch (error) {
+        const task = this.#state.tasks.find(task => task.id === binding.taskId);
+        if (task) task.routingPauseReason = takeoverReason(error, signal);
+        await this.#takeover.refuse(binding.agent, takeoverReason(error, signal));
+        throw error;
+      }
+    }
+    return prepared;
+  }
   #watchPublicStream(request, invoke) {
     if (isAgentLoopRequest(request) || this.#ownedRequests.has(request)) return invoke();
     this.#publicStreamEntries.add(request);
@@ -982,6 +1057,7 @@ export class RouterService extends TypertRemoteService {
   async refreshConnections() {
     await this.#connections.refresh();
     this.#persist(); await this.flush();
+    this.#wakeTakeoverWaiters();
     return this.snapshot();
   }
   /** Host-only capture seam: callers receive registry-owned identity and revisions, never construct them. */
@@ -1008,7 +1084,7 @@ export class RouterService extends TypertRemoteService {
   registerOwned(source) {
     const dispose = this.#connections.registerOwned(source);
     this.#persist();
-    return () => { dispose(); this.#persist(); };
+    return () => { dispose(); this.#persist(); this.#wakeTakeoverWaiters(); };
   }
   exactTask(sessionId, turn) {
     const matches = this.#state.tasks.filter(task => task.sessionId === sessionId && task.turn === turn);
@@ -1044,6 +1120,40 @@ export class RouterService extends TypertRemoteService {
     if (this.#storageError) throw new Error('Router coordination publication was not persisted');
     return structuredClone(detached);
   }
+  planTakeover(payload) { return this.#takeover.plan(payload); }
+  toolReceipt(sessionId, callId) {
+    const matches = this.#state.tasks.filter(task => task.sessionId === sessionId).flatMap(task => task.toolReceipts ?? []).filter(receipt => receipt.callId === callId);
+    return matches.length === 1 ? structuredClone(matches[0]) : null;
+  }
+  toolReceiptsForSession(sessionId) { return structuredClone(this.#state.tasks.filter(task => task.sessionId === sessionId).flatMap(task => task.toolReceipts ?? [])); }
+  pauseTakeover(taskId, planId, reason, stage) {
+    const task = this.#state.tasks.find(item => item.id === taskId);
+    if (task?.takeover?.plan.id !== planId) return;
+    task.routingPauseReason = reason;
+    if (stage) recordTakeoverStage(task.takeover, stage, reason);
+    this.#persist();
+  }
+  recordToolReceipt(taskId, receipt) {
+    const task = this.#state.tasks.find(item => item.id === taskId);
+    if (!task) return;
+    task.toolReceipts ??= [];
+    task.toolReceipts.push(structuredClone(receipt));
+    task.timeline.push({ kind: 'tool-receipt-recorded', callId: receipt.callId, outcome: receipt.outcome });
+    this.#persist();
+  }
+  async publishTakeover(taskId, expected, nextState) {
+    const task = this.#state.tasks.find(item => item.id === taskId);
+    if (!task || task.acceptance?.revision !== expected.acceptanceRevision || task.coordination?.revision !== expected.coordinationRevision || (task.takeover?.revision ?? 0) !== expected.takeoverRevision) throw Object.assign(new Error('Task handoff changed'), { code: 'TAKEOVER_STALE' });
+    const parsed = takeoverSchema.parse(structuredClone(nextState));
+    if (parsed.revision !== expected.takeoverRevision + 1) throw new TypeError('Invalid handoff revision');
+    task.takeover = parsed;
+    task.plannedSelection = parsed.plan.target?.identity ?? null;
+    task.timeline.push({ kind: 'takeover-published', revision: parsed.revision, state: parsed.plan.state, planId: parsed.plan.id, reason: parsed.plan.reason });
+    this.#persist(); await this.flush();
+    if (this.#storageError) throw new Error('Handoff was not persisted');
+    return structuredClone(parsed);
+  }
+  completeTakeover(payload) { return this.#takeover.completed(payload); }
   async setPriceQuote(candidateId, quote, legacyQuote) {
     // Direct Host callers from 0.3.x may use the controlled provider/model pair.
     if (legacyQuote !== undefined && candidateId === CONTROLLED_PROVIDER) { candidateId = quote; quote = legacyQuote; }
@@ -1205,6 +1315,7 @@ export class RouterService extends TypertRemoteService {
       if (waited) {
         await this.#refreshEligibility(signal);
         this.#assertCallEligibility(task, call);
+        if (call.takeoverPlanId) this.#takeover.verifyBoundary(this.ctx.get('agents')?.get(task.sessionId), signal, task.takeover.plan);
       }
       const decision = budgetCheck(task, call);
       task.budget.unenforceableLimits = detectionOf(task)
@@ -1295,6 +1406,12 @@ export class RouterService extends TypertRemoteService {
     }
     return this.#change({ coordination: parsed });
   }
+  async setTakeoverPolicy(policy) {
+    const parsed = takeoverPolicySchema().parse(policy);
+    if (parsed.enabled && !parsed.candidateId) throw new TypeError('Choose an explicit takeover target');
+    if (parsed.candidateId && !this.#connections.capture(parsed.candidateId).enabled) throw new TypeError('The takeover target must be enabled');
+    return this.#change({ takeover: parsed });
+  }
   async requestSemanticAssessment() {
     if (!this.#state.config.automatic || !this.#state.config.semanticAssessment) throw new TypeError('Enable automatic routing and semantic assessment before requesting a Task assessment');
     this.#state.semanticAssessmentRequest = { status: 'armed', requestedAt: new Date().toISOString() };
@@ -1335,7 +1452,13 @@ export class RouterService extends TypertRemoteService {
     this.#persist();
     await this.flush();
     if (this.#storageError) throw new Error('Router storage is unavailable; the settings change was not persisted');
+    if (['automatic', 'fixedCandidateId', 'pool', 'takeover'].some(key => Object.hasOwn(change, key))) {
+      this.#wakeTakeoverWaiters();
+    }
     return this.snapshot();
+  }
+  #wakeTakeoverWaiters(sessionId) {
+    for (const task of this.#active.values()) if (!sessionId || task.sessionId === sessionId) for (const call of task.calls) if (call.takeoverPlanId && call.reservation?.state === 'waiting') this.#waiters.get(call.id)?.resolve();
   }
   async flush() { await this.#writes; }
   async commitState() {
@@ -1374,7 +1497,7 @@ export class RouterService extends TypertRemoteService {
       const goDetection = this.#goDetections.get(session.id);
       const compatibleDetection = this.#compatibleDetections.get(session.id);
       const detection = deepSeekDetection ?? chatGptDetection ?? goDetection ?? compatibleDetection;
-      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), coordinationPolicy: freezeCoordinationPolicy(this.#state.config, this.#connections), coordination: null, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(deepSeekDetection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}), ...(chatGptDetection ? { chatGptDetection: { capture: structuredClone(detection.capture), outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls } } : {}) };
+      const task = { id: randomUUID(), sessionId: session.id, turn: event.data.turn, lifecycle: 'running', acceptance: { verdict: 'unconfirmed', evidence: [] }, acceptancePolicy: structuredClone(this.#state.config.acceptance), coordinationPolicy: freezeCoordinationPolicy(this.#state.config, this.#connections), coordination: null, takeoverPolicy: { ...structuredClone(this.#state.config.takeover), objective: this.#state.config.routingObjective, fixedCandidateId: this.#state.config.fixedCandidateId }, takeover: null, executionOwner: null, plannedSelection: null, activeSelection: null, configVersion: this.#state.config.version, assessmentRequested, requirements: { modalities: ['text'], contextBytes: 0 }, result: '', calls: [], inputs: [], timeline: [], startedAt: new Date(detection?.startedAt ?? Date.now()).toISOString(), budget: { limits: structuredClone(detection?.budget ?? this.#state.config.budget), extensions: [], unenforceableLimits: [] }, ...(deepSeekDetection ? { deepSeekDetection: { capture: structuredClone(detection.capture), outputTokens: DEEPSEEK_DETECTION_OUTPUT_TOKENS } } : {}), ...(chatGptDetection ? { chatGptDetection: { capture: structuredClone(detection.capture), outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls } } : {}) };
       if (detection) {
         if (goDetection) task.openCodeGoDetection = { capture: structuredClone(detection.capture), outputTokens: detection.outputTokens, outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls };
         if (compatibleDetection) task.compatibleDetection = { capture: structuredClone(detection.capture), outputTokens: detection.outputTokens, outputForecastTokens: detection.outputForecastTokens, maxCalls: detection.maxCalls };
@@ -1396,12 +1519,18 @@ export class RouterService extends TypertRemoteService {
       if (event.type === 'assistant/message') task.result += event.data.message.content.filter(item => item.type === 'text').map(item => item.text).join('');
       const finish = lastAssistantStreamChunk(event.data.stream ?? [], 'finish')?.reason;
       const deadlineExpired = detectionOf(task)?.deadlineExpired === true;
-      this.settleCall(task.id, call.id, { status: deadlineExpired || event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' || finish?.failure?.code === 'ABORTED' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed', usage: event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null, seq: event.seq, finishReason: deadlineExpired ? 'aborted' : finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop'), failureCode: deadlineExpired ? 'ABORTED' : finish?.failure?.code });
+      this.settleCall(task.id, call.id, { status: call.takeoverPlanId && !possiblyDispatched(call) ? 'not-dispatched' : deadlineExpired || event.data.interrupted || finish?.kind === 'max-tokens' || finish?.kind === 'aborted' || finish?.failure?.code === 'ABORTED' ? 'interrupted' : event.type === 'assistant/attempt' || finish?.kind === 'error' ? 'failed' : 'completed', usage: event.data.usage ?? lastAssistantStreamChunk(event.data.stream ?? [], 'usage')?.usage ?? null, seq: event.seq, finishReason: deadlineExpired ? 'aborted' : finish?.kind ?? (event.data.interrupted ? 'aborted' : event.type === 'assistant/attempt' ? 'unknown' : 'stop'), failureCode: deadlineExpired ? 'ABORTED' : finish?.failure?.code });
+      if (call.takeoverPlanId === task.takeover?.plan.id && ['failed', 'interrupted'].includes(call.status) && ['dispatch-started', 'dispatched'].includes(task.takeover.plan.state)) {
+        recordTakeoverStage(task.takeover, task.executionOwner?.confidence === 'response-observed' ? 'interrupted' : 'dispatch-unknown', 'TARGET_RESPONSE_NOT_COMPLETED');
+        task.routingPauseReason = 'TAKEOVER_TARGET_RESPONSE_FAILED';
+      }
     }
     if (event.type === 'turn/end') {
       const reason = event.data.reason;
       task.nativeLifecycle = reason?.kind === 'completed' && !this.#storageError ? 'completed' : 'paused';
       task.nativeEndedAt = new Date().toISOString();
+      if (task.takeover && ['dispatch-started', 'dispatched'].includes(task.takeover.plan.state) && reason?.kind !== 'completed') recordTakeoverStage(task.takeover, task.executionOwner?.confidence === 'response-observed' ? 'interrupted' : 'dispatch-unknown', 'TARGET_RESPONSE_NOT_COMPLETED');
+      if (task.takeover && ['intent-persisted', 'notice-delivered', 'prepared', 'call-reserved', 'dispatch-intent'].includes(task.takeover.plan.state)) recordTakeoverStage(task.takeover, 'refused', task.budget.stopRequested ? 'BUDGET_STOPPED' : task.routingPauseReason ?? reason?.error?.code ?? 'TAKEOVER_NOT_DISPATCHED');
       if (task.nativeLifecycle === 'paused') {
         task.nativePauseReason = this.#storageError ?? (task.budget.stopRequested ? 'BUDGET_STOPPED' : null) ?? task.routingPauseReason ?? reason?.error?.code ?? reason?.kind ?? 'UNKNOWN_TERMINAL';
         const reservation = this.#nativeReservations.get(this.ctx.get('agents')?.get(session.id));
@@ -1448,14 +1577,16 @@ export async function apply(ctx) {
   state.config.semanticAssessment ??= false;
   state.config.acceptance ??= defaultAcceptancePolicy();
   state.config.coordination ??= defaultCoordinationPolicy();
+  state.config.takeover ??= defaultTakeoverPolicy();
   state.semanticAssessmentRequest ??= null;
-  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean' || !acceptancePolicySchema().safeParse(state.config.acceptance).success || !coordinationPolicySchema().safeParse(state.config.coordination).success) throw new Error('Unsupported DSH Router routing configuration');
+  if (!ROUTING_OBJECTIVES.has(state.config.routingObjective) || typeof state.config.semanticAssessment !== 'boolean' || !acceptancePolicySchema().safeParse(state.config.acceptance).success || !coordinationPolicySchema().safeParse(state.config.coordination).success || !takeoverPolicySchema().safeParse(state.config.takeover).success) throw new Error('Unsupported DSH Router routing configuration');
   if (state.semanticAssessmentRequest !== null && (state.semanticAssessmentRequest?.status !== 'armed' || typeof state.semanticAssessmentRequest.requestedAt !== 'string')) throw new Error('Unsupported DSH Router assessment request');
   if (!budgetSchema().safeParse(state.config.budget).success) throw new Error('Unsupported DSH Router budget');
   if (new Set(state.config.budget.money.map(item => `${item.currency}:${item.kind}`)).size !== state.config.budget.money.length) throw new Error('Duplicate DSH Router budget limits');
   if (!Array.isArray(state.config.prices) || !state.config.prices.every(item => typeof item.provider === 'string' && item.provider && typeof item.model === 'string' && item.model && quoteSchema().safeParse(item.quote).success && (item.provider !== CONTROLLED_PROVIDER || item.quote.kind === 'fixture-reference'))) throw new Error('Unsupported DSH Router prices');
   let recoveredCoordination = false;
   for (const task of state.tasks) {
+    if (recoverPendingTakeover(task)) recoveredCoordination = true;
     if (task.coordination !== undefined && task.coordination !== null) {
       const recovery = recoverPendingCoordination(task.coordination, task.acceptance?.revision ?? task.coordination.acceptanceRevision);
       if (recovery.changed) {
@@ -1541,7 +1672,7 @@ export async function apply(ctx) {
   new AcceptanceCoordinator(ctx, {
     publishAcceptance: service.publishAcceptance,
     captureCandidate: service.captureCandidate,
-    checks: programChecks.checks,
+    checks: { ...programChecks.checks, resolvePlan: async request => { await service.flush(); return programChecks.checks.resolvePlan(request); } },
     contributors: [{
       domain: 'research',
       contribute: request => researchAcceptance.contribute(request),
@@ -1561,7 +1692,7 @@ export async function apply(ctx) {
         forecast: { totalTokens: task.acceptancePolicy?.review?.forecastTokens },
       },
     }),
-    afterAssessment: payload => coordination.afterAcceptance(payload),
+    afterAssessment: payload => service.exactTask(payload.agent.session.id, payload.turn)?.takeover ? service.completeTakeover(payload).then(() => coordination.afterAcceptance(payload)) : coordination.afterAcceptance(payload),
   });
   ctx.on('llm/adapters-updated', () => { void service.refreshConnections().catch(() => {}); });
   ctx.on('settings/document-updated', (namespace, revision) => { connections.invalidateSettings(namespace, revision); void service.refreshConnections().catch(() => {}); });

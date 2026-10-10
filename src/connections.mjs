@@ -66,6 +66,7 @@ const ownedModelSchema = z.object({
   name: z.string().min(1).max(300),
   maxContextTokens: z.number().int().positive().safe().nullable().default(null),
   capability: z.object({ text: supportFactSchema, image: supportFactSchema, tools: supportFactSchema }),
+  handoff: z.object({ protocol: z.literal('dsh-canonical-v1'), toolProtocol: z.enum(['function-json-schema-v1', 'unsupported']), confidence: z.literal('declared'), source: z.string().min(1).max(500) }).strict().nullable().optional(),
 });
 const ownedSourceSchema = z.object({
   provider: z.string().min(1).max(200).refine(value => value !== CONTROLLED_PROVIDER, 'The controlled provider is reserved'),
@@ -201,6 +202,7 @@ export class ConnectionRegistry {
         configured: source.configured ?? null,
         authorizationStatus: source.authorizationStatus ?? candidate?.authorizationStatus ?? 'unknown',
         capability: model.capability,
+        handoff: model.handoff ?? null,
         maxContextTokens: model.maxContextTokens ?? null,
         supportScope: source.supportScope ?? (source.source === 'controlled-protocol-fixture' ? 'controlled-protocol-fixture' : source.ownership === 'router-owned' ? 'owned-provider-metadata' : 'host-public-metadata'),
         settingsNs: source.settingsNs ?? null,
@@ -286,6 +288,7 @@ export class ConnectionRegistry {
       connectionConfigRevision: candidate.connectionConfigRevision,
       authEpoch: candidate.authEpoch,
       capability: candidate.capability,
+      handoff: candidate.handoff ?? null,
       capabilities: { text: candidate.capability.text, image: candidate.capability.image, tools: candidate.capability.tools, contextWindow, inputLimit: unknownCapacity, maxOutput: unknownCapacity },
       maxContextTokens: candidate.maxContextTokens,
       quote: reference ? reference.quote : priced?.quote ?? null,

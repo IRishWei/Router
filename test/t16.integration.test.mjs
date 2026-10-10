@@ -206,8 +206,10 @@ test('one real Task uses canonical 4 → 9 → 14 character evidence through sel
     consultantRegistration?.dispose();
     mainRegistration?.dispose();
     if (ctx) {
-      await ctx.router.flush();
+      const flush = ctx.router.flush;
+      await flush();
       await ctx.fiber.dispose();
+      await flush();
     }
     await rm(home, { recursive: true, force: true });
   }

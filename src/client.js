@@ -192,6 +192,24 @@ window.__ModuleLoader__.load({
         field('咨询输入与输出总预留 token', draft.forecastTokens, value => patch({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 65536, step: 1 }),
         h('button', { type: 'button', onClick: () => save(draft) }, '保存协调设置'));
     }
+    function TakeoverPolicyEditor({ state, disabled, save }) {
+      const defaults = { enabled: false, candidateId: null, allowCrossModel: false, allowFixedModel: false, maxTokens: 512, forecastTokens: 32768 };
+      const [draft, setDraft] = React.useState(state.config.takeover ?? defaults);
+      React.useEffect(() => { setDraft(state.config.takeover ?? defaults); }, [JSON.stringify(state.config.takeover)]);
+      const patch = change => setDraft(current => ({ ...current, ...change }));
+      return h('fieldset', { disabled }, h('legend', null, '同一任务的有界接管'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '启用受阻接管', checked: draft.enabled, onChange: event => patch({ enabled: event.target.checked }) }), '启用受阻接管'),
+        h('p', null, '咨询可靠交回后，相关新失败证据才允许所选模型接续同一任务，最多一次；沿用原任务预算，完成后重新验收。'),
+        h('label', null, '接管候选 ', h('select', { 'aria-label': '接管候选', value: draft.candidateId ?? '', onChange: event => patch({ candidateId: event.target.value || null }) },
+          h('option', { value: '' }, '未选择'),
+          ...state.models.map(model => h('option', { key: model.candidateId ?? model.id, value: model.candidateId ?? model.id, disabled: !model.enabled || !model.available }, `${model.name} · ${model.provider}/${model.model} · ${model.connectionId} · ${model.accountId} · ${model.billingPath}${model.enabled && model.available ? '' : '（不可用）'}`)))),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '允许跨模型接管', checked: draft.allowCrossModel, onChange: event => patch({ allowCrossModel: event.target.checked }) }), '允许所选候选接管执行'),
+        h('label', null, h('input', { type: 'checkbox', 'aria-label': '允许固定任务接管', checked: draft.allowFixedModel, onChange: event => patch({ allowFixedModel: event.target.checked }) }), '固定模型时也允许所选候选接管'),
+        h('p', null, '接管许可与咨询许可分别设置，默认关闭。完整历史、工具语义、图像、容量或协议无法确认时取消接管；未知工具结果会暂停任务。设置影响新任务，撤回许可会阻止尚未派发的接管。'),
+        field('接管输出 token 上限', draft.maxTokens, value => patch({ maxTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 4096, step: 1 }),
+        field('接管输入与输出总预留 token', draft.forecastTokens, value => patch({ forecastTokens: Number(value) }), disabled, { type: 'number', min: 1, max: 65536, step: 1 }),
+        h('button', { type: 'button', onClick: () => save(draft) }, '保存接管设置'));
+    }
     function AcceptanceResult({ task }) {
       const acceptance = task.acceptance ?? { verdict: 'unconfirmed', evidence: [] };
       const label = acceptance.verdict === 'passed' ? '通过' : acceptance.verdict === 'failed' ? '失败' : '无法确认';
@@ -238,6 +256,19 @@ window.__ModuleLoader__.load({
         coordination ? h('p', null, `受阻协调：${coordination.selfRepair?.used ? '已使用一次自行修正' : '未使用自行修正'} · 咨询 ${coordination.consultationAttempts} 次 · 未结束阻碍 ${open}`) : null,
         ...(coordination?.episodes ?? []).map(item => h('p', { key: item.episodeId }, `阻碍 ${item.blockingKey} · 证据版本 ${item.evidenceVersion} · ${item.status}${item.consultation?.reason ? ` · ${item.consultation.reason}` : ''}`)));
     }
+    function TakeoverResult({ task }) {
+      const plan = task.takeover?.plan;
+      if (!plan) return null;
+      const label = identity => identity ? `${identity.provider}/${identity.model} · ${identity.connectionId ?? '连接未知'} · ${identity.accountId ?? '账号未知'} · ${identity.billingPath ?? '计费来源未知'}` : '尚未确认';
+      const status = { 'intent-persisted': '计划已记录', 'notice-delivered': '接管通知已交回', prepared: '请求已准备', 'call-reserved': '调用已预留', 'dispatch-intent': '派发准备已记录', 'dispatch-started': '可能已派发，等待响应', dispatched: '已观察到目标响应', completed: '目标响应完成', interrupted: '接管中断', refused: '接管取消', stale: '计划已失效', 'delivery-unknown': '通知送达未知', 'dispatch-unknown': '目标派发未知' };
+      return h('div', null,
+        h('p', null, `接管：${status[plan.state] ?? plan.state} · 尝试 ${task.takeover.attempts} 次${plan.reason ? ` · ${plan.reason}` : ''}`),
+        h('p', null, `接管前执行候选：${label(plan.source?.identity)}`),
+        h('p', null, `计划接管目标：${label(plan.target?.identity ?? task.plannedSelection)}`),
+        h('p', null, `最后派发记录：${label(task.executionOwner?.identity)} · ${task.executionOwner?.confidence === 'response-observed' ? '已观察到响应' : task.executionOwner?.confidence === 'possible' ? '可能已派发，尚无响应证据' : '执行 owner 尚未确认'}`),
+        h('p', null, `依据：${plan.episodeId} · 新证据版本 ${plan.evidenceVersion}`),
+        plan.acceptanceVerdict ? h('p', null, `接管响应验收：${plan.acceptanceVerdict === 'passed' ? '通过' : plan.acceptanceVerdict === 'failed' ? '失败' : '无法确认'}`) : null);
+    }
     function RouterSettings({ api }) {
       const [state, setState] = React.useState(null);
       const [page, setPage] = React.useState('连接与模型');
@@ -278,17 +309,19 @@ window.__ModuleLoader__.load({
         h('label', null, '固定执行模型 ', h('select', { 'aria-label': '固定执行模型', value: state.config.fixedCandidateId ?? state.config.fixedModel ?? '', disabled, onChange: event => change(() => api.setFixedModel(event.target.value || null)) },
           h('option', { value: '' }, '自动选择已启用模型'), ...state.models.map(model => h('option', { key: model.candidateId ?? model.id, value: model.candidateId ?? model.id, disabled: !model.enabled || !model.available }, `${model.name}${model.enabled && model.available ? '' : '（不可用）'}`)))),
         h('button', { type: 'button', disabled: disabled || !(state.config.fixedCandidateId ?? state.config.fixedModel), onClick: () => change(() => api.setFixedModel(null)) }, '解除固定'),
-        h('p', null, '固定时不自动更换执行模型。与原生待执行选择冲突时暂停并保留手动意图。暂停自动路由后保留设置，使用有效的原生选择。'),
+        h('p', null, '固定时由固定模型执行；只有明确开启固定任务接管才允许所选候选接续。与原生待执行选择冲突时暂停并保留手动意图。暂停自动路由后保留设置，使用有效的原生选择。'),
         h('p', null, 'Router 受控连接仅生成本地测试响应；主动启用的 DSH 原生连接会使用其宿主 provider。参考报价由公开设置命令保存，不代表官方价格或实际账单。'),
         h(BudgetEditor, { budget: state.config.budget, disabled, save: budget => change(() => api.setBudgetDefaults(budget)) }),
         h(AcceptancePolicyEditor, { state, disabled, save: policy => change(() => api.setAcceptancePolicy(policy)) }),
         h(CoordinationPolicyEditor, { state, disabled, save: policy => change(() => api.setCoordinationPolicy(policy)) }),
-        ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
+        h(TakeoverPolicyEditor, { state, disabled, save: policy => change(() => api.setTakeoverPolicy(policy)) }),
+        ...state.tasks.filter(task => ['running', 'waiting-budget'].includes(task.lifecycle)).map(task => h('article', { key: task.id }, h('strong', null, task.id), h(TakeoverResult, { task }), h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }))));
       const history = () => h('div', null, h('h3', null, '任务记录'), state.tasks.length === 0 ? h('p', null, '尚无任务。') : h('ol', null, ...state.tasks.slice(-20).reverse().map(task => h('li', { key: task.id, style: { padding: '12px 0', whiteSpace: 'pre-wrap' } },
         h('strong', null, `${task.activeSelection?.provider ?? '尚未选择'}/${task.activeSelection?.model ?? '—'}`),
         h('p', null, `${task.lifecycle === 'completed' ? '响应完成' : task.lifecycle === 'paused' ? '任务暂停' : task.lifecycle === 'waiting-budget' ? '预算等待' : '执行中'}${task.pauseReason ? ` · ${reasons[task.pauseReason] ?? task.pauseReason}` : ''}`),
         h(AcceptanceResult, { task }),
         h(CoordinationResult, { task }),
+        h(TakeoverResult, { task }),
         h('p', null, task.result || '尚无输出'), h('small', null, `有效配置 ${task.configVersion} · ${task.id}`),
         h(RoutingDecision, { task }), h(TaskLedger, { task }), h(TaskBudget, { task, disabled, change, api }),
         h('details', null, h('summary', null, '选择与结果记录'), h('pre', null, JSON.stringify(task.timeline, null, 2)))))));

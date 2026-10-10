@@ -13,6 +13,8 @@ await writeFile('lib/native-connections.js', await readFile('src/native-connecti
 await writeFile('lib/routing.js', (await readFile('src/routing.mjs', 'utf8')).replace("'./ledger.mjs'", "'./ledger.js'").replace("'./connections.mjs'", "'./connections.js'"));
 await writeFile('lib/acceptance.js', await readFile('src/acceptance.mjs', 'utf8'));
 await writeFile('lib/coordination.js', await readFile('src/coordination.mjs', 'utf8'));
+await writeFile('lib/takeover.js', (await readFile('src/takeover.mjs', 'utf8')).replace("'./connections.mjs'", "'./connections.js'"));
+await writeFile('lib/index.js', (await readFile('lib/index.js', 'utf8')).replace("'./takeover.mjs'", "'./takeover.js'"));
 await writeFile('lib/program-checks.js', await readFile('src/program-checks.mjs', 'utf8'));
 await writeFile('lib/deepseek-connections.js', (await readFile('src/deepseek-connections.mjs', 'utf8')).replace("'./deepseek-catalog.mjs'", "'./deepseek-catalog.js'"));
 await writeFile('lib/deepseek-catalog.js', await readFile('src/deepseek-catalog.mjs', 'utf8'));
