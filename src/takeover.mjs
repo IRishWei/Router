@@ -250,16 +250,17 @@ export class TaskTakeoverController {
     const plan = task?.takeover?.plan;
     if (!step.takeover?.planId || !plan) return;
     this.verifyBoundary(agent, request.signal, plan);
+    const limits = this.#callLimits(task, plan, call);
     if (!step.takeover.boundModel || hash(modelFacts(step.takeover.boundModel)) !== hash(modelFacts(step.takeover.model))) throw new LlmError('The actual native prepared call has no matching capability proof', 'TAKEOVER_PREPARED_MODEL_CHANGED');
     const sessionProof = await this.#sessionProof(agent, request.signal, request.messages);
     this.verifyBoundary(agent, request.signal, plan);
-    if (!sameIdentity(call.selection, plan.target.identity) || request.maxTokens !== plan.policy.maxTokens || !containsHistory(request.messages, plan.portableHistory)) throw new LlmError('The actual native request differs from its handoff', 'TAKEOVER_FINAL_REQUEST_CHANGED');
+    if (!sameIdentity(call.selection, plan.target.identity) || request.maxTokens !== limits.maxTokens || !containsHistory(request.messages, plan.portableHistory)) throw new LlmError('The actual native request differs from its handoff', 'TAKEOVER_FINAL_REQUEST_CHANGED');
     this.#auditTools(request.messages, request.tools, request.toolHistory, plan.target, step.takeover.boundModel);
     const imageForecast = await this.#priceImages(request.messages, plan.target.identity, request.signal, () => this.verifyBoundary(agent, request.signal, plan));
     this.verifyBoundary(agent, request.signal, plan);
     if (hash(imageForecast) !== hash(plan.imageForecast)) throw new LlmError('Image estimate changed while reserved', 'TAKEOVER_IMAGE_FORECAST_CHANGED');
     const inputTokens = bytes({ messages: portableMessages(request.messages), tools: request.tools ?? [], toolHistory: request.toolHistory ?? null, system: request.system ?? null }) + (imageForecast?.visualTokens ?? 0) + (imageForecast?.textBytes ?? 0);
-    if (inputTokens + plan.policy.maxTokens > Math.min(plan.target.maxContextTokens ?? 0, step.takeover.boundModel.context?.contextWindow ?? 0)) throw new LlmError('The final native request exceeds capacity', 'TAKEOVER_CONTEXT_CAPACITY_EXCEEDED');
+    if (inputTokens + limits.maxTokens > Math.min(plan.target.maxContextTokens ?? 0, step.takeover.boundModel.context?.contextWindow ?? 0)) throw new LlmError('The final native request exceeds capacity', 'TAKEOVER_CONTEXT_CAPACITY_EXCEEDED');
     if (inputTokens > step.takeover.forecast.inputTokens) throw new LlmError('The final native request exceeds its reservation', 'TAKEOVER_FINAL_FORECAST_EXCEEDED');
     const finalRequest = { protocol: 'dsh-canonical-v1', nativeRequest: true, taskId: task.id, sessionId: request.sessionId, turn: task.turn, step: call.step, callId: call.id, provider: request.provider, model: request.model, maxTokens: request.maxTokens, messages: portableMessages(request.messages), tools: clone(request.tools ?? []), toolHistory: clone(request.toolHistory ?? null), system: request.system ?? null, prepared: clone(step.takeover.boundModel), sessionProof };
     step.takeover.finalCursor = sessionProof.cursor;
@@ -271,8 +272,17 @@ export class TaskTakeoverController {
     const plan = task?.takeover?.plan;
     if (!plan || !step.takeover?.planId) throw new LlmError('No live takeover call owns this preparation', 'TAKEOVER_PREPARED_OWNER_CHANGED');
     this.verifyBoundary(agent, signal, plan);
-    if (plan.callId !== call.id || plan.state !== 'call-reserved' || prepared.config.provider !== plan.target.identity.provider || prepared.config.model !== plan.target.identity.model || prepared.config.maxTokens !== plan.policy.maxTokens || hash(modelFacts(prepared)) !== hash(modelFacts(step.takeover.model))) throw new LlmError('The bound adapter generation differs from the validated model', 'TAKEOVER_PREPARED_MODEL_CHANGED');
+    const limits = this.#callLimits(task, plan, call);
+    if (plan.callId !== call.id || plan.state !== 'call-reserved' || prepared.config.provider !== plan.target.identity.provider || prepared.config.model !== plan.target.identity.model || prepared.config.maxTokens !== limits.maxTokens || hash(modelFacts(prepared)) !== hash(modelFacts(step.takeover.model))) throw new LlmError('The bound adapter generation differs from the validated model', 'TAKEOVER_PREPARED_MODEL_CHANGED');
     step.takeover.boundModel = { ...clone(modelFacts(prepared)), config: clone(prepared.config), adapterDefaults: clone(prepared.adapterDefaults) };
+  }
+  #callLimits(task, plan, call) {
+    if (!call.recoveryId) return plan.policy;
+    const state = task.recovery;
+    if (call.takeoverPlanId !== plan.id || state?.id !== call.recoveryId || state.callId !== call.id || state.safeTakeoverPlanId !== plan.id || state.state !== 'call-reserved') throw new LlmError('The recovery call has no matching takeover allowance', 'TAKEOVER_RECOVERY_LIMITS_CHANGED');
+    if (state.maxTokens !== Math.min(plan.policy.maxTokens, task.recoveryPolicy.maxTokens) || state.forecastTokens !== Math.min(plan.policy.forecastTokens, task.recoveryPolicy.forecastTokens)) throw new LlmError('The recovery limits differ from the combined permissions', 'TAKEOVER_RECOVERY_LIMITS_CHANGED');
+    if (call.reservation.tokens.output !== state.maxTokens || call.reservation.tokens.total !== state.forecastTokens || call.reservation.tokens.input !== state.forecastTokens - state.maxTokens) throw new LlmError('The recovery reservation differs from its allowance', 'TAKEOVER_RECOVERY_LIMITS_CHANGED');
+    return state;
   }
   verifyFinal(request, { agent, step, call }) {
     const task = this.#router.exactTask(agent.session.id, this.#turn(agent));

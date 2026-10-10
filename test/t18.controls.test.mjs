@@ -57,6 +57,11 @@ test('ambiguous late ancestry spanning two real native Tasks cannot run a child 
     const task = await running;
     assert.equal(task.id, first.id); assert.equal(task.lifecycle, 'paused');
     assert.equal(task.recovery.reason, 'RECOVERY_TOOL_OUTCOME_UNKNOWN');
+    for (const field of ['id', 'attempts', 'waitMs', 'actualWaitMs', 'phase', 'sourceCallId', 'originatingPurpose']) assert.equal(task.recovery[field], first.recovery[field]);
+    assert.deepEqual(task.recovery.failure, first.recovery.failure);
+    assert.equal(task.recovery.portableHistory.hash, first.recovery.portableHistory.hash);
+    assert.equal(task.recovery.state, 'paused');
+    assert.equal(task.timeline.filter(event => event.kind === 'recovery-grant').length, 1);
     assert.equal(task.toolReceipts.find(receipt => receipt.callId === 'ambiguous-child').outcome, 'unknown');
     assert.equal(task.calls.filter(call => call.dispatchStarted).length, 2);
   } finally {
@@ -166,6 +171,14 @@ test('the actual prepared recovery handle is an independent hard gate and retain
     assert.equal(fixture.main.requests.length, 1);
     assert.equal(task.recovery.reason, 'RECOVERY_PREPARED_MODEL_CHANGED');
     assert.equal(task.recovery.failure.code, 'CONNECTION');
+    assert.equal(task.recovery.failure.status, 503);
+    assert.equal(task.recovery.phase, 'execution');
+    assert.equal(task.recovery.category, 'network');
+    assert.equal(task.recovery.attempts, 1);
+    assert.equal(task.recovery.waitMs, 1);
+    assert.equal(task.recovery.sourceCallId, task.calls[0].id);
+    assert.equal(task.recovery.state, 'paused');
+    assert.equal(task.ledger.tokens.total, 12);
     assert.equal(task.calls[1].status, 'not-dispatched');
     assertAccounted(task, [fixture.main]);
   } finally { await ctx?.fiber.dispose(); await rm(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 20 }); }
